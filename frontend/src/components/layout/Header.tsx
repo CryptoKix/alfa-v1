@@ -1,13 +1,47 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Wallet, Bell, Send } from 'lucide-react'
 import { useAppSelector } from '@/app/hooks'
 import { WalletModal } from '@/components/modals/WalletModal'
 import { SendModal } from '@/components/modals/SendModal'
+import { cn } from '@/lib/utils'
 
 export const Header = () => {
-  const { wallet, walletAlias } = useAppSelector(state => state.portfolio)
+  const { wallet, walletAlias, connected: webConnected } = useAppSelector(state => state.portfolio)
+  const { lastUpdate, connected: priceConnected } = useAppSelector(state => state.prices)
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false)
   const [isSendModalOpen, setIsSendModalOpen] = useState(false)
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const timeDiff = now - lastUpdate
+  
+  // Price Status Logic
+  let priceStatusText = 'PRICE: OFFLINE'
+  let priceColor = 'bg-red-500'
+  let priceTextClass = 'text-red-500'
+  let pricePulse = false
+
+  if (priceConnected) {
+    if (lastUpdate > 0 && timeDiff < 5000) {
+      priceStatusText = 'PRICE: ACTIVE'
+      priceColor = 'bg-accent-green'
+      priceTextClass = 'text-accent-green'
+      pricePulse = true
+    } else {
+      priceStatusText = 'PRICE: STALLED'
+      priceColor = 'bg-yellow-500'
+      priceTextClass = 'text-yellow-500'
+    }
+  }
+
+  // Web Status Logic
+  const webStatusText = webConnected ? 'WEB: CONNECTED' : 'WEB: DISCONNECTED'
+  const webColor = webConnected ? 'bg-accent-cyan' : 'bg-red-500'
+  const webTextClass = webConnected ? 'text-accent-cyan' : 'text-red-500'
 
   return (
     <>
@@ -18,6 +52,24 @@ export const Header = () => {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Status Indicators */}
+          <div className="flex items-center gap-3 mr-2">
+            <div className="flex items-center gap-2 px-2 py-1 bg-white/5 rounded border border-white/10">
+               <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", priceColor, pricePulse && "animate-pulse")} />
+               <span className={cn("text-[8px] font-mono font-bold uppercase transition-colors duration-500", priceTextClass)}>
+                 {priceStatusText.replace('PRICE: ', '')}
+               </span>
+            </div>
+            <div className="flex items-center gap-2 px-2 py-1 bg-white/5 rounded border border-white/10">
+               <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", webColor, webConnected && "animate-pulse")} />
+               <span className={cn("text-[8px] font-mono font-bold uppercase transition-colors duration-500", webTextClass)}>
+                 {webStatusText.replace('WEB: ', '')}
+               </span>
+            </div>
+          </div>
+
+          <div className="w-px h-6 bg-white/5" />
+
           {/* Send Button */}
           <button 
             onClick={() => setIsSendModalOpen(true)}

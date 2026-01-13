@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react'
 import { LayoutDashboard, Zap, Bot, Users, Crosshair } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAppSelector } from '@/app/hooks'
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -13,40 +11,6 @@ const navItems = [
 
 export const NavigationWidget = () => {
   const activePath = window.location.pathname
-  const { lastUpdate, connected: priceConnected } = useAppSelector(state => state.prices)
-  const { connected: webConnected } = useAppSelector(state => state.portfolio)
-  const [now, setNow] = useState(Date.now())
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const timeDiff = now - lastUpdate
-  
-  // Price Status Logic
-  let priceStatusText = 'PRICE: OFFLINE'
-  let priceColor = 'bg-red-500'
-  let priceTextClass = 'text-red-500'
-  let pricePulse = false
-
-  if (priceConnected) {
-    if (lastUpdate > 0 && timeDiff < 5000) {
-      priceStatusText = 'PRICE: ACTIVE'
-      priceColor = 'bg-accent-green'
-      priceTextClass = 'text-accent-green'
-      pricePulse = true
-    } else {
-      priceStatusText = 'PRICE: STALLED'
-      priceColor = 'bg-yellow-500'
-      priceTextClass = 'text-yellow-500'
-    }
-  }
-
-  // Web Status Logic
-  const webStatusText = webConnected ? 'WEB: CONNECTED' : 'WEB: DISCONNECTED'
-  const webColor = webConnected ? 'bg-accent-cyan' : 'bg-red-500'
-  const webTextClass = webConnected ? 'text-accent-cyan' : 'text-red-500'
 
   return (
     <aside className="w-20 md:w-64 bg-background-card border border-white/5 rounded-2xl flex flex-col shrink-0 h-full relative overflow-hidden shadow-xl p-4">
@@ -80,24 +44,6 @@ export const NavigationWidget = () => {
           </a>
         ))}
       </nav>
-
-      <div className="pt-4 border-t border-white/5 space-y-2 mt-auto">
-        {/* Price Status */}
-        <div className="flex items-center gap-3 px-3 py-2 bg-background-elevated/30 rounded-lg border border-white/5">
-           <div className={cn("w-2 h-2 rounded-full transition-colors duration-500", priceColor, pricePulse && "animate-pulse")} />
-           <span className={cn("hidden md:block text-[9px] font-mono font-bold uppercase transition-colors duration-500", priceTextClass)}>
-             {priceStatusText}
-           </span>
-        </div>
-        
-        {/* Web Status */}
-        <div className="flex items-center gap-3 px-3 py-2 bg-background-elevated/30 rounded-lg border border-white/5">
-           <div className={cn("w-2 h-2 rounded-full transition-colors duration-500", webColor, webConnected && "animate-pulse")} />
-           <span className={cn("hidden md:block text-[9px] font-mono font-bold uppercase transition-colors duration-500", webTextClass)}>
-             {webStatusText}
-           </span>
-        </div>
-      </div>
     </aside>
   )
 }
