@@ -25,7 +25,7 @@ const STRATEGIES = [
     icon: Layers,
     color: 'text-accent-green',
     desc: 'Automated Buy Low / Sell High strategy within a defined price range. Profitable in volatile sideways markets.',
-    features: ['Auto-Rebalancing', 'Trailing Up', 'PnL Visualization']
+    features: []
   },
   { 
     id: 'dca', 
@@ -57,6 +57,18 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
   const { bots } = useAppSelector(state => state.bots)
   const selectedStrat = STRATEGIES.find(s => s.id === selectedId) || STRATEGIES[2] // Default to GRID
 
+  // Calculate Strategy-Specific PnL Metrics
+  const metrics = (bots || []).reduce((acc, bot) => {
+    if (bot.type?.toLowerCase() === selectedId) {
+      if (bot.status === 'active') {
+        acc.unrealized += (bot.profit_realized || 0)
+      } else if (bot.status === 'completed') {
+        acc.realized += (bot.profit_realized || 0)
+      }
+    }
+    return acc
+  }, { unrealized: 0, realized: 0 })
+
   return (
     <div className="bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full shrink-0">
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50" />
@@ -66,7 +78,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
           <Activity className="text-accent-cyan" size={16} />
           Strategy Terminal
         </h3>
-        <div className="text-[8px] font-mono text-text-muted">COMMAND DECK V2.0</div>
+        <div className="text-[8px] font-mono text-text-muted uppercase tracking-widest">Command Deck V2.5</div>
       </div>
 
       <div className="flex-1 flex gap-4 min-h-0">
@@ -76,7 +88,6 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
             const isActive = bots?.some((b: any) => b?.type?.toLowerCase() === strat.id && b.status === 'active')
             const isSelected = selectedId === strat.id
             const colorClass = strat.color
-            const glowColor = strat.color.split('-').pop()
             
             return (
               <button
@@ -150,15 +161,15 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
           })}
         </div>
 
-        {/* Right Side: Strategy Intel */}
+        {/* Right Side: Strategy Intel & PnL Visualization */}
         <div className="flex-[4] bg-black/20 rounded-xl border border-white/5 p-3 flex flex-col relative group">
-           <div className="flex items-start justify-between mb-1.5">
+           <div className="flex items-start justify-between mb-1.5 shrink-0">
               <div className="min-w-0 flex-1">
                 <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
                   <span className={cn("w-1 h-2 rounded-full bg-current", selectedStrat.color.replace('text-', 'bg-'))} />
-                  {selectedStrat.label}
+                  {selectedStrat.label} ANALYTICS
                 </h4>
-                <p className="text-[9px] text-text-secondary mt-0.5 leading-relaxed line-clamp-2 italic pr-2">
+                <p className="text-[9px] text-text-secondary mt-0.5 leading-relaxed line-clamp-1 italic pr-2">
                   {selectedStrat.desc}
                 </p>
               </div>
@@ -170,13 +181,38 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
               </button>
            </div>
 
-           <div className="mt-auto grid grid-cols-3 gap-1.5">
-              {selectedStrat.features.map((f, i) => (
-                <div key={i} className="flex items-center gap-1 px-1.5 py-0.5 bg-white/5 rounded border border-white/5">
-                   <Info size={8} className="text-text-muted shrink-0" />
-                   <span className="text-[7px] font-bold text-text-secondary uppercase truncate">{f}</span>
+           {/* PnL Visualization Panel */}
+           <div className="flex-1 flex flex-col justify-center gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                 <div className="bg-background-elevated/50 border border-white/5 rounded-lg p-2 flex flex-col gap-0.5">
+                    <span className="text-[7px] font-black text-text-muted uppercase tracking-[0.2em]">Active Unrealized</span>
+                    <div className={cn(
+                      "text-sm font-black font-mono tracking-tighter",
+                      metrics.unrealized >= 0 ? "text-accent-green" : "text-accent-red"
+                    )}>
+                      ${metrics.unrealized.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                 </div>
+                 <div className="bg-background-elevated/50 border border-white/5 rounded-lg p-2 flex flex-col gap-0.5 text-right">
+                    <span className="text-[7px] font-black text-text-muted uppercase tracking-[0.2em]">Total Realized</span>
+                    <div className={cn(
+                      "text-sm font-black font-mono tracking-tighter text-white"
+                    )}>
+                      ${metrics.realized.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                 </div>
+              </div>
+
+              {/* Strategy Features (If any) */}
+              {selectedStrat.features.length > 0 && (
+                <div className="flex gap-1.5 overflow-hidden">
+                  {selectedStrat.features.map((f, i) => (
+                    <div key={i} className="flex items-center gap-1 px-1.5 py-0.5 bg-white/5 rounded border border-white/5 shrink-0">
+                      <span className="text-[6px] font-bold text-text-muted uppercase whitespace-nowrap">{f}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
            </div>
         </div>
       </div>
