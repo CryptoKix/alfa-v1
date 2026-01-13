@@ -140,10 +140,10 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                   {/* Corner Accents (Selected Only) */}
                   {isSelected && (
                     <>
-                      <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-white rounded-tl-sm opacity-50" />
-                      <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-white rounded-tr-sm opacity-50" />
-                      <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-white rounded-bl-sm opacity-50" />
-                      <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-white rounded-br-sm opacity-50" />
+                      <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-white/50 rounded-tl-xl z-30" />
+                      <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-white/50 rounded-tr-xl z-30" />
+                      <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-white/50 rounded-bl-xl z-30" />
+                      <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-white/50 rounded-br-xl z-30" />
                     </>
                   )}
                 </div>
