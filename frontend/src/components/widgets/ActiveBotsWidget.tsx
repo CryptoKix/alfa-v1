@@ -3,7 +3,7 @@ import { Activity, Pause, Play, Trash2, Zap, ChevronDown, ChevronUp } from 'luci
 import { useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 
-export const ActiveBotsWidget = () => {
+export const ActiveBotsWidget = ({ onViewAll }: { onViewAll?: () => void }) => {
   const { bots } = useAppSelector(state => state.bots)
   const runningBots = bots.filter(b => b && b.status !== 'deleted' && b.status !== 'completed')
   const [expandedBotId, setExpandedBotId] = useState<string | null>(null)
@@ -51,7 +51,13 @@ export const ActiveBotsWidget = () => {
           <Activity className="text-accent-green" size={18} />
           Active Bots
         </h3>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
+           <button 
+             onClick={onViewAll}
+             className="text-[9px] uppercase tracking-[0.2em] text-text-muted hover:text-accent-green transition-colors font-bold"
+           >
+             View All
+           </button>
            <div className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[9px] font-mono text-text-muted">
              {runningBots.length} RUNNING
            </div>

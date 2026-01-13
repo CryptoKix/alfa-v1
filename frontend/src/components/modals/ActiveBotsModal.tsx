@@ -18,12 +18,13 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots, type, onDelete, onPause
   
   if (!isOpen) return null
   
-  const filteredBots = bots.filter(b => b && b.type.toLowerCase() === type.toLowerCase() && b.status !== 'deleted')
+  const isAll = type.toLowerCase() === 'all'
+  const filteredBots = bots.filter(b => b && (isAll || b.type.toLowerCase() === type.toLowerCase()) && b.status !== 'deleted')
   const activeBots = filteredBots.filter(b => b.status === 'active')
   const completedBots = filteredBots.filter(b => b.status === 'completed')
 
-  const toggleExpand = (id: string) => {
-    if (type.toLowerCase() !== 'grid') return
+  const toggleExpand = (id: string, botType: string) => {
+    if (botType.toLowerCase() !== 'grid') return
     setExpandedBotId(prev => prev === id ? null : id)
   }
 
@@ -43,7 +44,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots, type, onDelete, onPause
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <Activity className="text-accent-cyan" size={24} />
-              Active {type.toUpperCase()} Bots
+              {isAll ? 'All Active Strategies' : `Active ${type.toUpperCase()} Bots`}
             </h2>
             <div className="text-xs text-text-muted mt-1 uppercase tracking-widest">
               {activeBots.length} Running · {completedBots.length} Completed
@@ -68,14 +69,15 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots, type, onDelete, onPause
             filteredBots.map(bot => {
                const isExpanded = expandedBotId === bot.id
                const gridLevels = bot.grid_levels || []
+               const isGrid = bot.type.toLowerCase() === 'grid'
                
                return (
                <div 
                   key={bot.id} 
-                  onClick={() => toggleExpand(bot.id)}
+                  onClick={() => toggleExpand(bot.id, bot.type)}
                   className={cn(
                     "bg-background-elevated/30 border border-white/5 rounded-xl p-4 flex flex-col gap-3 group hover:border-white/10 transition-colors",
-                    type.toLowerCase() === 'grid' ? "cursor-pointer" : ""
+                    isGrid ? "cursor-pointer" : ""
                   )}
                >
                   <div className="flex items-start justify-between">
@@ -88,10 +90,10 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots, type, onDelete, onPause
                            <div className="text-sm font-bold text-white flex items-center gap-2">
                              {bot.input_symbol} <span className="text-text-muted">→</span> {bot.output_symbol}
                              <span className={cn(
-                               "text-[10px] px-1.5 py-0.5 rounded text-text-muted uppercase tracking-wider",
+                               "text-[10px] px-1.5 py-0.5 rounded text-text-muted uppercase tracking-wider font-mono",
                                bot.status === 'active' ? "bg-accent-green/10 text-accent-green" : "bg-white/5"
-                             )}>{bot.status}</span>
-                             {type.toLowerCase() === 'grid' && (
+                             )}>{bot.type} | {bot.status}</span>
+                             {isGrid && (
                                isExpanded ? <ChevronUp size={14} className="text-text-muted" /> : <ChevronDown size={14} className="text-text-muted" />
                              )}
                            </div>
@@ -107,7 +109,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots, type, onDelete, onPause
                   </div>
 
                   {/* Grid Specific Details */}
-                  {type.toLowerCase() === 'grid' && (
+                  {isGrid && (
                      <div className="grid grid-cols-3 gap-2 py-2 border-y border-white/5 bg-black/20 rounded-lg px-3">
                         <div>
                            <div className="text-[8px] text-text-muted uppercase tracking-wider mb-0.5">Range</div>
