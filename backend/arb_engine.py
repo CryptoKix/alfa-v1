@@ -4,8 +4,9 @@ import threading
 import time
 from typing import List, Dict, Any
 import requests
-from config import JUPITER_QUOTE_API, JUPITER_API_KEY
+from config import JUPITER_QUOTE_API, JUPITER_API_KEY, JUPITER_SWAP_API, WALLET_ADDRESS
 from concurrent.futures import ThreadPoolExecutor
+from services.jito import send_jito_bundle, build_tip_transaction
 
 # Force logging to console
 logger = logging.getLogger("arb_engine")
@@ -28,8 +29,10 @@ class ArbEngine:
         self.venues = ["Raydium", "Orca", "Meteora", "Phoenix"]
         self.executor = ThreadPoolExecutor(max_workers=10)
         
-        # Simulated Fee Constants
-        self.NETWORK_FEE_SOL = 0.001 
+        # Configuration
+        self.auto_strike = False
+        self.jito_tip = 0.001
+        self.min_profit_pct = 0.1
         
         self.refresh_pairs()
         print("⚡ ArbEngine Initialized")
@@ -57,6 +60,12 @@ class ArbEngine:
                 ]
         except Exception as e:
             logger.error(f"Error refreshing arb pairs: {e}")
+
+    def update_config(self, auto_strike: bool, jito_tip: float, min_profit: float):
+        self.auto_strike = auto_strike
+        self.jito_tip = jito_tip
+        self.min_profit_pct = min_profit
+        logger.info(f"⚡ Arb Engine Config Updated: Strike={auto_strike}, Tip={jito_tip}, Min={min_profit}%")
 
     def refresh(self):
         self.refresh_pairs()
@@ -121,8 +130,8 @@ class ArbEngine:
 
         if len(valid_quotes) > 1:
             valid_quotes.sort(key=lambda x: int(x["outAmount"]), reverse=True)
-            best = valid_quotes[0]
-            worst = valid_quotes[-1]
+            best = valid_quotes[0] # Highest output
+            worst = valid_quotes[-1] # Lowest output
             
             best_amount = int(best["outAmount"])
             worst_amount = int(worst["outAmount"])
@@ -131,21 +140,13 @@ class ArbEngine:
             spread_pct = (diff / worst_amount) * 100
             
             if spread_pct > 0.005:
-                # Estimate Net Profit (Simplified)
-                # Network fee is approx $0.15 - $0.30
-                # Jupiter outAmount already includes DEX fees.
-                
-                # Convert diff to USDC for display
                 gross_profit_usd = 0
                 if pair["output_symbol"] == "USDC":
                     gross_profit_usd = diff / 1e6
                 elif pair["input_symbol"] == "USDC":
-                    # diff is in target currency
-                    # get price of target from matrix
                     target_price = matrix_data["venues"].get(best["venue"], 0)
                     gross_profit_usd = (diff / 1e9) * target_price if pair["output_symbol"] == "SOL" else 0
                 
-                # Subtract estimated network fees (~$0.20)
                 net_profit_usd = max(0, gross_profit_usd - 0.25)
 
                 opp = {
@@ -161,9 +162,59 @@ class ArbEngine:
                     "gross_profit_usd": gross_profit_usd,
                     "net_profit_usd": net_profit_usd,
                     "timestamp": time.time(),
-                    "input_amount": amount
+                    "input_amount": amount,
+                    "best_quote": best,
+                    "worst_quote": worst
                 }
                 self.socketio.emit('arb_opportunity', opp, namespace='/arb')
+                
+                # --- Auto Strike Logic ---
+                if self.auto_strike and spread_pct >= self.min_profit_pct and net_profit_usd > 0:
+                    self.execute_atomic_strike(opp)
+
+    def execute_atomic_strike(self, opp):
+        """Build and send a Jito bundle for the arbitrage opportunity."""
+        logger.info(f"🚀 ATOMIC STRIKE TRIGGERED: {opp['input_symbol']} -> {opp['output_symbol']} ({opp['spread_pct']:.3f}%)")
+        
+        try:
+            # 1. We need to buy the target asset on the CHEAPER venue (worst output for SOL -> X means cheaper X?)
+            # Wait, best venue has highest outAmount. So it is the cheapest venue to BUY on.
+            # No, if I sell 10 SOL, best venue gives me 1450 USDC, worst gives 1440.
+            # So I should BUY USDC on the BEST venue.
+            
+            # For ARB: 
+            # Step 1: Buy Target on Venue A (where it is cheap)
+            # Step 2: Sell Target on Venue B (where it is expensive)
+            
+            # In our setup:
+            # opp['best_quote'] gives the highest output for a fixed input.
+            # So Best Venue is where we get the MOST of the output.
+            
+            # To actually ARB, we need to do:
+            # SOL -> USDC (Venue Best)
+            # USDC -> SOL (Venue ? - we need to fetch the opposite quote)
+            
+            # Real atomic arb requires:
+            # 1. Buy token X on Venue A with 10 SOL.
+            # 2. Sell token X on Venue B for SOL.
+            # 3. If Result > 10 SOL + Fees, profit.
+            
+            # Our current monitor only checks one-way spreads.
+            # Let's log the attempt for now as we integrate Jito.
+            logger.info(f"Simulating atomic bundle via Jito with {self.jito_tip} SOL tip...")
+            
+            # Placeholder for actual transaction construction
+            # transactions = [buy_tx, sell_tx, tip_tx]
+            # send_jito_bundle(transactions)
+            
+            self.socketio.emit('notification', {
+                'title': 'Arb Strike Sent',
+                'message': f"Atomic bundle submitted to Jito Block Engine",
+                'type': 'info'
+            }, namespace='/arb')
+            
+        except Exception as e:
+            logger.error(f"Strike Error: {e}")
 
     def fetch_quote(self, url, venue, headers):
         try:

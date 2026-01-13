@@ -14,8 +14,14 @@ def set_arb_engine(engine):
 @arb_bp.route('/api/arb/start', methods=['POST'])
 def api_arb_start():
     if arb_engine:
+        data = request.json or {}
+        auto_strike = data.get('autoStrike', False)
+        jito_tip = float(data.get('jitoTip', 0.001))
+        min_profit = float(data.get('minProfit', 0.1))
+        
+        arb_engine.update_config(auto_strike, jito_tip, min_profit)
         arb_engine.start()
-        return jsonify({"success": True, "message": "Arb Engine Initialized"})
+        return jsonify({"success": True, "message": "Arb Engine Configured & Initialized"})
     return jsonify({"success": False, "error": "Arb Engine not found"}), 500
 
 @arb_bp.route('/api/arb/status')

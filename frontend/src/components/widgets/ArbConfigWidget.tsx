@@ -11,6 +11,8 @@ export const ArbConfigWidget = () => {
   const [opportunities, setOpportunities] = useState<any[]>([])
   const [matrix, setMatrix] = useState<Record<string, Record<string, number>>>({})
   const [minProfit, setMinProfit] = useState('0.1')
+  const [jitoTip, setJitoTip] = useState('0.001')
+  const [autoStrike, setAutoStrike] = useState(false)
   const [isMonitoring, setIsMonitoring] = useState(true)
   const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle')
 
@@ -143,6 +145,12 @@ export const ArbConfigWidget = () => {
     try {
       const res = await fetch('/api/arb/start', { 
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          autoStrike,
+          jitoTip: parseFloat(jitoTip),
+          minProfit: parseFloat(minProfit)
+        }),
         signal: controller.signal 
       })
       clearTimeout(timeoutId)
@@ -221,14 +229,63 @@ export const ArbConfigWidget = () => {
               </div>
             </div>
 
-            <div className="space-y-2 border-t border-white/5 pt-3">
-              <label className="text-[9px] uppercase text-text-muted font-bold block px-1">Min Profit Threshold (%)</label>
-              <input 
-                type="number" 
-                value={minProfit} 
-                onChange={(e) => setMinProfit(e.target.value)} 
-                className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-cyan/50 outline-none h-9" 
-              />
+            <div className="grid grid-cols-2 gap-3 border-t border-white/5 pt-3">
+              <div className="space-y-1.5">
+                <label className="text-[8px] uppercase text-text-muted font-bold px-1">Min Profit (%)</label>
+                <input 
+                  type="number" 
+                  value={minProfit} 
+                  onChange={(e) => setMinProfit(e.target.value)} 
+                  className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-cyan/50 outline-none h-9" 
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[8px] uppercase text-text-muted font-bold px-1">Jito Tip (SOL)</label>
+                <input 
+                  type="number" 
+                  value={jitoTip} 
+                  onChange={(e) => setJitoTip(e.target.value)} 
+                  className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-cyan/50 outline-none h-9" 
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-accent-purple/5 border border-accent-purple/20 rounded-xl">
+              <div>
+                <div className="text-[10px] font-black text-white uppercase leading-none">Auto-Strike</div>
+                <div className="text-[7px] text-text-muted mt-1 uppercase tracking-tighter font-bold">Atomic Jito Bundles</div>
+              </div>
+              <button 
+                onClick={() => setAutoStrike(!autoStrike)}
+                className={cn(
+                  "w-8 h-4 rounded-full p-0.5 transition-colors duration-200 ease-in-out",
+                  autoStrike ? "bg-accent-purple" : "bg-white/10"
+                )}
+              >
+                <div className={cn(
+                  "w-3 h-3 rounded-full bg-white transition-transform duration-200",
+                  autoStrike ? "translate-x-4" : "translate-x-0"
+                )} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10">
+              <div>
+                <div className="text-[10px] font-black text-white uppercase leading-none">Live Monitor</div>
+                <div className="text-[7px] text-text-muted mt-1 uppercase tracking-tighter font-bold">Scan DEX venues</div>
+              </div>
+              <button 
+                onClick={() => setIsMonitoring(!isMonitoring)}
+                className={cn(
+                  "w-8 h-4 rounded-full p-0.5 transition-colors duration-200 ease-in-out",
+                  isMonitoring ? "bg-accent-cyan" : "bg-white/10"
+                )}
+              >
+                <div className={cn(
+                  "w-3 h-3 rounded-full bg-white transition-transform duration-200",
+                  isMonitoring ? "translate-x-4" : "translate-x-0"
+                )} />
+              </button>
             </div>
 
             <div className="p-2 border-t border-white/5 pt-3">
