@@ -159,15 +159,10 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
 
         {/* Right Side: Strategy Intel & PnL Visualization (Narrower) */}
         <div className="flex-[3] bg-black/20 rounded-xl border border-white/5 p-2.5 flex flex-col relative group overflow-hidden">
-           <div className="flex items-start justify-between mb-1 shrink-0 gap-2">
-              <div className="min-w-0 flex-1">
-                <h4 className="text-[10px] font-black text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <span className={cn("w-1 h-2 rounded-full bg-current", selectedStrat.color.replace('text-', 'bg-'))} />
-                  {selectedStrat.label} ANALYTICS
-                </h4>
-                <p className="text-[8px] text-text-secondary mt-0.5 leading-tight line-clamp-1 italic">
-                  {selectedStrat.desc}
-                </p>
+           <div className="flex items-center justify-between mb-2 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className={cn("w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_8px_currentColor]", selectedStrat.color.replace('text-', 'bg-'))} />
+                <span className="text-[10px] font-black text-white uppercase tracking-wider">Strategy Console</span>
               </div>
               <button 
                 onClick={onViewBots}
