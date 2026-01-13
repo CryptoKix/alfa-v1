@@ -71,10 +71,10 @@ export const TradeHistoryWidget = () => {
                   <div key={trade.id} className="grid grid-cols-[90px_100px_1fr_70px] gap-4 items-center p-2.5 rounded-xl bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group text-xs font-mono whitespace-nowrap overflow-hidden">
                     <div className="text-text-muted font-bold shrink-0 text-[10px]">{formatTimestamp(trade.timestamp)}</div>
                     
-                    <div className="flex items-center gap-1 font-black uppercase tracking-tighter shrink-0 text-[11px]">
-                      <span className="text-accent-pink">{trade.input}</span>
-                      <span className="text-text-muted opacity-30">/</span>
-                      <span className="text-accent-cyan">{trade.output}</span>
+                    <div className="flex items-center gap-1 font-black uppercase tracking-tighter shrink-0 text-[11px] leading-none">
+                      <span className="text-accent-pink inline-block leading-none">{trade.input}</span>
+                      <span className="text-text-muted opacity-30 inline-block leading-none">/</span>
+                      <span className="text-accent-cyan inline-block leading-none">{trade.output}</span>
                     </div>
 
                     <div className="flex items-center gap-2 min-w-0 overflow-hidden text-[11px]">
