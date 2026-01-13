@@ -42,7 +42,7 @@ export default function StrategiesPage() {
     <MainLayout>
       <div className="flex flex-col gap-6 h-[calc(100vh-110px)] overflow-hidden">
         {/* Top Header Section: Terminal Grid + Intel */}
-        <div className="h-[180px] shrink-0">
+        <div className="h-[200px] shrink-0">
           <StrategiesWidget 
             onSelect={(id: string) => setSelectedStrategy(id)} 
             selectedId={selectedStrategy} 

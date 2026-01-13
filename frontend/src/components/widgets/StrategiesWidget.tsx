@@ -58,18 +58,18 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
   const selectedStrat = STRATEGIES.find(s => s.id === selectedId) || STRATEGIES[2] // Default to GRID
 
   return (
-    <div className="bg-background-card border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col h-full shrink-0">
+    <div className="bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full shrink-0">
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50" />
       
-      <div className="flex items-center justify-between mb-4 border-b border-white/5 shrink-0 h-[35px]">
-        <h3 className="text-base font-bold flex items-center gap-2 text-white uppercase tracking-tight">
-          <Activity className="text-accent-cyan" size={18} />
+      <div className="flex items-center justify-between mb-3 border-b border-white/5 shrink-0 h-[30px]">
+        <h3 className="text-sm font-bold flex items-center gap-2 text-white uppercase tracking-tight">
+          <Activity className="text-accent-cyan" size={16} />
           Strategy Terminal
         </h3>
-        <div className="text-[10px] font-mono text-text-muted">SELECT ENGINE TYPE</div>
+        <div className="text-[8px] font-mono text-text-muted">COMMAND DECK V2.0</div>
       </div>
 
-      <div className="flex-1 flex gap-6 min-h-0">
+      <div className="flex-1 flex gap-4 min-h-0">
         {/* Left Side: 3x2 Grid */}
         <div className="grid grid-cols-3 gap-2 flex-[3]">
           {STRATEGIES.map((strat) => {
@@ -83,7 +83,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                 key={strat.id}
                 onClick={() => onSelect?.(strat.id)}
                 className={cn(
-                  "group/btn relative h-[52px] transition-all duration-500 overflow-hidden",
+                  "group/btn relative h-[42px] transition-all duration-500 overflow-hidden",
                   "transform hover:scale-[1.03] active:scale-95",
                   isSelected ? "z-20" : "z-10"
                 )}
@@ -107,7 +107,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                 )} />
 
                 {/* Content Container */}
-                <div className="relative h-full w-full flex flex-col items-center justify-center gap-0.5 pb-1">
+                <div className="relative h-full w-full flex flex-col items-center justify-center gap-0.5">
                   {isActive && (
                     <div className="absolute top-1 left-1.5 flex items-center gap-1">
                       <div className="w-1 h-1 rounded-full bg-accent-green animate-ping absolute" />
@@ -116,57 +116,50 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                   )}
 
                   <strat.icon 
-                    size={18} 
+                    size={16} 
                     className={cn(
                       "transition-all duration-500", 
-                      isSelected ? colorClass : "text-text-muted group-hover/btn:text-white",
-                      "group-hover/btn:drop-shadow-[0_0_5px_currentColor]"
+                      isSelected ? colorClass : "text-text-muted group-hover/btn:text-white"
                     )} 
                   />
                   
                   <div className={cn(
-                    "text-[8px] font-black uppercase tracking-[0.2em] transition-all duration-500", 
+                    "text-[7px] font-black uppercase tracking-[0.2em] transition-all duration-500", 
                     (isActive || isSelected) ? "text-white" : "text-text-muted group-hover/btn:text-text-secondary"
                   )}>
                     {strat.label}
                   </div>
                 </div>
-
-                {/* Interaction Overlay */}
-                <div className={cn(
-                  "absolute inset-0 bg-gradient-to-br transition-opacity duration-500 pointer-events-none",
-                  isSelected ? `from-accent-${glowColor}/15 to-transparent opacity-100` : "opacity-0 group-hover/btn:opacity-5"
-                )} />
               </button>
             )
           })}
         </div>
 
         {/* Right Side: Strategy Intel */}
-        <div className="flex-[4] bg-black/20 rounded-xl border border-white/5 p-4 flex flex-col relative group">
-           <div className="flex items-start justify-between mb-2">
-              <div>
-                <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
-                  <span className={cn("w-1 h-3 rounded-full bg-current", selectedStrat.color.replace('text-', 'bg-'))} />
-                  {selectedStrat.label} INTEL
+        <div className="flex-[4] bg-black/20 rounded-xl border border-white/5 p-3 flex flex-col relative group">
+           <div className="flex items-start justify-between mb-1.5">
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
+                  <span className={cn("w-1 h-2 rounded-full bg-current", selectedStrat.color.replace('text-', 'bg-'))} />
+                  {selectedStrat.label}
                 </h4>
-                <p className="text-[10px] text-text-secondary mt-1 leading-relaxed line-clamp-2 italic">
-                  "{selectedStrat.desc}"
+                <p className="text-[9px] text-text-secondary mt-0.5 leading-relaxed line-clamp-2 italic pr-2">
+                  {selectedStrat.desc}
                 </p>
               </div>
               <button 
                 onClick={onViewBots}
-                className="px-4 py-2 bg-accent-cyan text-black hover:bg-white border border-accent-cyan rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-300 shadow-[0_0_15px_rgba(0,255,255,0.2)] hover:shadow-[0_0_25px_rgba(0,255,255,0.4)] transform hover:-translate-y-0.5 active:scale-95"
+                className="px-3 py-1.5 bg-accent-cyan text-black hover:bg-white border border-accent-cyan rounded-lg text-[8px] font-black uppercase tracking-wider transition-all shadow-[0_0_10px_rgba(0,255,255,0.2)] transform active:scale-95 shrink-0"
               >
                 View Bots
               </button>
            </div>
 
-           <div className="mt-auto grid grid-cols-3 gap-2">
+           <div className="mt-auto grid grid-cols-3 gap-1.5">
               {selectedStrat.features.map((f, i) => (
-                <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-white/5 rounded border border-white/5">
-                   <Info size={10} className="text-text-muted shrink-0" />
-                   <span className="text-[8px] font-bold text-text-secondary uppercase truncate">{f}</span>
+                <div key={i} className="flex items-center gap-1 px-1.5 py-0.5 bg-white/5 rounded border border-white/5">
+                   <Info size={8} className="text-text-muted shrink-0" />
+                   <span className="text-[7px] font-bold text-text-secondary uppercase truncate">{f}</span>
                 </div>
               ))}
            </div>
