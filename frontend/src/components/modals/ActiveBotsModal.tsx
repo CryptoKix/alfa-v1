@@ -128,7 +128,9 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
                            <span className="text-[10px] opacity-50">$</span>
                            {((bot as any).profit_realized || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
                         </div>
-                        <div className="text-[9px] text-text-muted font-black uppercase tracking-[0.2em] mt-0.5">Tactical Yield</div>
+                        <div className="text-[9px] text-text-muted font-black uppercase tracking-[0.2em] mt-0.5">
+                          {bot.status === 'completed' ? 'Realized PnL' : bot.status === 'active' ? 'Unrealized PnL' : 'Tactical Yield'}
+                        </div>
                      </div>
                   </div>
 
