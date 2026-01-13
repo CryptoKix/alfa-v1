@@ -121,18 +121,16 @@ export const GridConfigWidget = () => {
       <div className="lg:w-[380px] bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 shrink-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-green to-accent-cyan opacity-50" />
         
-        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4">
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-accent-green/10 rounded-lg text-accent-green">
               <Settings2 size={18} />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white leading-none uppercase tracking-tight">GRID CONFIG</h2>
-              <span className="text-[8px] text-text-muted uppercase tracking-[0.2em] mt-1 block">Parameters</span>
+              <h2 className="text-xs font-bold text-white uppercase tracking-tight">GRID CONFIG</h2>
             </div>
           </div>
           <div className="text-right">
-            <div className="text-[8px] text-text-muted uppercase tracking-widest font-bold">Market Price</div>
             <div className="text-xs font-mono font-bold text-accent-green">${currentPrice !== undefined && currentPrice !== null ? currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '0.00'}</div>
           </div>
         </div>
@@ -309,18 +307,16 @@ export const GridConfigWidget = () => {
       <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan to-accent-purple opacity-50" />
         
-        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4">
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
               <Layers size={18} />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white leading-none uppercase tracking-tight">PREVIEW</h2>
-              <span className="text-[8px] text-text-muted uppercase tracking-[0.2em] mt-1 block">Grid Structure</span>
+              <h2 className="text-xs font-bold text-white uppercase tracking-tight">PREVIEW</h2>
             </div>
           </div>
           <div className="text-right">
-            <div className="text-[8px] text-text-muted uppercase tracking-widest font-bold">Spacing</div>
             <div className="text-xs font-mono font-bold text-accent-cyan">{spacingPct.toFixed(2)}%</div>
           </div>
         </div>
@@ -405,14 +401,13 @@ export const GridConfigWidget = () => {
       <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-pink opacity-50" />
         
-        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4">
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple">
               <Activity size={18} />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white leading-none uppercase tracking-tight">EXECUTIONS</h2>
-              <span className="text-[8px] text-text-muted uppercase tracking-[0.2em] mt-1 block">Grid Log</span>
+              <h2 className="text-xs font-bold text-white uppercase tracking-tight">EXECUTIONS</h2>
             </div>
           </div>
         </div>
@@ -453,8 +448,8 @@ export const GridConfigWidget = () => {
 
                     <div className="text-[10px] font-black text-white/60 leading-none shrink-0">
                       {trade.usd_value && (trade.amount_in || trade.amount_out) ? (
-                        `@ ${((trade.usd_value / (['USDC', 'USDT'].includes(trade.output) ? trade.amount_in : trade.amount_out)) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      ) : '@ ---'}
+                        `${((trade.usd_value / (['USDC', 'USDT'].includes(trade.output) ? trade.amount_in : trade.amount_out)) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      ) : '---'}
                     </div>
 
                     <div className="text-right shrink-0 leading-none">

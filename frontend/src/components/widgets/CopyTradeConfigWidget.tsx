@@ -89,14 +89,13 @@ export const CopyTradeConfigWidget = () => {
       <div className="lg:w-[380px] bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 shrink-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-20" />
         
-        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4">
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
               <Users size={18} />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white leading-none uppercase tracking-tight">TARGETS</h2>
-              <span className="text-[8px] text-text-muted uppercase tracking-[0.2em] mt-1 block">Wallets</span>
+              <h2 className="text-xs font-bold text-white uppercase tracking-tight">TARGETS</h2>
             </div>
           </div>
         </div>
@@ -139,14 +138,13 @@ export const CopyTradeConfigWidget = () => {
       <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-cyan opacity-50 z-20" />
         
-        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4">
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple">
               <Activity size={18} />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white leading-none uppercase tracking-tight">PARAMETERS</h2>
-              <span className="text-[8px] text-text-muted uppercase tracking-[0.2em] mt-1 block">Config</span>
+              <h2 className="text-xs font-bold text-white uppercase tracking-tight">PARAMETERS</h2>
             </div>
           </div>
         </div>
@@ -156,7 +154,7 @@ export const CopyTradeConfigWidget = () => {
             {selectedTarget ? (
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
-                   <h2 className="text-sm font-black text-white uppercase truncate">{selectedTarget.alias}</h2>
+                   <h2 className="text-xs font-black text-white uppercase truncate">{selectedTarget.alias}</h2>
                    <div className="text-[8px] text-text-muted font-mono truncate max-w-[150px]">{selectedTarget.address}</div>
                 </div>
 
@@ -239,14 +237,13 @@ export const CopyTradeConfigWidget = () => {
       <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-pink opacity-50 z-20" />
         
-        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4">
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
               <Activity size={18} />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white leading-none uppercase tracking-tight">SIGNALS</h2>
-              <span className="text-[8px] text-text-muted uppercase tracking-[0.2em] mt-1 block">Activity</span>
+              <h2 className="text-xs font-bold text-white uppercase tracking-tight">SIGNALS</h2>
             </div>
           </div>
         </div>

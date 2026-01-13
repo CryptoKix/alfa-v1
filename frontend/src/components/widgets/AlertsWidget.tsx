@@ -16,8 +16,8 @@ export const AlertsWidget = () => {
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-pink via-accent-purple to-accent-cyan opacity-50" />
       
       {/* Header */}
-      <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px]">
-        <h3 className="text-base font-bold flex items-center gap-2 text-white">
+      <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
+        <h3 className="text-sm font-bold flex items-center gap-2 text-white uppercase tracking-tight">
           <Bell className="text-accent-pink" size={18} />
           System Alerts
         </h3>

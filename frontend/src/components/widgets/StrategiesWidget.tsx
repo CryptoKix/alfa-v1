@@ -49,7 +49,7 @@ const STRATEGIES = [
     icon: Users,
     color: 'text-accent-cyan',
     desc: 'Mirror the trades of high-performance whale wallets in real-time with configurable scale factors.',
-    features: ['Whale Tracking', 'Auto-Mirror', 'Risk Caps']
+    features: []
   },
 ]
 
@@ -74,12 +74,15 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
     <div className="bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full shrink-0">
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50" />
       
-      <div className="flex items-center justify-between mb-3 border-b border-white/5 shrink-0 h-[30px]">
-        <h3 className="text-sm font-bold flex items-center gap-2 text-white uppercase tracking-tight">
-          <Activity className="text-accent-cyan" size={16} />
-          Strategy Terminal
-        </h3>
-        <div className="text-[8px] font-mono text-text-muted uppercase tracking-widest">Command Deck V2.5</div>
+      <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
+            <Activity size={18} />
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-white uppercase tracking-tight">Strategy Terminal</h3>
+          </div>
+        </div>
       </div>
 
       <div className="flex-1 flex gap-4 min-h-0">
@@ -168,23 +171,26 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
            </div>
 
            {/* PnL Visualization Panel */}
-           <div className="flex-1 flex flex-col justify-center gap-1.5">
-              <div className="grid grid-cols-2 gap-1.5">
-                 <div className="bg-background-elevated/50 border border-white/5 rounded-lg p-1.5 flex flex-col gap-0.5">
-                    <span className="text-[6px] font-black text-text-muted uppercase tracking-[0.1em] truncate">Unrealized</span>
+           <div className="flex-1 flex flex-col justify-center gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                 <div className="bg-background-elevated/50 border border-white/5 rounded-xl p-2.5 flex flex-col gap-1 relative overflow-hidden group/pnl">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-accent-cyan opacity-20" />
+                    <span className="text-[7px] font-black text-text-muted uppercase tracking-[0.2em]">Unrealized PnL</span>
                     <div className={cn(
-                      "text-xs font-black font-mono tracking-tighter truncate",
-                      metrics.unrealized >= 0 ? "text-accent-green" : "text-accent-red"
+                      "text-sm font-black font-mono tracking-tight transition-all duration-500",
+                      metrics.unrealized > 0 ? "text-accent-green" : metrics.unrealized < 0 ? "text-accent-red" : "text-white"
                     )}>
-                      ${metrics.unrealized.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {metrics.unrealized > 0 ? '+' : metrics.unrealized < 0 ? '-' : ''}${Math.abs(metrics.unrealized).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                  </div>
-                 <div className="bg-background-elevated/50 border border-white/5 rounded-lg p-1.5 flex flex-col gap-0.5 text-right">
-                    <span className="text-[6px] font-black text-text-muted uppercase tracking-[0.1em] truncate">Realized</span>
+                 <div className="bg-background-elevated/50 border border-white/5 rounded-xl p-2.5 flex flex-col gap-1 text-right relative overflow-hidden group/pnl">
+                    <div className="absolute top-0 right-0 w-1 h-full bg-accent-purple opacity-20" />
+                    <span className="text-[7px] font-black text-text-muted uppercase tracking-[0.2em]">Realized Total</span>
                     <div className={cn(
-                      "text-xs font-black font-mono tracking-tighter text-white truncate"
+                      "text-sm font-black font-mono tracking-tight transition-all duration-500",
+                      metrics.realized > 0 ? "text-accent-green" : metrics.realized < 0 ? "text-accent-red" : "text-white"
                     )}>
-                      ${metrics.realized.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {metrics.realized > 0 ? '+' : metrics.realized < 0 ? '-' : ''}${Math.abs(metrics.realized).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                  </div>
               </div>

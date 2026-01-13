@@ -46,8 +46,8 @@ export const ActiveBotsWidget = ({ onViewAll }: { onViewAll?: () => void }) => {
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-green via-accent-cyan to-accent-purple opacity-50" />
       
       {/* Header */}
-      <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px]">
-        <h3 className="text-base font-bold flex items-center gap-2">
+      <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
+        <h3 className="text-sm font-bold flex items-center gap-2 uppercase tracking-tight text-white">
           <Activity className="text-accent-green" size={18} />
           Active Bots
         </h3>

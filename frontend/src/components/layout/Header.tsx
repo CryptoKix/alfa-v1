@@ -20,26 +20,24 @@ export const Header = () => {
   const timeDiff = now - lastUpdate
   
   // Price Status Logic
-  let priceStatusText = 'PRICE: OFFLINE'
+  const priceStatusText = 'Price'
   let priceColor = 'bg-red-500'
   let priceTextClass = 'text-red-500'
   let pricePulse = false
 
   if (priceConnected) {
     if (lastUpdate > 0 && timeDiff < 5000) {
-      priceStatusText = 'PRICE: ACTIVE'
       priceColor = 'bg-accent-green'
       priceTextClass = 'text-accent-green'
       pricePulse = true
     } else {
-      priceStatusText = 'PRICE: STALLED'
       priceColor = 'bg-yellow-500'
       priceTextClass = 'text-yellow-500'
     }
   }
 
   // Web Status Logic
-  const webStatusText = webConnected ? 'WEB: CONNECTED' : 'WEB: DISCONNECTED'
+  const webStatusText = 'Web'
   const webColor = webConnected ? 'bg-accent-cyan' : 'bg-red-500'
   const webTextClass = webConnected ? 'text-accent-cyan' : 'text-red-500'
 
@@ -53,16 +51,22 @@ export const Header = () => {
 
         <div className="flex items-center gap-4">
           {/* Status Indicators */}
-          <div className="flex items-center gap-3 mr-2">
-            <div className="flex items-center gap-2 px-2 h-8 bg-white/5 rounded-lg border border-white/10">
-               <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", priceColor, pricePulse && "animate-pulse")} />
-               <span className={cn("text-[8px] font-mono font-bold uppercase transition-colors duration-500", priceTextClass)}>
+          <div className="flex items-center gap-2 mr-2">
+            <div className={cn(
+              "flex items-center justify-center gap-2 w-20 h-8 rounded-xl border transition-all duration-500 bg-background-elevated/50",
+              priceConnected && lastUpdate > 0 && timeDiff < 5000 ? "border-accent-green/20 shadow-[0_0_10px_rgba(0,255,157,0.05)]" : "border-white/5"
+            )}>
+               <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", priceColor, pricePulse && "animate-pulse shadow-[0_0_8px_currentColor]")} />
+               <span className={cn("text-[9px] font-black uppercase tracking-widest transition-colors duration-500", priceTextClass)}>
                  {priceStatusText}
                </span>
             </div>
-            <div className="flex items-center gap-2 px-2 h-8 bg-white/5 rounded-lg border border-white/10">
-               <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", webColor, webConnected && "animate-pulse")} />
-               <span className={cn("text-[8px] font-mono font-bold uppercase transition-colors duration-500", webTextClass)}>
+            <div className={cn(
+              "flex items-center justify-center gap-2 w-20 h-8 rounded-xl border transition-all duration-500 bg-background-elevated/50",
+              webConnected ? "border-accent-cyan/20 shadow-[0_0_10px_rgba(0,255,255,0.05)]" : "border-white/5"
+            )}>
+               <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", webColor, webConnected && "animate-pulse shadow-[0_0_8px_currentColor]")} />
+               <span className={cn("text-[9px] font-black uppercase tracking-widest transition-colors duration-500", webTextClass)}>
                  {webStatusText}
                </span>
             </div>

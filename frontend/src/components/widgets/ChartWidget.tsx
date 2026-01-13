@@ -68,13 +68,12 @@ export const ChartWidget = memo(() => {
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-10" />
       
       {/* Header */}
-      <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px] z-10">
-        <h3 className="text-base font-bold flex items-center gap-2">
+      <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px] z-10 -mx-6 px-6 -mt-6">
+        <h3 className="text-sm font-bold flex items-center gap-2 uppercase tracking-tight text-white">
           <Zap className="text-accent-cyan" size={18} />
           SOL/USD
         </h3>
         <div className="text-right">
-          <div className="text-[9px] text-text-secondary uppercase tracking-widest mb-0.5">Oracle Price</div>
           <div className="text-xl font-black font-mono text-white tracking-tight">
             ${currentPrice?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '---'}
           </div>
