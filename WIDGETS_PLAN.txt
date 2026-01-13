@@ -1,0 +1,44 @@
+# TACTIX Widget Implementation Plan
+
+This document outlines the widgets planned for the TACTIX ProTerminal interface.
+
+## 1. Dashboard Widgets
+Core components displayed on the main overview screen.
+
+*   **[COMPLETED] PortfolioWidget** (`src/components/widgets/PortfolioWidget.tsx`)
+    *   **Purpose:** Displays real-time portfolio value, asset allocation pie chart, and detailed holdings table.
+    *   **Features:** Live price updates, sorting by value, responsive layout.
+
+*   **[COMPLETED] TradeHistoryWidget** (`src/components/widgets/TradeHistoryWidget.tsx`)
+    *   **Purpose:** Shows a chronological list of recent buy/sell activities.
+    *   **Features:** Transaction type indicators (buy/sell icons), relative timestamps.
+
+*   **[COMPLETED] StrategiesWidget** (`src/components/widgets/StrategiesWidget.tsx`)
+    *   **Purpose:** Monitors active automated trading strategies (e.g., Grid Bots, DCA).
+    *   **Features:** Status indicators (Running/Paused), PnL per bot, quick stop/start controls.
+
+## 2. Trading Widgets
+Components for manual execution and market analysis.
+
+*   **[PLANNED] OrderEntryWidget**
+    *   **Purpose:** Interface for placing manual market/limit orders.
+    *   **Features:** Amount input, slippage settings, "Buy"/"Sell" action buttons.
+
+*   **[PLANNED] ChartWidget**
+    *   **Purpose:** Real-time price chart for selected assets.
+    *   **Features:** Candlestick visualization, timeframe selectors (1m, 5m, 1h), technical indicators.
+
+*   **[PLANNED] TokenSelectorWidget**
+    *   **Purpose:** Quick search and selection of tokens for trading.
+    *   **Features:** Search bar, recent tokens list, trending tokens.
+
+## 3. Specialized Feature Widgets
+Widgets for specific advanced modules.
+
+*   **[PLANNED] CopyTraderWidget**
+    *   **Purpose:** Controls for the Copy Trading engine.
+    *   **Features:** Target wallet input, tracking status, recent tracked transactions.
+
+*   **[PLANNED] SniperWidget**
+    *   **Purpose:** High-speed token sniping interface.
+    *   **Features:** New pair detection feed, auto-buy settings, gas priority controls.

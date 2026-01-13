@@ -1,0 +1,13 @@
+flask
+flask-cors
+flask-socketio
+python-socketio
+gevent
+gevent-websocket
+requests
+solana
+solders
+python-dotenv
+aiohttp
+websockets
+watchdog
