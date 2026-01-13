@@ -13,6 +13,17 @@ To compete in the millisecond-latency environment of Solana arbitrage, TacTix mu
     *   Implement constant-product (Raydium) and DLMM (Meteora) math in the bot core.
     *   Calculate quotes locally (<1ms) instead of waiting for Jupiter's API response (~300-800ms).
 
+
+### Shyft gRPC Integration
+The primary ingress point for real-time data will be Shyft's **Geyser gRPC stream**.
+*   **Template:** `backend/services/shyft_grpc.py`
+*   **Functionality:** This module acts as a high-speed listener for pool account data.
+*   **Workflow:** 
+    1.  Bot subscribes to specific AMM vault addresses (e.g., Raydium SOL/USDC vault).
+    2.  Shyft pushes raw account updates via gRPC.
+    3.  `ArbEngine` parses the binary data to extract vault balances.
+    4.  Local price simulation is triggered immediately.
+
 ## 2. Decision Logic: Opportunity Detection
 *   **Bellman-Ford / Pathfinding:** Move beyond simple 2-pair comparison to multi-hop triangular arbitrage detection.
 *   **Net Profit Filtering:** Automatically calculate net profit by subtracting:
