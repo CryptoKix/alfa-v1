@@ -30,8 +30,7 @@ class CopyTraderEngine:
         self._token_cache = {}
 
     def start(self):
-        if self._thread:
-            return
+        if self._thread: return
         self._running = True
         self._thread = threading.Thread(target=self._run_event_loop, daemon=True)
         self._thread.start()
@@ -41,11 +40,9 @@ class CopyTraderEngine:
         self._running = False
         if self.current_ws and self._loop:
              asyncio.run_coroutine_threadsafe(self.current_ws.close(), self._loop)
-        if self._loop:
-            self._loop.call_soon_threadsafe(self._loop.stop)
+        if self._loop: self._loop.call_soon_threadsafe(self._loop.stop)
 
     def refresh(self):
-        logger.info("🔄 Refreshing Copy Trader session...")
         if self.current_ws and self._loop and self.current_ws._running:
             asyncio.run_coroutine_threadsafe(self.current_ws.close(), self._loop)
 
@@ -66,7 +63,6 @@ class CopyTraderEngine:
                     await asyncio.sleep(0.1)
 
                     if WALLET_ADDRESS and WALLET_ADDRESS != "Unknown":
-                        logger.info(f"📡 Subscribing to USER wallet: {WALLET_ADDRESS[:8]}...")
                         await ws.subscribe_logs(
                             partial(self.handle_user_wallet_logs, WALLET_ADDRESS),
                             mentions=[WALLET_ADDRESS],
@@ -74,18 +70,15 @@ class CopyTraderEngine:
                         )
 
                     target_addresses = list(self.active_targets.keys())
-                    if target_addresses:
-                        logger.info(f"📡 Subscribing to logs for {len(target_addresses)} targets")
-                        for address in target_addresses:
-                            try:
-                                await ws.subscribe_logs(
-                                    partial(self.handle_transaction_logs, address),
-                                    mentions=[address],
-                                    commitment="confirmed"
-                                )
-                                logger.info(f"✅ Subscribed to target {address[:8]}...")
-                            except Exception as e:
-                                logger.error(f"Subscription failed for {address}: {e}")
+                    for address in target_addresses:
+                        try:
+                            await ws.subscribe_logs(
+                                partial(self.handle_transaction_logs, address),
+                                mentions=[address],
+                                commitment="confirmed"
+                            )
+                        except Exception as e:
+                            logger.error(f"Subscription failed for {address}: {e}")
                     
                     await run_task
             except Exception as e:
@@ -95,10 +88,8 @@ class CopyTraderEngine:
                 self.current_ws = None
 
     def resolve_token(self, mint: str):
-        if mint == "So11111111111111111111111111111111111111112":
-            return "SOL"
-        if mint in self._token_cache:
-            return self._token_cache[mint]
+        if mint == "So11111111111111111111111111111111111111112": return "SOL"
+        if mint in self._token_cache: return self._token_cache[mint]
         known = self.db.get_known_tokens().get(mint)
         if known:
             self._token_cache[mint] = known['symbol']
@@ -106,59 +97,61 @@ class CopyTraderEngine:
         try:
             asset = self.helius.das.get_asset(mint)
             if not asset: return f"{mint[:4]}..."
-            token_info = asset.get('token_info', {})
-            content = asset.get('content', {})
-            metadata = content.get('metadata', {})
-            symbol = token_info.get('symbol') or metadata.get('symbol')
-            decimals = token_info.get('decimals') or 9
+            symbol = (asset.get('token_info', {}).get('symbol') or asset.get('content', {}).get('metadata', {}).get('symbol'))
+            decimals = (asset.get('token_info', {}).get('decimals') or 9)
             if symbol:
                 symbol = symbol.upper()
                 self.db.save_token(mint, symbol, decimals)
                 self._token_cache[mint] = symbol
                 return symbol
             return f"{mint[:4]}..."
-        except Exception as e:
-            return f"{mint[:4]}..."
+        except: return f"{mint[:4]}..."
 
     def decode_transaction_changes(self, signature: str, wallet_address: str):
-        for attempt in range(3):
+        """Decode balance changes for a specific wallet address from a transaction."""
+        for attempt in range(5): # Increased attempts
             try:
                 tx = self.helius.rpc.get_transaction(signature, encoding='jsonParsed', max_supported_version=0)
                 if not tx:
-                    time.sleep(1)
+                    time.sleep(1.5)
                     continue
+                
                 meta = tx.get('meta')
                 if not meta or meta.get('err'): return None
-                message = tx.get('transaction', {}).get('message', {})
-                account_keys = message.get('accountKeys', [])
+                
+                # Find the wallet index
+                account_keys = tx.get('transaction', {}).get('message', {}).get('accountKeys', [])
                 wallet_index = -1
                 for i, acc in enumerate(account_keys):
                     pubkey = acc.get('pubkey') if isinstance(acc, dict) else acc
                     if pubkey == wallet_address:
                         wallet_index = i
                         break
-                if wallet_index == -1: return None
-
+                
                 changes = {}
-                pre_sol = meta['preBalances'][wallet_index] / 1e9
-                post_sol = meta['postBalances'][wallet_index] / 1e9
-                sol_diff = post_sol - pre_sol
-                if wallet_index == 0: sol_diff += (meta['fee'] / 1e9)
-                if abs(sol_diff) > 0.0001:
-                    changes["So11111111111111111111111111111111111111112"] = sol_diff
+                # 1. Native SOL
+                if wallet_index != -1:
+                    pre_sol = meta['preBalances'][wallet_index] / 1e9
+                    post_sol = meta['postBalances'][wallet_index] / 1e9
+                    sol_diff = post_sol - pre_sol
+                    if wallet_index == 0: sol_diff += (meta['fee'] / 1e9)
+                    if abs(sol_diff) > 0.0001:
+                        changes["So11111111111111111111111111111111111111112"] = sol_diff
 
-                pre_token = meta.get('preTokenBalances', [])
-                post_token = meta.get('postTokenBalances', [])
-                for bal in pre_token:
+                # 2. Tokens
+                # Track all changes for the wallet_address
+                for bal in meta.get('preTokenBalances', []):
                     if bal.get('owner') == wallet_address:
                         mint = bal['mint']
                         changes[mint] = changes.get(mint, 0) - float(bal['uiTokenAmount'].get('uiAmount') or 0)
-                for bal in post_token:
+                
+                for bal in meta.get('postTokenBalances', []):
                     if bal.get('owner') == wallet_address:
                         mint = bal['mint']
                         changes[mint] = changes.get(mint, 0) + float(bal['uiTokenAmount'].get('uiAmount') or 0)
+                
                 return changes
-            except:
+            except Exception as e:
                 time.sleep(1)
         return None
 
@@ -166,13 +159,12 @@ class CopyTraderEngine:
         val = data.get('value', {})
         signature = val.get('signature')
         if not signature or val.get('err'): return
-        await asyncio.sleep(1)
+        await asyncio.sleep(1.5)
         changes = self.decode_transaction_changes(signature, wallet_address)
         if not changes: return
         for mint, diff in changes.items():
             if diff > 0.000001:
                 symbol = self.resolve_token(mint)
-                logger.info(f"💰 Funds Received: {diff} {symbol}")
                 self.socketio.emit('notification', {
                     'title': 'Funds Received',
                     'message': f"Received {diff:.4f} {symbol}",
@@ -185,36 +177,40 @@ class CopyTraderEngine:
         val = data.get('value', {})
         signature = val.get('signature')
         if not signature or val.get('err'): return
+        
         logs = val.get('logs', [])
         programs = [l.split(' ')[1] for l in logs if 'invoke [' in l]
-        target_programs = [
-            Programs.RAYDIUM_V4, Programs.RAYDIUM_CP, Programs.RAYDIUM_CLMM,
-            Programs.JUPITER_V6, Programs.ORCA_WHIRLPOOL, Programs.METEORA_DLMM,
-            Programs.PUMP_FUN, Programs.PHOENIX, Programs.LIFINITY
-        ]
-        is_swap = any(p in programs for p in target_programs)
-        if is_swap:
-            await asyncio.sleep(1)
-            changes = self.decode_transaction_changes(signature, wallet_address)
-            if not changes: return
-            sent_token = None
-            received_token = None
-            for mint, diff in sorted(changes.items(), key=lambda x: abs(x[1]), reverse=True):
-                if abs(diff) < 1e-9: continue
-                symbol = self.resolve_token(mint)
-                if diff < 0 and not sent_token:
-                    sent_token = {'mint': mint, 'symbol': symbol, 'amount': abs(diff)}
-                elif diff > 0 and not received_token:
-                    received_token = {'mint': mint, 'symbol': symbol, 'amount': abs(diff)}
-            if sent_token and received_token:
-                signal_data = {
-                    'signature': signature,
-                    'wallet': wallet_address,
-                    'timestamp': time.time(),
-                    'type': 'Swap Detected',
-                    'sent': sent_token,
-                    'received': received_token
-                }
-                self.db.save_signal(signal_data)
-                self.socketio.emit('signal_detected', signal_data, namespace='/copytrade')
-                logger.info(f"✅ Decoded Target Swap: {sent_token['amount']} {sent_token['symbol']} -> {received_token['amount']} {received_token['symbol']}")
+        target_programs = [Programs.RAYDIUM_V4, Programs.RAYDIUM_CP, Programs.RAYDIUM_CLMM, Programs.JUPITER_V6, Programs.ORCA_WHIRLPOOL, Programs.METEORA_DLMM, Programs.PUMP_FUN, Programs.PHOENIX, Programs.LIFINITY]
+        if not any(p in programs for p in target_programs): return
+
+        # Swap detected
+        await asyncio.sleep(1.5)
+        changes = self.decode_transaction_changes(signature, wallet_address)
+        if not changes: return
+
+        sent_token = None
+        received_token = None
+        for mint, diff in sorted(changes.items(), key=lambda x: abs(x[1]), reverse=True):
+            if abs(diff) < 1e-9: continue
+            symbol = self.resolve_token(mint)
+            if diff < 0 and not sent_token:
+                sent_token = {'mint': mint, 'symbol': symbol, 'amount': abs(diff)}
+            elif diff > 0 and not received_token:
+                received_token = {'mint': mint, 'symbol': symbol, 'amount': abs(diff)}
+
+        if sent_token and received_token:
+            target = self.active_targets.get(wallet_address, {})
+            alias = target.get('alias', wallet_address[:8])
+            
+            signal_data = {
+                'signature': signature,
+                'wallet': wallet_address,
+                'alias': alias,
+                'timestamp': time.time(),
+                'type': 'Swap Detected',
+                'sent': sent_token,
+                'received': received_token
+            }
+            self.db.save_signal(signal_data)
+            self.socketio.emit('signal_detected', signal_data, namespace='/copytrade')
+            logger.info(f"✅ Decoded {alias} Swap: {sent_token['amount']} {sent_token['symbol']} -> {received_token['amount']} {received_token['symbol']}")
