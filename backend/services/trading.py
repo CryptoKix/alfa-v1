@@ -13,15 +13,13 @@ from extensions import db, solana_client, socketio, price_cache, price_cache_loc
 from services.tokens import get_known_tokens, get_token_symbol
 from services.portfolio import broadcast_balance
 
-
 from solders.pubkey import Pubkey
 from solders.system_program import TransferParams, transfer
+from spl.token.instructions import get_associated_token_address, create_associated_token_account, transfer_checked
+from spl.token.constants import TOKEN_PROGRAM_ID
 
 def execute_transfer(recipient_address, amount, mint="So11111111111111111111111111111111111111112"):
-    """Execute a SOL or Token transfer.
-    
-    Currently supports SOL only.
-    """
+    """Execute a SOL or Token transfer."""
     if not KEYPAIR:
         raise Exception("No private key loaded")
 
@@ -29,6 +27,10 @@ def execute_transfer(recipient_address, amount, mint="So111111111111111111111111
         recipient = Pubkey.from_string(recipient_address)
     except:
         raise Exception("Invalid recipient address")
+
+    instructions = []
+    token_symbol = "SOL"
+    decimals = 9
 
     # SOL Transfer
     if mint == "So11111111111111111111111111111111111111112":
@@ -39,90 +41,106 @@ def execute_transfer(recipient_address, amount, mint="So111111111111111111111111
         if balance < lamports + 5000: # 5000 lamports for fee buffer
             raise Exception("Insufficient SOL balance")
 
-        ix = transfer(
+        instructions.append(transfer(
             TransferParams(
                 from_pubkey=KEYPAIR.pubkey(),
                 to_pubkey=recipient,
                 lamports=lamports
             )
-        )
-        
-        txn = VersionedTransaction(
-            VersionedTransaction.from_bytes(
-                to_bytes_versioned(
-                    VersionedTransaction(
-                        solana_client.get_latest_blockhash().value.blockhash,
-                        [KEYPAIR],
-                        [KEYPAIR.pubkey()],
-                        [ix]
-                    ).message
-                )
-            ).message,
-            [KEYPAIR.sign_message(
-                 to_bytes_versioned(
-                    VersionedTransaction(
-                        solana_client.get_latest_blockhash().value.blockhash,
-                        [KEYPAIR],
-                        [KEYPAIR.pubkey()],
-                        [ix]
-                    ).message
-                 )
-            )]
-        )
-        # Simplified construction above was messy, let's do standard solders way:
-        recent_blockhash = solana_client.get_latest_blockhash().value.blockhash
-        msg = __import__('solders.message').message.Message.new_with_blockhash(
-            [ix],
-            KEYPAIR.pubkey(),
-            recent_blockhash
-        )
-        txn = VersionedTransaction(msg, [KEYPAIR.sign_message(to_bytes_versioned(msg))])
-        
-        sig = str(solana_client.send_raw_transaction(
-            bytes(txn),
-            opts=TxOpts(skip_preflight=False, preflight_commitment="confirmed")
-        ).value)
-        
-        # Log transfer
-        db.log_trade({
-            "wallet_address": WALLET_ADDRESS,
-            "source": "Transfer",
-            "input": "SOL",
-            "output": "SOL",
-            "input_mint": mint,
-            "output_mint": mint,
-            "amount_in": amount,
-            "amount_out": amount, # 1:1 transfer
-            "slippage_bps": 0,
-            "priority_fee": 0,
-            "swap_fee": 0,
-            "swap_fee_currency": "SOL",
-            "signature": sig,
-            "status": "success"
-        })
-        
-        socketio.emit('history_update', {'history': db.get_history(50, wallet_address=WALLET_ADDRESS)}, namespace='/history')
-        broadcast_balance()
-        
-        return sig
+        ))
 
+    # SPL Token Transfer
     else:
-        raise Exception("Only SOL transfers are currently supported")
+        mint_pubkey = Pubkey.from_string(mint)
+        known = get_known_tokens()
+        token_info = known.get(mint, {})
+        decimals = token_info.get('decimals', 0)
+        token_symbol = token_info.get('symbol', 'Unknown')
+
+        if decimals == 0:
+            decimals = 6 
+
+        amount_tokens = int(amount * (10 ** decimals))
+
+        sender_ata = get_associated_token_address(KEYPAIR.pubkey(), mint_pubkey)
+        recipient_ata = get_associated_token_address(recipient, mint_pubkey)
+
+        # Check if sender has enough balance
+        try:
+            sender_balance_info = solana_client.get_token_account_balance(sender_ata).value
+            if int(sender_balance_info.amount) < amount_tokens:
+                raise Exception(f"Insufficient {token_symbol} balance")
+        except:
+             raise Exception(f"Failed to fetch balance for {token_symbol}")
+
+        # Check if recipient ATA exists, create if not
+        resp = solana_client.get_account_info(recipient_ata)
+        if not resp.value:
+             instructions.append(
+                 create_associated_token_account(
+                     payer=KEYPAIR.pubkey(),
+                     owner=recipient,
+                     mint=mint_pubkey
+                 )
+             )
+        
+        instructions.append(
+            transfer_checked(
+                source=sender_ata,
+                mint=mint_pubkey,
+                dest=recipient_ata,
+                owner=KEYPAIR.pubkey(),
+                amount=amount_tokens,
+                decimals=decimals
+            )
+        )
+
+    # Build and Send Transaction
+    recent_blockhash = solana_client.get_latest_blockhash().value.blockhash
+    msg = __import__('solders.message').message.Message.new_with_blockhash(
+        instructions,
+        KEYPAIR.pubkey(),
+        recent_blockhash
+    )
+    txn = VersionedTransaction(msg, [KEYPAIR.sign_message(to_bytes_versioned(msg))])
+    
+    sig = str(solana_client.send_raw_transaction(
+        bytes(txn),
+        opts=TxOpts(skip_preflight=False, preflight_commitment="confirmed")
+    ).value)
+    
+    # Calculate USD Value
+    usd_value = 0
+    with price_cache_lock:
+        if mint in price_cache:
+            usd_value = amount * price_cache[mint][0]
+
+    # Log transfer
+    db.log_trade({
+        "wallet_address": WALLET_ADDRESS,
+        "source": "Transfer",
+        "input": token_symbol,
+        "output": token_symbol,
+        "input_mint": mint,
+        "output_mint": mint,
+        "amount_in": amount,
+        "amount_out": amount,
+        "usd_value": usd_value,
+        "slippage_bps": 0,
+        "priority_fee": 0,
+        "swap_fee": 0,
+        "swap_fee_currency": token_symbol,
+        "signature": sig,
+        "status": "success"
+    })
+    
+    socketio.emit('history_update', {'history': db.get_history(50, wallet_address=WALLET_ADDRESS)}, namespace='/history')
+    broadcast_balance()
+    
+    return sig
 
 def execute_trade_logic(input_mint, output_mint, amount, source="Manual", slippage_bps=50, priority_fee=0.001):
-    """Execute a swap trade via Jupiter Aggregator.
-
-    Args:
-        input_mint: Input token mint address
-        output_mint: Output token mint address
-        amount: Amount to swap (in UI units)
-        source: Trade source for logging
-        slippage_bps: Slippage tolerance in basis points
-        priority_fee: Priority fee in SOL
-
-    Returns:
-        Transaction signature string
-    """
+    """Execute a swap trade via Jupiter Aggregator."""
     if not KEYPAIR:
         raise Exception("No private key loaded")
 

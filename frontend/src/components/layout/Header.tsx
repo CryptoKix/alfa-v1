@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { Wallet, Bell } from 'lucide-react'
+import { Wallet, Bell, Send } from 'lucide-react'
 import { useAppSelector } from '@/app/hooks'
 import { WalletModal } from '@/components/modals/WalletModal'
+import { SendModal } from '@/components/modals/SendModal'
 
 export const Header = () => {
   const { wallet, walletAlias } = useAppSelector(state => state.portfolio)
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false)
+  const [isSendModalOpen, setIsSendModalOpen] = useState(false)
 
   return (
     <>
@@ -15,7 +17,18 @@ export const Header = () => {
           <span className="text-text-secondary text-sm font-mono">Dashboard / Overview</span>
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
+          {/* Send Button */}
+          <button 
+            onClick={() => setIsSendModalOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-accent-purple/10 border border-accent-purple/20 rounded-lg text-accent-purple hover:bg-accent-purple/20 transition-all group"
+          >
+            <Send size={14} className="group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Send</span>
+          </button>
+
+          <div className="w-px h-6 bg-white/5" />
+
           {/* Notifications */}
           <button className="relative text-text-secondary hover:text-white transition-colors">
             <Bell size={18} />
@@ -41,6 +54,7 @@ export const Header = () => {
       </header>
 
       <WalletModal isOpen={isWalletModalOpen} onClose={() => setIsWalletModalOpen(false)} />
+      <SendModal isOpen={isSendModalOpen} onClose={() => setIsSendModalOpen(false)} />
     </>
   )
 }
