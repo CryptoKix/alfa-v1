@@ -76,16 +76,35 @@ export const initSockets = () => {
   })
 
   copytradeSocket.on('signals_update', (data) => {
+    store.dispatch(setTargets(data.targets))
     store.dispatch(setSignals(data.signals))
+    
+    // Populate last 10 signals into notifications
+    const recentSignals = (data.signals || []).slice(0, 10).reverse()
+    recentSignals.forEach((s: any) => {
+      const recvAsset = s.received?.symbol || 'Asset'
+      const recvAmount = s.received?.amount !== undefined ? s.received.amount.toFixed(2) : '0.00'
+      const sentAsset = s.sent?.symbol || 'Asset'
+      const sentAmount = s.sent?.amount !== undefined ? s.sent.amount.toFixed(2) : '0.00'
+      
+      store.dispatch(addNotification({
+        title: 'Historical Signal',
+        message: `Whale swap: ${sentAmount} ${sentAsset} → ${recvAmount} ${recvAsset}`,
+        type: 'signal'
+      }))
+    })
   })
 
   copytradeSocket.on('signal_detected', (data) => {
     store.dispatch(addSignal(data))
-    const asset = data.received?.symbol || 'Asset'
-    const amount = data.received?.amount !== undefined ? data.received.amount.toFixed(2) : '0.00'
+    const recvAsset = data.received?.symbol || 'Asset'
+    const recvAmount = data.received?.amount !== undefined ? data.received.amount.toFixed(2) : '0.00'
+    const sentAsset = data.sent?.symbol || 'Asset'
+    const sentAmount = data.sent?.amount !== undefined ? data.sent.amount.toFixed(2) : '0.00'
+
     store.dispatch(addNotification({
       title: 'Copy Trade Signal',
-      message: `Detected whale swap: Received ${amount} ${asset}`,
+      message: `Detected whale swap: ${sentAmount} ${sentAsset} → ${recvAmount} ${recvAsset}`,
       type: 'signal'
     }))
   })
