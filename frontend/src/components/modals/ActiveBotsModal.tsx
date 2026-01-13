@@ -203,22 +203,24 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
                     </div>
                   )}
 
-                  <div className="flex justify-end pt-2 gap-3" onClick={(e) => e.stopPropagation()}>
-                     <button 
-                        onClick={() => onPause(bot.id, bot.status)}
-                        className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-text-muted hover:text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95"
-                     >
-                        {bot.status === 'active' ? <Pause size={14} /> : <RefreshCw size={14} />}
-                        {bot.status === 'active' ? 'Pause Engine' : 'Resume Sync'}
-                     </button>
-                     <button 
-                        onClick={() => onDelete(bot.id)}
-                        className="flex items-center gap-2 px-4 py-2 bg-accent-red/10 hover:bg-accent-red/20 border border-accent-red/30 rounded-xl text-accent-red text-[10px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95"
-                     >
-                        <Trash2 size={14} />
-                        Decommission
-                     </button>
-                  </div>
+                  {bot.status !== 'completed' && (
+                    <div className="flex justify-end pt-2 gap-3" onClick={(e) => e.stopPropagation()}>
+                       <button 
+                          onClick={() => onPause(bot.id, bot.status)}
+                          className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-text-muted hover:text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95"
+                       >
+                          {bot.status === 'active' ? <Pause size={14} /> : <RefreshCw size={14} />}
+                          {bot.status === 'active' ? 'Pause Engine' : 'Resume Sync'}
+                       </button>
+                       <button 
+                          onClick={() => onDelete(bot.id)}
+                          className="flex items-center gap-2 px-4 py-2 bg-accent-red/10 hover:bg-accent-red/20 border border-accent-red/30 rounded-xl text-accent-red text-[10px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95"
+                       >
+                          <Trash2 size={14} />
+                          Decommission
+                       </button>
+                    </div>
+                  )}
                </div>
             )})
           )}
