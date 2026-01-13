@@ -83,7 +83,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
 
       <div className="flex-1 flex gap-4 min-h-0">
         {/* Left Side: 3x2 Grid */}
-        <div className="grid grid-cols-3 gap-3 flex-[3.5]">
+        <div className="grid grid-cols-3 gap-4 flex-[4]">
           {STRATEGIES.map((strat) => {
             const isActive = bots?.some((b: any) => b?.type?.toLowerCase() === strat.id && b.status === 'active')
             const isSelected = selectedId === strat.id
@@ -94,7 +94,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                 key={strat.id}
                 onClick={() => onSelect?.(strat.id)}
                 className={cn(
-                  "group/btn relative h-[34px] transition-all duration-500",
+                  "group/btn relative h-[42px] transition-all duration-500",
                   "transform hover:scale-[1.05] active:scale-95",
                   isSelected ? "z-20" : "z-10"
                 )}
@@ -135,14 +135,14 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                 {/* Content Container */}
                 <div className="relative h-full w-full flex flex-col items-center justify-center gap-0.5">
                   {isActive && (
-                    <div className="absolute top-0.5 left-1 flex items-center gap-1">
+                    <div className="absolute top-1 left-1.5 flex items-center gap-1">
                       <div className="w-1 h-1 rounded-full bg-accent-green animate-ping absolute" />
                       <div className="w-1 h-1 rounded-full bg-accent-green relative" />
                     </div>
                   )}
 
                   <strat.icon 
-                    size={14} 
+                    size={16} 
                     className={cn(
                       "transition-all duration-500", 
                       isSelected ? "text-white" : "text-accent-cyan"
@@ -150,7 +150,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                   />
                   
                   <div className={cn(
-                    "text-[6px] font-black uppercase tracking-[0.2em] transition-all duration-500", 
+                    "text-[7px] font-black uppercase tracking-[0.2em] transition-all duration-500", 
                     isSelected ? "text-white" : "text-accent-cyan"
                   )}>
                     {strat.label}
