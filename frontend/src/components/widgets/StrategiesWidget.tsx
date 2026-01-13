@@ -145,13 +145,13 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                     size={16} 
                     className={cn(
                       "transition-all duration-500", 
-                      isSelected ? colorClass : "text-text-muted group-hover/btn:text-white"
+                      isSelected ? "text-accent-cyan" : "text-text-muted group-hover/btn:text-accent-cyan/80"
                     )} 
                   />
                   
                   <div className={cn(
                     "text-[7px] font-black uppercase tracking-[0.2em] transition-all duration-500", 
-                    (isActive || isSelected) ? "text-white" : "text-text-muted group-hover/btn:text-text-secondary"
+                    isSelected ? "text-accent-cyan" : isActive ? "text-white" : "text-text-muted group-hover/btn:text-accent-cyan/60"
                   )}>
                     {strat.label}
                   </div>
