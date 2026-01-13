@@ -422,8 +422,8 @@ export const GridConfigWidget = () => {
             {gridTrades.length > 0 ? (
               <div className="space-y-1">
                 {gridTrades.map(trade => (
-                  <div key={trade.id} className="grid grid-cols-[95px_90px_1fr_55px] gap-2 items-center p-2 bg-background-elevated/30 border border-white/5 rounded-lg hover:bg-white/5 transition-all group font-mono whitespace-nowrap overflow-hidden">
-                    <div className="text-[11px] font-black uppercase tracking-tight text-text-muted shrink-0">
+                  <div key={trade.id} className="grid grid-cols-[95px_90px_1fr_55px] gap-2 items-end p-2 bg-background-elevated/30 border border-white/5 rounded-lg hover:bg-white/5 transition-all group font-mono whitespace-nowrap overflow-hidden">
+                    <div className="text-[11px] font-black uppercase tracking-tight text-text-muted shrink-0 leading-none">
                       {(() => {
                         if (!trade.timestamp) return '-'
                         const isoStr = trade.timestamp.replace(' ', 'T') + (trade.timestamp.includes('Z') ? '' : 'Z')
@@ -436,21 +436,21 @@ export const GridConfigWidget = () => {
                       })()}
                     </div>
                     
-                    <div className="flex items-center gap-1 font-black text-[11px] uppercase tracking-tighter shrink-0 leading-none">
+                    <div className="flex items-end gap-1 font-black text-[11px] uppercase tracking-tighter shrink-0 leading-none">
                       <span className="text-accent-pink inline-block leading-none">{trade.input}</span>
                       <span className="text-text-muted opacity-30 inline-block leading-none">/</span>
                       <span className="text-accent-cyan inline-block leading-none">{trade.output}</span>
                     </div>
 
-                    <div className="text-[11px] text-white/90 flex items-center gap-1.5 min-w-0 overflow-hidden">
-                      <span className="font-bold shrink-0">{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })} {trade.input}</span>
-                      <span className="text-text-muted text-[9px] shrink-0">→</span>
-                      <span className="text-accent-cyan font-black truncate">{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })} {trade.output}</span>
+                    <div className="text-[11px] text-white/90 flex items-end gap-1.5 min-w-0 overflow-hidden leading-none">
+                      <span className="font-bold shrink-0 leading-none">{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })} {trade.input}</span>
+                      <span className="text-text-muted text-[9px] shrink-0 leading-none">→</span>
+                      <span className="text-accent-cyan font-black truncate leading-none">{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })} {trade.output}</span>
                     </div>
 
-                    <div className="text-right shrink-0">
+                    <div className="text-right shrink-0 leading-none">
                       <span className={cn(
-                        "uppercase font-black text-[9px] tracking-widest px-1.5 py-0.5 rounded border leading-none",
+                        "uppercase font-black text-[9px] tracking-widest px-1.5 py-0.5 rounded border leading-none inline-block",
                         trade.status === 'success' ? "text-accent-green border-accent-green/20 bg-accent-green/5" : "text-accent-red border-accent-red/20 bg-accent-red/5"
                       )}>
                         {trade.status === 'success' ? 'OK' : 'ERR'}

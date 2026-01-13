@@ -68,24 +68,24 @@ export const TradeHistoryWidget = () => {
                 const isSuccess = trade.status === 'success'
                 
                 return (
-                  <div key={trade.id} className="grid grid-cols-[100px_100px_1fr_70px] gap-4 items-center p-2.5 rounded-xl bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group text-xs font-mono whitespace-nowrap overflow-hidden">
-                    <div className="text-text-muted font-black shrink-0 text-[11px]">{formatTimestamp(trade.timestamp)}</div>
+                  <div key={trade.id} className="grid grid-cols-[100px_100px_1fr_70px] gap-4 items-end p-2.5 rounded-xl bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group text-xs font-mono whitespace-nowrap overflow-hidden">
+                    <div className="text-text-muted font-black shrink-0 text-[11px] leading-none">{formatTimestamp(trade.timestamp)}</div>
                     
-                    <div className="flex items-center gap-1 font-black uppercase tracking-tighter shrink-0 text-[11px] leading-none">
+                    <div className="flex items-end gap-1 font-black uppercase tracking-tighter shrink-0 text-[11px] leading-none">
                       <span className="text-accent-pink inline-block leading-none">{trade.input}</span>
                       <span className="text-text-muted opacity-30 inline-block leading-none">/</span>
                       <span className="text-accent-cyan inline-block leading-none">{trade.output}</span>
                     </div>
 
-                    <div className="flex items-center gap-2 min-w-0 overflow-hidden text-[11px]">
-                       <span className="font-bold text-white/90 shrink-0">{formatAmount(trade.amount_in)} {trade.input}</span>
-                       <span className="text-text-muted text-[10px] italic shrink-0">→</span>
-                       <span className="text-accent-cyan font-black truncate">{formatAmount(trade.amount_out)} {trade.output}</span>
+                    <div className="flex items-end gap-2 min-w-0 overflow-hidden text-[11px] leading-none">
+                       <span className="font-bold text-white/90 shrink-0 leading-none">{formatAmount(trade.amount_in)} {trade.input}</span>
+                       <span className="text-text-muted text-[10px] italic shrink-0 leading-none">→</span>
+                       <span className="text-accent-cyan font-black truncate leading-none">{formatAmount(trade.amount_out)} {trade.output}</span>
                     </div>
 
-                    <div className="text-right shrink-0">
+                    <div className="text-right shrink-0 leading-none">
                        <span className={cn(
-                         "uppercase font-black text-[9px] tracking-widest px-2 py-0.5 rounded border leading-none", 
+                         "uppercase font-black text-[9px] tracking-widest px-2 py-0.5 rounded border leading-none inline-block", 
                          isSuccess ? "text-accent-green border-accent-green/20 bg-accent-green/5" : "text-accent-red border-accent-red/20 bg-accent-red/5"
                        )}>
                          {isSuccess ? 'OK' : 'ERR'}
