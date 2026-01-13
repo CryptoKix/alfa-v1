@@ -110,7 +110,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
 
                 {/* Tactical HUD Frame */}
                 <div className={cn(
-                  "absolute inset-0 border-2 transition-all duration-500 rounded-xl flex flex-col items-center justify-center gap-1",
+                  "absolute inset-0 border transition-all duration-500 rounded-xl flex flex-col items-center justify-center gap-1",
                   isSelected 
                     ? "bg-background-elevated border-accent-cyan shadow-[inset_0_0_20px_rgba(0,255,255,0.1)]" 
                     : "bg-black/40 border-white/5 group-hover/btn:border-white/20",
