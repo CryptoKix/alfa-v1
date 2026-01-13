@@ -37,6 +37,7 @@ export const TWAPConfigWidget = () => {
   const [totalAmount, setTotalAmount] = useState('')
   const [duration, setDuration] = useState('') // Total minutes
   const [interval, setInterval] = useState('') // Minutes between trades
+  const [takeProfit, setTakeProfit] = useState('') // Snipe Profit %
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -45,6 +46,7 @@ export const TWAPConfigWidget = () => {
   const totalDuration = parseInt(duration) || 0
   const tradeInterval = parseInt(interval) || 1
   const totalAmt = parseFloat(totalAmount) || 0
+  const tpPercent = parseFloat(takeProfit) || 0
   
   const tradeCount = Math.max(1, Math.floor(totalDuration / tradeInterval))
   const amountPerTrade = tradeCount > 0 ? totalAmt / tradeCount : 0
@@ -69,7 +71,8 @@ export const TWAPConfigWidget = () => {
           amount: amountPerTrade,
           totalAmount: totalAmt,
           interval: tradeInterval,
-          maxRuns: tradeCount
+          maxRuns: tradeCount,
+          takeProfit: tpPercent > 0 ? tpPercent : undefined
         })
       })
 
@@ -92,17 +95,17 @@ export const TWAPConfigWidget = () => {
     <div className="flex flex-col lg:flex-row gap-2 h-full animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-0">
       
       {/* COLUMN 1: Parameters */}
-      <div className="lg:w-[380px] bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 shrink-0">
+      <div className="lg:w-[380px] bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 shrink-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-cyan opacity-50" />
         
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple">
               <Clock size={18} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white leading-none">TWAP CONFIG</h2>
-              <span className="text-[9px] text-text-muted uppercase tracking-widest">Parameters</span>
+              <h2 className="text-sm font-bold text-white leading-none uppercase tracking-tight">TWAP CONFIG</h2>
+              <span className="text-[8px] text-text-muted uppercase tracking-[0.2em] mt-1 block">Parameters</span>
             </div>
           </div>
           <div className="text-right">
@@ -194,17 +197,31 @@ export const TWAPConfigWidget = () => {
             </div>
           </div>
 
-          {/* Investment */}
-          <div className="space-y-1.5">
-            <label className="text-[9px] uppercase tracking-widest text-text-muted font-bold px-1 text-accent-purple">Total Amount ({fromToken.symbol})</label>
-            <div className="bg-background-elevated border border-white/10 rounded-xl p-2 flex items-center gap-3 h-12">
-              <input 
-                type="number" 
-                value={totalAmount}
-                onChange={(e) => setTotalAmount(e.target.value)}
-                placeholder="0.00"
-                className="bg-transparent text-base font-mono font-bold text-white w-full focus:outline-none placeholder:text-white/5 text-center"
-              />
+          {/* Investment & TP */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[9px] uppercase tracking-widest text-text-muted font-bold px-1 text-accent-purple">Total Amount ({fromToken.symbol})</label>
+              <div className="bg-background-elevated border border-white/10 rounded-xl p-2 flex items-center gap-3 h-12">
+                <input 
+                  type="number" 
+                  value={totalAmount}
+                  onChange={(e) => setTotalAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="bg-transparent text-base font-mono font-bold text-white w-full focus:outline-none placeholder:text-white/5 text-center"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[9px] uppercase tracking-widest text-text-muted font-bold px-1 text-accent-cyan">Snipe Profit (%)</label>
+              <div className="bg-background-elevated border border-white/10 rounded-xl p-2.5 flex items-center gap-2 focus-within:border-accent-cyan transition-colors h-12">
+                <input 
+                  type="number" 
+                  value={takeProfit}
+                  onChange={(e) => setTakeProfit(e.target.value)}
+                  placeholder="Optional"
+                  className="bg-transparent text-sm font-mono font-bold text-white w-full focus:outline-none placeholder:text-white/5"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -240,17 +257,17 @@ export const TWAPConfigWidget = () => {
       </div>
 
       {/* COLUMN 2: Execution Plan Preview */}
-      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0">
+      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan to-accent-purple opacity-50" />
         
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
               <Target size={18} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white leading-none">PREVIEW</h2>
-              <span className="text-[9px] text-text-muted uppercase tracking-widest">Execution Plan</span>
+              <h2 className="text-sm font-bold text-white leading-none uppercase tracking-tight">PREVIEW</h2>
+              <span className="text-[8px] text-text-muted uppercase tracking-[0.2em] mt-1 block">Execution Plan</span>
             </div>
           </div>
         </div>
@@ -304,17 +321,17 @@ export const TWAPConfigWidget = () => {
       </div>
 
       {/* COLUMN 3: Real-time Executions */}
-      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0">
+      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-pink opacity-50" />
         
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple">
               <Activity size={18} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white leading-none">EXECUTIONS</h2>
-              <span className="text-[9px] text-text-muted uppercase tracking-widest">TWAP Log</span>
+              <h2 className="text-sm font-bold text-white leading-none uppercase tracking-tight">EXECUTIONS</h2>
+              <span className="text-[8px] text-text-muted uppercase tracking-[0.2em] mt-1 block">TWAP Log</span>
             </div>
           </div>
         </div>

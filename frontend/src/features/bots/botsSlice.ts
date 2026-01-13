@@ -24,6 +24,9 @@ export interface Bot {
   run_count?: number
   amount?: number
   max_runs?: number
+  phase?: string
+  avg_buy_price?: number
+  total_bought?: number
   grid_levels?: GridLevel[]
 }
 

@@ -63,44 +63,84 @@ export const CopyTradeConfigWidget = () => {
 
   return (
     <div className="flex flex-col lg:flex-row gap-2 h-full min-h-0">
-      <div className="lg:w-[300px] bg-background-card border border-white/5 rounded-2xl p-4 flex flex-col gap-4 shrink-0 overflow-auto custom-scrollbar">
-        <h2 className="text-sm font-bold text-white uppercase flex items-center gap-2">
-          <Users size={16} /> Targets
-        </h2>
-        {targets?.map(t => (
-          <button key={t.address} onClick={() => setSelectedAddress(t.address)} className={cn("w-full p-2 rounded-lg text-left text-[10px] border", selectedAddress === t.address ? "bg-accent-cyan/10 border-accent-cyan/30" : "bg-white/5 border-transparent")}>
-            <div className="font-bold text-white">{t.alias}</div>
-            <div className="text-text-muted truncate">{t.address}</div>
-          </button>
-        ))}
-      </div>
-
-      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-6 flex flex-col gap-6 overflow-auto custom-scrollbar">
-        {selectedTarget ? (
-          <div className="space-y-6">
-            <h2 className="text-xl font-black text-white uppercase">{selectedTarget.alias}</h2>
-            <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-2">
-                 <label className="text-[10px] uppercase text-text-muted">Scale Factor</label>
-                 <input type="number" value={editScale} onChange={(e) => setEditScale(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-white" />
-               </div>
-               <div className="space-y-2">
-                 <label className="text-[10px] uppercase text-text-muted">Max SOL</label>
-                 <input type="number" value={editMax} onChange={(e) => setEditMax(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-white" />
-               </div>
+      <div className="lg:w-[300px] bg-background-card border border-white/5 rounded-2xl flex flex-col shrink-0 overflow-hidden shadow-xl h-full relative">
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-20" />
+        
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] px-4">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
+              <Users size={18} />
             </div>
-            <button onClick={handleUpdateConfig} className="w-full py-3 bg-accent-purple text-white rounded-xl font-bold uppercase tracking-widest hover:bg-purple-500 transition-all">Save Config</button>
+            <div>
+              <h2 className="text-sm font-bold text-white leading-none uppercase tracking-tight">TARGETS</h2>
+              <span className="text-[8px] text-text-muted uppercase tracking-[0.2em] mt-1 block">Wallets</span>
+            </div>
           </div>
-        ) : (
-          <div className="h-full flex items-center justify-center text-text-muted italic">Select a target wallet</div>
-        )}
+        </div>
+
+        <div className="flex-1 overflow-auto custom-scrollbar p-4 space-y-2">
+          {targets?.map(t => (
+            <button key={t.address} onClick={() => setSelectedAddress(t.address)} className={cn("w-full p-2 rounded-lg text-left text-[10px] border", selectedAddress === t.address ? "bg-accent-cyan/10 border-accent-cyan/30" : "bg-white/5 border-transparent")}>
+              <div className="font-bold text-white">{t.alias}</div>
+              <div className="text-text-muted truncate">{t.address}</div>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 flex flex-col gap-4 overflow-auto custom-scrollbar">
-        <h2 className="text-sm font-bold text-white uppercase flex items-center gap-2">
-          <Activity size={16} /> Signals
-        </h2>
-        <div className="space-y-2">
+      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl flex flex-col overflow-hidden shadow-xl h-full relative">
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-cyan opacity-50 z-20" />
+        
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] px-4">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple">
+              <Activity size={18} />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white leading-none uppercase tracking-tight">PARAMETERS</h2>
+              <span className="text-[8px] text-text-muted uppercase tracking-[0.2em] mt-1 block">Config</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto custom-scrollbar p-6">
+          {selectedTarget ? (
+            <div className="space-y-6">
+              <h2 className="text-xl font-black text-white uppercase">{selectedTarget.alias}</h2>
+              <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-2">
+                   <label className="text-[10px] uppercase text-text-muted">Scale Factor</label>
+                   <input type="number" value={editScale} onChange={(e) => setEditScale(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-white" />
+                 </div>
+                 <div className="space-y-2">
+                   <label className="text-[10px] uppercase text-text-muted">Max SOL</label>
+                   <input type="number" value={editMax} onChange={(e) => setEditMax(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-white" />
+                 </div>
+              </div>
+              <button onClick={handleUpdateConfig} className="w-full py-3 bg-accent-purple text-white rounded-xl font-bold uppercase tracking-widest hover:bg-purple-500 transition-all">Save Config</button>
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center text-text-muted italic">Select a target wallet</div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl flex flex-col overflow-hidden shadow-xl h-full relative">
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-pink opacity-50 z-20" />
+        
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] px-4">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
+              <Activity size={18} />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white leading-none uppercase tracking-tight">SIGNALS</h2>
+              <span className="text-[8px] text-text-muted uppercase tracking-[0.2em] mt-1 block">Activity</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto custom-scrollbar p-4 space-y-2">
           {signals?.map(s => (
             <div key={s.signature} className="p-2 bg-white/5 rounded-lg text-[10px] flex flex-col gap-1">
               <div className="flex justify-between font-bold">

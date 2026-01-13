@@ -1,6 +1,7 @@
 import React from 'react'
 import { NavigationWidget } from '../widgets/NavigationWidget'
 import { Header } from './Header'
+import { NotificationToast } from '../shared/NotificationToast'
 
 interface MainLayoutProps {
   children: React.ReactNode
@@ -19,6 +20,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
            {children}
          </main>
       </div>
+      <NotificationToast />
     </div>
   )
 }

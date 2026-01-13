@@ -69,6 +69,7 @@ def api_dca_add():
         "run_count": 0,
         "total_bought": 0.0,
         "total_cost": 0.0,
+        "avg_buy_price": 0.0,
         "profit_realized": 0.0,
         "next_run": time.time() + 5
     }

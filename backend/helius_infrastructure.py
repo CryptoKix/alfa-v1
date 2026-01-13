@@ -579,7 +579,7 @@ class HeliusWebSocket:
 
             # Handle subscription notification
             if "method" in data and data["method"].endswith("Notification"):
-                print(f"DEBUG: WS Notification: {data['method']}")
+                print(f"DEBUG: WS Notification: {data['method']} for sub {data.get('params', {}).get('subscription')}")
                 await self._handle_notification(data)
                 return
 

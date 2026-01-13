@@ -6,7 +6,7 @@ import { TradeEntryWidget } from '@/components/widgets/TradeEntryWidget'
 export default function TradePage() {
   return (
     <MainLayout>
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 h-full">
         {/* Main Content (Left) */}
         <div className="lg:col-span-8 flex flex-col gap-2">
           <ChartWidget />

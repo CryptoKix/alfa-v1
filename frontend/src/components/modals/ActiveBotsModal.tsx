@@ -26,7 +26,8 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
   const completedBots = filteredBots.filter(b => b.status === 'completed')
 
   const toggleExpand = (id: string, botType?: string) => {
-    if (botType?.toLowerCase() !== 'grid') return
+    const type = botType?.toLowerCase()
+    if (type !== 'grid' && type !== 'twap') return
     setExpandedBotId(prev => prev === id ? null : id)
   }
 
@@ -110,7 +111,12 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
                              )}>
                                {bot.type || 'N/A'} | {bot.status}
                              </span>
-                             {isGrid && (
+                             {bot.phase === 'monitoring_profit' && (
+                               <span className="text-[8px] px-1.5 py-0.5 rounded bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/30 font-bold animate-pulse">
+                                 SNIPE MODE ACTIVE
+                               </span>
+                             )}
+                             {(isGrid || bot.type?.toLowerCase() === 'twap') && (
                                <div className={cn("transition-transform duration-500", isExpanded && "rotate-180")}>
                                  <ChevronDown size={18} className="text-text-muted" />
                                </div>
@@ -132,6 +138,33 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
                         </div>
                      </div>
                   </div>
+
+                  {/* TWAP Specific Details */}
+                  {bot.type?.toLowerCase() === 'twap' && (
+                     <div className="grid grid-cols-3 gap-4 py-3 border-y border-white/5 bg-black/30 rounded-xl px-4 text-left">
+                        <div>
+                           <div className="text-[8px] text-text-muted font-black uppercase tracking-widest mb-1 opacity-50 text-left">Progress</div>
+                           <div className="text-xs font-black font-mono text-white flex items-center gap-2">
+                             <span className="text-accent-cyan">{bot.run_count}</span>
+                             <span className="text-text-muted text-[10px]">/</span>
+                             <span className="text-white">{bot.max_runs}</span>
+                             <span className="text-[10px] text-text-muted">runs</span>
+                           </div>
+                        </div>
+                         <div>
+                           <div className="text-[8px] text-text-muted font-black uppercase tracking-widest mb-1 opacity-50 text-left">Avg Entry</div>
+                           <div className="text-xs font-black font-mono text-accent-purple">
+                             ${Number(bot.avg_buy_price || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}
+                           </div>
+                        </div>
+                        <div className="text-right">
+                           <div className="text-[8px] text-text-muted font-black uppercase tracking-widest mb-1 opacity-50">Accumulated</div>
+                           <div className="text-xs font-black font-mono text-accent-green">
+                             {Number(bot.total_bought || 0).toLocaleString(undefined, {maximumFractionDigits: 4})} {bot.output_symbol}
+                           </div>
+                        </div>
+                     </div>
+                  )}
 
                   {/* Grid Specific Details */}
                   {isGrid && (

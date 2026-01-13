@@ -20,6 +20,7 @@ def get_formatted_bots():
         if 'state_json' in bot_dict and bot_dict['state_json']:
             try: bot_dict.update(json.loads(bot_dict.pop('state_json', '{}')))
             except: pass
+        formatted.append(bot_dict)
     return formatted
 
 def process_grid_logic(bot, current_price):
@@ -71,31 +72,110 @@ def process_grid_logic(bot, current_price):
     except Exception as e: current_app.logger.error(f"Error: {e}")
     finally: bot_processing_lock.release()
 
+def process_twap_logic(bot, current_price):
+    """Process logic for active TWAP/DCA bots, including Snipe Profit."""
+    try:
+        config = json.loads(bot['config_json'])
+        state = json.loads(bot['state_json'])
+        
+        # 1. Monitoring Phase (Buy logic completed, waiting for Snipe)
+        if state.get('phase') == 'monitoring_profit':
+            avg_price = state.get('avg_buy_price', 0)
+            take_profit_pct = config.get('take_profit')
+            
+            if avg_price > 0 and take_profit_pct and take_profit_pct > 0:
+                target_price = avg_price * (1 + (take_profit_pct / 100))
+                
+                # Check trigger
+                if current_price >= target_price:
+                    current_app.logger.info(f"TWAP SNIPE TRIGGERED: {bot['output_symbol']} @ {current_price} (Target: {target_price})")
+                    total_tokens = state.get('total_bought', 0)
+                    
+                    if total_tokens > 0:
+                        try:
+                            # Sell ALL
+                            res = execute_trade_logic(bot['output_mint'], bot['input_mint'], total_tokens, "TWAP Snipe Exit", priority_fee=0.005)
+                            
+                            # Update State
+                            state['status'] = 'completed'
+                            state['phase'] = 'completed'
+                            state['profit_realized'] = res.get('usd_value', 0) - state.get('total_cost', 0)
+                            
+                            socketio.emit('notification', {
+                                'title': 'Snipe Profit Hit', 
+                                'message': f"Sold {total_tokens:.4f} {bot['output_symbol']} @ ${current_price:.2f}. Profit secured.", 
+                                'type': 'success'
+                            }, namespace='/bots')
+                            
+                            db.save_bot(bot['id'], bot['type'], bot['input_mint'], bot['output_mint'], bot['input_symbol'], bot['output_symbol'], config, state)
+                            socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+                            
+                        except Exception as e:
+                            current_app.logger.error(f"Snipe Sell Error: {e}")
+            return
+
+        # 2. Standard Execution Loop
+        now = time.time()
+        if now >= state.get('next_run', 0):
+            try:
+                res = execute_trade_logic(bot['input_mint'], bot['output_mint'], config['amount'], f"{bot['type']} Execution", priority_fee=0)
+                state['run_count'] += 1
+                state['total_cost'] += res.get('usd_value', 0)
+                state['total_bought'] += res.get('amount_out', 0)
+                
+                # Update Average Price
+                if state['total_bought'] > 0:
+                    state['avg_buy_price'] = state['total_cost'] / state['total_bought']
+
+                # Check for completion
+                if config.get('max_runs') and state['run_count'] >= config['max_runs']:
+                    # If Snipe Profit is set, switch to Monitoring Mode
+                    if config.get('take_profit') and config['take_profit'] > 0:
+                        state['phase'] = 'monitoring_profit'
+                        socketio.emit('notification', {
+                            'title': 'TWAP Accumulation Done', 
+                            'message': f"Entering Snipe Mode. Target: +{config['take_profit']}%", 
+                            'type': 'info'
+                        }, namespace='/bots')
+                    else:
+                        state['status'] = 'completed'
+                        socketio.emit('notification', {'title': 'Strategy Completed', 'message': f"{bot['type']} finished.", 'type': 'success'}, namespace='/bots')
+                else:
+                    state['next_run'] = now + (config['interval'] * 60)
+                
+                db.save_bot(bot['id'], bot['type'], bot['input_mint'], bot['output_mint'], bot['input_symbol'], bot['output_symbol'], config, state)
+                socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+            except Exception as e:
+                current_app.logger.error(f"Execution Error: {e}")
+                state['next_run'] = now + 60 # Retry in 1 minute
+
+    except Exception as e: current_app.logger.error(f"TWAP Logic Error: {e}")
+
 def update_bot_performance(bot, current_price):
     try:
         config, state = json.loads(bot['config_json']), json.loads(bot['state_json'])
         total_bought, total_cost = state.get('total_bought', 0), state.get('total_cost', 0)
-        if total_bought > 0:
-            state['profit_realized'] = (total_bought * current_price) - total_cost
-            db.save_bot(bot['id'], bot['type'], bot['input_mint'], bot['output_mint'], bot['input_symbol'], bot['output_symbol'], config, state)
+        
+        # Calculate unrealized PnL
+        current_val = total_bought * current_price
+        state['profit_realized'] = current_val - total_cost
+        
+        db.save_bot(bot['id'], bot['type'], bot['input_mint'], bot['output_mint'], bot['input_symbol'], bot['output_symbol'], config, state)
     except Exception as e: current_app.logger.error(f"Error: {e}")
 
 def dca_scheduler(app):
     while True:
         try:
             with app.app_context():
-                now = time.time()
+                from extensions import price_cache 
+                
                 for bot in db.get_all_bots():
                     if bot['status'] == 'active' and bot['type'] in ['DCA', 'TWAP', 'VWAP']:
-                        config, state = json.loads(bot['config_json']), json.loads(bot['state_json'])
-                        if now >= state.get('next_run', 0):
-                            res = execute_trade_logic(bot['input_mint'], bot['output_mint'], config['amount'], f"{bot['type']} Execution", priority_fee=0)
-                            state['run_count'] += 1
-                            state['total_cost'] += res.get('usd_value', 0)
-                            state['total_bought'] += res.get('amount_out', 0)
-                            if config.get('max_runs') and state['run_count'] >= config['max_runs']: state['status'] = 'completed'
-                            else: state['next_run'] = now + (config['interval'] * 60)
-                            db.save_bot(bot['id'], bot['type'], bot['input_mint'], bot['output_mint'], bot['input_symbol'], bot['output_symbol'], config, state)
-                            socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+                        current_price = 0
+                        if bot['output_mint'] in price_cache:
+                            current_price = price_cache[bot['output_mint']][0]
+                        
+                        process_twap_logic(bot, current_price)
+                        
         except Exception as e: app.logger.error(f"Scheduler Error: {e}")
         time.sleep(10)
