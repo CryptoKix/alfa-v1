@@ -54,13 +54,13 @@ export const Header = () => {
         <div className="flex items-center gap-4">
           {/* Status Indicators */}
           <div className="flex items-center gap-3 mr-2">
-            <div className="flex items-center gap-2 px-2 py-1 bg-white/5 rounded border border-white/10">
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-white/5 rounded-lg border border-white/10">
                <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", priceColor, pricePulse && "animate-pulse")} />
                <span className={cn("text-[8px] font-mono font-bold uppercase transition-colors duration-500", priceTextClass)}>
                  {priceStatusText}
                </span>
             </div>
-            <div className="flex items-center gap-2 px-2 py-1 bg-white/5 rounded border border-white/10">
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-white/5 rounded-lg border border-white/10">
                <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", webColor, webConnected && "animate-pulse")} />
                <span className={cn("text-[8px] font-mono font-bold uppercase transition-colors duration-500", webTextClass)}>
                  {webStatusText}
