@@ -9,7 +9,7 @@ export interface AppNotification {
   read: boolean
 }
 
-interface NotificationsState {
+export interface NotificationsState {
   notifications: AppNotification[]
 }
 

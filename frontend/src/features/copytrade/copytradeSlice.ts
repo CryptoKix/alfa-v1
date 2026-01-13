@@ -26,7 +26,7 @@ export interface CopySignal {
   received?: { mint: string; symbol: string; amount: number }
 }
 
-interface CopyTradeState {
+export interface CopyTradeState {
   targets: CopyTarget[]
   signals: CopySignal[]
   loading: boolean

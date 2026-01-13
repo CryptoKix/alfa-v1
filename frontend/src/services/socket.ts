@@ -27,17 +27,18 @@ export const initSockets = () => {
 
   // Portfolio listeners
   portfolioSocket.on('connect_error', (err) => {
-    console.error('[Socket] Portfolio Error:', err)
+    console.error('[Socket] Portfolio Connection Error:', err)
     store.dispatch(setWebConnection(false))
   })
   
   portfolioSocket.on('connect', () => {
-    console.log('[Socket] Portfolio Connected')
+    console.log('[Socket] Portfolio Connected | SID:', portfolioSocket.id)
     store.dispatch(setWebConnection(true))
     portfolioSocket.emit('request_balance')
   })
 
-  portfolioSocket.on('disconnect', () => {
+  portfolioSocket.on('disconnect', (reason) => {
+    console.warn('[Socket] Portfolio Disconnected:', reason)
     store.dispatch(setWebConnection(false))
   })
 
@@ -47,7 +48,7 @@ export const initSockets = () => {
 
   // Bots listeners
   botsSocket.on('connect', () => {
-    console.log('[Socket] Bots Connected')
+    console.log('[Socket] Bots Connected | SID:', botsSocket.id)
     botsSocket.emit('request_bots')
   })
 
@@ -65,7 +66,7 @@ export const initSockets = () => {
 
   // Copytrade listeners
   copytradeSocket.on('connect', () => {
-    console.log('[Socket] Copytrade Connected')
+    console.log('[Socket] Copytrade Connected | SID:', copytradeSocket.id)
     copytradeSocket.emit('request_targets')
     copytradeSocket.emit('request_signals')
   })
@@ -80,8 +81,6 @@ export const initSockets = () => {
 
   copytradeSocket.on('signal_detected', (data) => {
     store.dispatch(addSignal(data))
-    
-    // Also create a notification for signals
     const asset = data.received?.symbol || 'Asset'
     const amount = data.received?.amount !== undefined ? data.received.amount.toFixed(2) : '0.00'
     store.dispatch(addNotification({
@@ -93,7 +92,7 @@ export const initSockets = () => {
 
   // History listeners
   historySocket.on('connect', () => {
-    console.log('[Socket] History Connected')
+    console.log('[Socket] History Connected | SID:', historySocket.id)
     const state = store.getState()
     historySocket.emit('request_history', { wallet: state.portfolio.wallet !== '0x...' ? state.portfolio.wallet : null })
   })
@@ -104,18 +103,24 @@ export const initSockets = () => {
 
   // Price listeners
   priceSocket.on('connect', () => {
-    console.log('[Socket] Prices Connected')
+    console.log('[Socket] Prices Connected | SID:', priceSocket.id)
     store.dispatch(setPriceConnection(true))
   })
 
-  priceSocket.on('disconnect', () => {
+  priceSocket.on('connect_error', (err) => {
+    console.error('[Socket] Prices Connection Error:', err)
+    store.dispatch(setPriceConnection(false))
+  })
+
+  priceSocket.on('disconnect', (reason) => {
+    console.warn('[Socket] Prices Disconnected:', reason)
     store.dispatch(setPriceConnection(false))
   })
 
   priceSocket.on('price_update', (data: { mint: string; price: number }) => {
-    // console.log('[Socket] Price:', data.mint, data.price); 
+    console.log('[Socket] Price Update:', data.mint, data.price); 
     store.dispatch(updatePrice(data))
   })
 
-  return { portfolioSocket, priceSocket, historySocket, botsSocket }
+  return { portfolioSocket, priceSocket, historySocket, botsSocket, copytradeSocket }
 }

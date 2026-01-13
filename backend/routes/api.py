@@ -241,6 +241,7 @@ def internal_webhook():
             price_cache[mint] = (price, time.time())
 
         socketio.emit('price_update', {'mint': mint, 'price': price}, namespace='/prices')
+        print(f'DEBUG: Emitted price_update for {mint}')
 
         # Trigger grid bots
         for bot in db.get_all_bots():

@@ -201,17 +201,17 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
                     <div className="flex justify-end pt-2 gap-3" onClick={(e) => e.stopPropagation()}>
                        <button 
                           onClick={() => onPause(bot.id, bot.status)}
-                          className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-text-muted hover:text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-text-muted hover:text-white text-[10px] font-bold uppercase tracking-wider transition-colors"
                        >
-                          {bot.status === 'active' ? <Pause size={14} /> : <RefreshCw size={14} />}
-                          {bot.status === 'active' ? 'Pause Engine' : 'Resume Sync'}
+                          {bot.status === 'active' ? <Pause size={12} /> : <RefreshCw size={12} />}
+                          {bot.status === 'active' ? 'Pause' : 'Resume'}
                        </button>
                        <button 
                           onClick={() => onDelete(bot.id)}
-                          className="flex items-center gap-2 px-4 py-2 bg-accent-red/10 hover:bg-accent-red/20 border border-accent-red/30 rounded-xl text-accent-red text-[10px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-red/10 hover:bg-accent-red/20 border border-accent-red/20 rounded-lg text-accent-red text-[10px] font-bold uppercase tracking-wider transition-colors"
                        >
-                          <Trash2 size={14} />
-                          Decommission
+                          <Trash2 size={12} />
+                          Terminate
                        </button>
                     </div>
                   )}
