@@ -67,7 +67,7 @@ export const WalletModal = ({ isOpen, onClose }: WalletModalProps) => {
         className="bg-background-card border border-white/10 rounded-2xl w-full max-w-md relative overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink" />
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink" />
         
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/5">

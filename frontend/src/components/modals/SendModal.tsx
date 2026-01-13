@@ -91,7 +91,7 @@ export const SendModal = ({ isOpen, onClose }: SendModalProps) => {
         className="bg-background-card border border-white/15 rounded-3xl w-full max-w-md flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden animate-in zoom-in-95 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-accent-purple to-accent-cyan z-20" />
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-cyan z-20" />
         
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/5 shrink-0 bg-background-card relative z-10">

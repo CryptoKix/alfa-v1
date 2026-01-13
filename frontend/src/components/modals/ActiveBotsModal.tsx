@@ -39,7 +39,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
         className="bg-background-card border border-white/15 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink z-20" />
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink z-20" />
         
         {/* Header */}
         <div className="flex items-center justify-between p-8 border-b border-white/5 shrink-0 bg-background-card relative z-10">

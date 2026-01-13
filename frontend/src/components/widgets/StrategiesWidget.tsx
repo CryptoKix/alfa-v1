@@ -72,7 +72,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
 
   return (
     <div className="bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full shrink-0">
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50" />
+      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50" />
       
       <div className="flex items-center justify-between mb-3 border-b border-white/5 shrink-0 h-[30px]">
         <h3 className="text-sm font-bold flex items-center gap-2 text-white uppercase tracking-tight">

@@ -119,7 +119,7 @@ export const GridConfigWidget = () => {
       
       {/* COLUMN 1: Parameters */}
       <div className="lg:w-[380px] bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 shrink-0">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent-green to-accent-cyan opacity-50" />
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-green to-accent-cyan opacity-50" />
         
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
@@ -305,9 +305,9 @@ export const GridConfigWidget = () => {
         </button>
       </div>
 
-      {/* COLUMN 2: Output / Visualization */}
+      {/* COLUMN 2: Grid Levels Visualization */}
       <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent-cyan to-accent-purple opacity-50" />
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan to-accent-purple opacity-50" />
         
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
@@ -403,7 +403,7 @@ export const GridConfigWidget = () => {
 
       {/* COLUMN 3: Real-time Executions */}
       <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent-purple to-accent-pink opacity-50" />
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-pink opacity-50" />
         
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">

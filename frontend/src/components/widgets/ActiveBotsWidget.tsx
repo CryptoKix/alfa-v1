@@ -43,7 +43,7 @@ export const ActiveBotsWidget = ({ onViewAll }: { onViewAll?: () => void }) => {
 
   return (
     <div className="bg-background-card border border-white/5 rounded-2xl p-6 shadow-xl h-full flex flex-col relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent-green via-accent-cyan to-accent-purple opacity-50" />
+      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-green via-accent-cyan to-accent-purple opacity-50" />
       
       {/* Header */}
       <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px]">

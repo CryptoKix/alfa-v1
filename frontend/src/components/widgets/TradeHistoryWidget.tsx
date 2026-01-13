@@ -34,7 +34,7 @@ export const TradeHistoryWidget = () => {
   return (
     <>
       <div className="bg-background-card border border-white/5 rounded-2xl p-6 shadow-xl h-full flex flex-col relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50" />
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50" />
         
         <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px]">
           <h3 className="text-base font-bold flex items-center gap-2">
