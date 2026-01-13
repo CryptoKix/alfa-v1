@@ -422,7 +422,7 @@ export const GridConfigWidget = () => {
             {gridTrades.length > 0 ? (
               <div className="space-y-1">
                 {gridTrades.map(trade => (
-                  <div key={trade.id} className="grid grid-cols-[95px_90px_70px_1fr_45px] gap-2 items-end p-2 bg-background-elevated/30 border border-white/5 rounded-lg hover:bg-white/5 transition-all group font-mono whitespace-nowrap overflow-hidden">
+                  <div key={trade.id} className="grid grid-cols-[95px_90px_1fr_70px_45px] gap-2 items-end p-2 bg-background-elevated/30 border border-white/5 rounded-lg hover:bg-white/5 transition-all group font-mono whitespace-nowrap overflow-hidden">
                     <div className={cn(
                       "text-[11px] font-black uppercase tracking-tight shrink-0 leading-none transition-colors duration-500",
                       trade.status === 'success' ? "text-accent-green" : "text-text-muted"
@@ -445,16 +445,16 @@ export const GridConfigWidget = () => {
                       <span className="text-accent-cyan inline-block leading-none">{trade.output}</span>
                     </div>
 
-                    <div className="text-[10px] font-black text-white/60 leading-none shrink-0">
-                      {trade.usd_value && (trade.amount_in || trade.amount_out) ? (
-                        `@ ${((trade.usd_value / (['USDC', 'USDT'].includes(trade.output) ? trade.amount_in : trade.amount_out)) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      ) : '@ ---'}
-                    </div>
-
                     <div className="text-[11px] text-white/90 flex items-end gap-1.5 min-w-0 overflow-hidden leading-none">
                       <span className="font-bold shrink-0 leading-none">{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })} {trade.input}</span>
                       <span className="text-text-muted text-[9px] shrink-0 leading-none">→</span>
                       <span className="text-accent-cyan font-black truncate leading-none">{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })} {trade.output}</span>
+                    </div>
+
+                    <div className="text-[10px] font-black text-white/60 leading-none shrink-0">
+                      {trade.usd_value && (trade.amount_in || trade.amount_out) ? (
+                        `@ ${((trade.usd_value / (['USDC', 'USDT'].includes(trade.output) ? trade.amount_in : trade.amount_out)) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      ) : '@ ---'}
                     </div>
 
                     <div className="text-right shrink-0 leading-none">
