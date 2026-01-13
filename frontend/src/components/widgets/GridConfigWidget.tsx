@@ -422,8 +422,8 @@ export const GridConfigWidget = () => {
             {gridTrades.length > 0 ? (
               <div className="space-y-1">
                 {gridTrades.map(trade => (
-                  <div key={trade.id} className="grid grid-cols-[85px_90px_1fr_55px] gap-2 items-center p-2 bg-background-elevated/30 border border-white/5 rounded-lg hover:bg-white/5 transition-all group font-mono whitespace-nowrap overflow-hidden">
-                    <div className="text-[9px] font-black uppercase tracking-tight text-text-muted shrink-0">
+                  <div key={trade.id} className="grid grid-cols-[95px_90px_1fr_55px] gap-2 items-center p-2 bg-background-elevated/30 border border-white/5 rounded-lg hover:bg-white/5 transition-all group font-mono whitespace-nowrap overflow-hidden">
+                    <div className="text-[11px] font-black uppercase tracking-tight text-text-muted shrink-0">
                       {(() => {
                         if (!trade.timestamp) return '-'
                         const isoStr = trade.timestamp.replace(' ', 'T') + (trade.timestamp.includes('Z') ? '' : 'Z')

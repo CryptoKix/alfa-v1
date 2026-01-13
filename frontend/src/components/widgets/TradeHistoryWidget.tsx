@@ -50,7 +50,7 @@ export const TradeHistoryWidget = () => {
         </div>
 
         {/* Table Header */}
-        <div className="grid grid-cols-[90px_100px_1fr_70px] gap-4 px-3 pb-2 mr-[6px] text-[9px] font-black text-text-muted uppercase tracking-[0.2em] shrink-0">
+        <div className="grid grid-cols-[100px_100px_1fr_70px] gap-4 px-3 pb-2 mr-[6px] text-[9px] font-black text-text-muted uppercase tracking-[0.2em] shrink-0">
           <div>Timestamp</div>
           <div>Asset Pair</div>
           <div>Execution Detail</div>
@@ -68,8 +68,8 @@ export const TradeHistoryWidget = () => {
                 const isSuccess = trade.status === 'success'
                 
                 return (
-                  <div key={trade.id} className="grid grid-cols-[90px_100px_1fr_70px] gap-4 items-center p-2.5 rounded-xl bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group text-xs font-mono whitespace-nowrap overflow-hidden">
-                    <div className="text-text-muted font-bold shrink-0 text-[10px]">{formatTimestamp(trade.timestamp)}</div>
+                  <div key={trade.id} className="grid grid-cols-[100px_100px_1fr_70px] gap-4 items-center p-2.5 rounded-xl bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group text-xs font-mono whitespace-nowrap overflow-hidden">
+                    <div className="text-text-muted font-black shrink-0 text-[11px]">{formatTimestamp(trade.timestamp)}</div>
                     
                     <div className="flex items-center gap-1 font-black uppercase tracking-tighter shrink-0 text-[11px] leading-none">
                       <span className="text-accent-pink inline-block leading-none">{trade.input}</span>
