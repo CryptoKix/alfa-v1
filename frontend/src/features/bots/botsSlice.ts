@@ -19,6 +19,7 @@ export interface Bot {
   // Strategy specific fields (optional as they depend on type)
   lower_bound?: number
   upper_bound?: number
+  steps?: number
   profit_realized?: number
   run_count?: number
   amount?: number

@@ -88,13 +88,13 @@ export const ActiveBotsWidget = ({ onViewAll }: { onViewAll?: () => void }) => {
         ) : (
           runningBots.map(bot => {
             const isExpanded = expandedBotId === bot.id
-            const isGrid = bot.type.toUpperCase() === 'GRID'
+            const isGrid = bot.type?.toUpperCase() === 'GRID'
             const gridLevels = bot.grid_levels || []
 
             return (
             <div 
                 key={bot.id} 
-                onClick={() => toggleExpand(bot.id, bot.type)}
+                onClick={() => toggleExpand(bot.id, bot.type || '')}
                 className={cn(
                     "flex flex-col p-2 rounded-lg bg-background-elevated/30 border border-white/5 transition-colors group text-[11px] font-mono",
                     isGrid ? "hover:border-white/20 cursor-pointer" : ""
@@ -111,7 +111,7 @@ export const ActiveBotsWidget = ({ onViewAll }: { onViewAll?: () => void }) => {
 
                     {/* Type */}
                     <div className="text-accent-cyan font-bold uppercase text-[9px] flex items-center gap-1">
-                        {bot.type}
+                        {bot.type || 'N/A'}
                         {isGrid && (
                             isExpanded ? <ChevronUp size={10} className="text-text-muted" /> : <ChevronDown size={10} className="text-text-muted" />
                         )}

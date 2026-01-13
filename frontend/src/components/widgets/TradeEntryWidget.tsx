@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ArrowUpDown, Info, Zap, ChevronDown, Plus, Minus } from 'lucide-react'
+import { ArrowUpDown, Info, Zap, ChevronDown, Plus, Minus, Activity } from 'lucide-react'
 import { useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 

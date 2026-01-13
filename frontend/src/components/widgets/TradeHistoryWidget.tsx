@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { History, ExternalLink, ArrowRight } from 'lucide-react'
+import { useState } from 'react'
+import { History } from 'lucide-react'
 import { useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { HistoryModal } from '../modals/HistoryModal'

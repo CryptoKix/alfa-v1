@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Settings2, Play, Plus, Minus, Clock, Target, ChevronDown, Activity } from 'lucide-react'
+import { Play, Clock, Target, ChevronDown, Activity } from 'lucide-react'
 import { useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 

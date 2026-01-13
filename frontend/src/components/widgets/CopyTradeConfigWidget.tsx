@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Settings2, Plus, Minus, Users, Target, Activity, Trash2, Edit2, Play, Pause, Zap, ExternalLink } from 'lucide-react'
+import { Users, Activity } from 'lucide-react'
 import { useAppSelector, useAppDispatch } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { setTargets, setSignals } from '@/features/copytrade/copytradeSlice'
@@ -10,10 +10,6 @@ export const CopyTradeConfigWidget = () => {
   const { targets, signals } = useAppSelector(state => state.copytrade)
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null)
   
-  const [newAddress, setNewAddress] = useState('')
-  const [newAlias, setNewAlias] = useState('')
-  const [isAdding, setIsAdding] = useState(false)
-
   const selectedTarget = useMemo(() => targets?.find(t => t.address === selectedAddress), [targets, selectedAddress])
   const [editScale, setEditScale] = useState('0.1')
   const [editMax, setEditMax] = useState('1.0')

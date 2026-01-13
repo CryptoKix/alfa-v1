@@ -1,4 +1,4 @@
-import { Activity, Zap, Bot, Users, Layers, TrendingUp, Info } from 'lucide-react'
+import { Activity, Zap, Bot, Users, Layers, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppSelector } from '@/app/hooks'
 
@@ -60,10 +60,11 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
   // Calculate Strategy-Specific PnL Metrics
   const metrics = (bots || []).reduce((acc, bot) => {
     if (bot && bot.type?.toLowerCase() === selectedId) {
+      const pnl = Number(bot.profit_realized) || 0
       if (bot.status === 'active') {
-        acc.unrealized += (bot.profit_realized || 0)
+        acc.unrealized += pnl
       } else if (bot.status === 'completed') {
-        acc.realized += (bot.profit_realized || 0)
+        acc.realized += pnl
       }
     }
     return acc
@@ -87,7 +88,6 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
           {STRATEGIES.map((strat) => {
             const isActive = bots?.some((b: any) => b?.type?.toLowerCase() === strat.id && b.status === 'active')
             const isSelected = selectedId === strat.id
-            const colorClass = strat.color
             
             return (
               <button

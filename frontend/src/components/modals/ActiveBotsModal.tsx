@@ -1,9 +1,25 @@
+import { useState } from 'react'
+import { createPortal } from 'react-dom'
+import { X, Trash2, Activity, Pause, RefreshCw, ChevronDown, Plus } from 'lucide-react'
+import { Bot } from '@/features/bots/botsSlice'
+import { cn } from '@/lib/utils'
+
+interface ActiveBotsModalProps {
+  isOpen: boolean
+  onClose: () => void
+  bots: Bot[]
+  type: string
+  onDelete: (id: string) => void
+  onPause: (id: string, currentStatus: string) => void
+  onCreateNew: () => void
+}
+
 export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, onPause, onCreateNew }: ActiveBotsModalProps) => {
   const [expandedBotId, setExpandedBotId] = useState<string | null>(null)
   
   if (!isOpen) return null
   
-  const safeType = type || 'all'
+  const safeType = String(type || 'all')
   const isAll = safeType.toLowerCase() === 'all'
   const filteredBots = (bots || []).filter(b => b && (isAll || (b.type?.toLowerCase() === safeType.toLowerCase())) && b.status !== 'deleted')
   const activeBots = filteredBots.filter(b => b.status === 'active')
@@ -14,7 +30,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
     setExpandedBotId(prev => prev === id ? null : id)
   }
 
-  return (
+  const modalContent = (
     <div 
       className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300"
       onClick={onClose}
@@ -109,7 +125,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
                      <div className="text-right">
                         <div className="text-xl font-black font-mono text-accent-cyan tracking-tighter flex items-center justify-end gap-1">
                            <span className="text-[10px] opacity-50">$</span>
-                           {(bot.profit_realized || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                           {Number(bot.profit_realized || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
                         </div>
                         <div className="text-[9px] text-text-muted font-black uppercase tracking-[0.2em] mt-0.5">
                           {bot.status === 'completed' ? 'Realized PnL' : bot.status === 'active' ? 'Unrealized PnL' : 'Tactical Yield'}
@@ -123,21 +139,21 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
                         <div>
                            <div className="text-[8px] text-text-muted font-black uppercase tracking-widest mb-1 opacity-50">Range Protocol</div>
                            <div className="text-xs font-black font-mono text-white flex items-center gap-2">
-                             <span className="text-accent-cyan">${(bot as any).lower_bound}</span>
+                             <span className="text-accent-cyan">${bot.lower_bound}</span>
                              <span className="text-text-muted text-[10px]">---</span>
-                             <span className="text-accent-pink">${(bot as any).upper_bound}</span>
+                             <span className="text-accent-pink">${bot.upper_bound}</span>
                            </div>
                         </div>
                          <div>
                            <div className="text-[8px] text-text-muted font-black uppercase tracking-widest mb-1 opacity-50">Density</div>
                            <div className="text-xs font-black font-mono text-white">
-                             {(bot as any).steps} <span className="text-[10px] text-text-muted">LVLS</span>
+                             {bot.steps} <span className="text-[10px] text-text-muted">LVLS</span>
                            </div>
                         </div>
                         <div className="text-right">
                            <div className="text-[8px] text-text-muted font-black uppercase tracking-widest mb-1 opacity-50">Execution Count</div>
                            <div className="text-xs font-black font-mono text-accent-green">
-                             {(bot as any).run_count || 0}
+                             {bot.run_count || 0}
                            </div>
                         </div>
                      </div>
@@ -155,7 +171,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
                             {[...gridLevels].reverse().map((level, i) => (
                                 <div key={i} className={cn(
                                     "grid grid-cols-3 gap-4 px-4 py-2.5 rounded-xl text-xs items-center transition-all duration-300 border font-mono",
-                                    level.has_position ? "bg-accent-green/5 text-accent-green border-accent-green/20" : "bg-black/40 text-text-secondary border-white/5"
+                                    level.has_position ? "bg-accent-green/5 text-accent-green border-accent-green/20 shadow-[inset_0_0_15px_rgba(0,255,157,0.05)]" : "bg-black/40 text-text-secondary border-white/5"
                                 )}>
                                     <div className="font-black tracking-tight">${level.price.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
                                     <div className="uppercase text-[9px] font-black tracking-widest">
@@ -221,4 +237,6 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
       </div>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }
