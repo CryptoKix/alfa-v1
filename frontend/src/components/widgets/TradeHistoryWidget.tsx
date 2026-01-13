@@ -55,14 +55,11 @@ export const TradeHistoryWidget = () => {
         </div>
 
         {/* Table Header */}
-        <div className="grid grid-cols-[60px_160px_1fr_80px_80px_80px_80px] gap-4 px-2.5 pb-2 mr-[6px] text-[9px] font-bold text-text-muted uppercase tracking-wider shrink-0">
+        <div className="grid grid-cols-[70px_100px_1fr_70px] gap-4 px-3 pb-2 mr-[6px] text-[9px] font-black text-text-muted uppercase tracking-[0.2em] shrink-0">
           <div>Time</div>
-          <div>Source</div>
-          <div>Action</div>
-          <div className="text-left">Price</div>
-          <div className="text-left">Value</div>
-          <div className="text-left">Fee</div>
-          <div className="text-left">Status</div>
+          <div>Asset Pair</div>
+          <div>Execution Detail</div>
+          <div className="text-right">Status</div>
         </div>
 
         <div className="flex-1 relative min-h-0">
@@ -74,55 +71,30 @@ export const TradeHistoryWidget = () => {
             ) : (
               history.map((trade) => {
                 const isSuccess = trade.status === 'success'
-                const isOutputStable = ['USDC', 'USDT', 'USD'].includes(trade.output)
-                const targetAmount = isOutputStable ? trade.amount_in : trade.amount_out
-                const impliedPrice = trade.usd_value > 0 && targetAmount > 0 
-                  ? trade.usd_value / targetAmount 
-                  : 0
-
+                
                 return (
-                  <div key={trade.id} className="grid grid-cols-[60px_160px_1fr_80px_80px_80px_80px] gap-4 items-center p-2 rounded-lg bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-colors group text-[11px] font-mono">
-                    <div className="text-text-muted">{formatTimeAgo(trade.timestamp, now)}</div>
+                  <div key={trade.id} className="grid grid-cols-[70px_100px_1fr_70px] gap-4 items-center p-2.5 rounded-xl bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group text-[10px] font-mono">
+                    <div className="text-text-muted font-bold">{formatTimeAgo(trade.timestamp, now)}</div>
                     
-                    <div className="flex items-center gap-1.5 overflow-hidden">
-                      <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", isSuccess ? "bg-accent-cyan" : "bg-accent-red")} />
-                      <span className="uppercase font-bold text-white/80 whitespace-nowrap">
-                        {(trade.source || 'Manual').replace(/(\d+\.\d{2})\d+/, '$1')}
-                      </span>
+                    <div className="flex items-center gap-1.5 font-black uppercase tracking-tighter">
+                      <span className="text-accent-cyan">{trade.output}</span>
+                      <span className="text-text-muted opacity-30">/</span>
+                      <span className="text-accent-pink">{trade.input}</span>
                     </div>
 
-                    <div className="flex items-center gap-2 truncate text-white">
-                       <span className={cn(isSuccess ? "text-accent-pink" : "text-text-muted")}>{formatAmount(trade.amount_in)} {trade.input}</span>
-                       <ArrowRight size={10} className="text-text-muted shrink-0" />
-                       <span className={cn(isSuccess ? "text-accent-cyan" : "text-text-muted")}>{formatAmount(trade.amount_out)} {trade.output}</span>
+                    <div className="truncate text-white flex items-center gap-2">
+                       <span className="font-bold">{formatAmount(trade.amount_in)} {trade.input}</span>
+                       <span className="text-text-muted lowercase font-normal italic">for</span>
+                       <span className="text-accent-cyan font-black">{formatAmount(trade.amount_out)} {trade.output}</span>
                     </div>
 
-                    <div className="text-left text-text-muted">
-                      {impliedPrice > 0 ? `$${impliedPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}
-                    </div>
-
-                    <div className="text-left font-bold text-white">
-                      ${trade.usd_value?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </div>
-
-                    <div className="text-left text-text-muted text-[10px]">
-                      {trade.priority_fee ? `${trade.priority_fee} SOL` : '-'}
-                    </div>
-
-                    <div className="flex items-center justify-start gap-2">
-                       <span className={cn("uppercase font-bold text-[9px]", isSuccess ? "text-accent-green" : "text-accent-red")}>
+                    <div className="text-right">
+                       <span className={cn(
+                         "uppercase font-black text-[8px] tracking-widest px-1.5 py-0.5 rounded border leading-none", 
+                         isSuccess ? "text-accent-green border-accent-green/20 bg-accent-green/5" : "text-accent-red border-accent-red/20 bg-accent-red/5"
+                       )}>
                          {trade.status}
                        </span>
-                       {trade.signature && (
-                         <a 
-                           href={`https://solscan.io/tx/${trade.signature}`} 
-                           target="_blank" 
-                           rel="noreferrer"
-                           className="text-text-muted hover:text-white transition-colors"
-                         >
-                           <ExternalLink size={12} />
-                         </a>
-                       )}
                     </div>
                   </div>
                 )

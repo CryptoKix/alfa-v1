@@ -420,26 +420,36 @@ export const GridConfigWidget = () => {
         <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
           <div className="flex-1 overflow-auto custom-scrollbar p-3">
             {gridTrades.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {gridTrades.map(trade => (
-                  <div key={trade.id} className="flex items-center justify-between p-2.5 bg-background-elevated/30 border border-white/5 rounded-lg hover:bg-white/5 transition-colors">
-                    <div className="flex flex-col">
-                      <div className="text-[10px] font-mono text-white flex items-center gap-1">
-                        <span className="text-accent-cyan">{trade.output}</span>
-                        <span className="text-text-muted">/</span>
-                        <span className="text-accent-pink">{trade.input}</span>
+                  <div key={trade.id} className="p-2 bg-background-elevated/30 border border-white/5 rounded-lg hover:bg-white/5 transition-all group flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="text-[8px] font-black uppercase tracking-widest text-text-muted">
+                          {(() => {
+                            if (!trade.timestamp) return '-'
+                            const isoStr = trade.timestamp.replace(' ', 'T') + (trade.timestamp.includes('Z') ? '' : 'Z')
+                            const date = new Date(isoStr)
+                            return isNaN(date.getTime()) ? '-' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+                          })()}
+                        </div>
+                        <div className="flex items-center gap-1 font-black text-[9px] uppercase tracking-tighter">
+                          <span className="text-accent-cyan">{trade.output}</span>
+                          <span className="text-text-muted opacity-30">/</span>
+                          <span className="text-accent-pink">{trade.input}</span>
+                        </div>
                       </div>
-                      <div className="text-[8px] text-text-muted uppercase tracking-widest mt-0.5">{trade.source.replace('Grid ', '')}</div>
+                      <div className={cn(
+                        "text-[7px] font-black uppercase tracking-widest px-1 py-0.5 rounded border leading-none",
+                        trade.status === 'success' ? "text-accent-green border-accent-green/20 bg-accent-green/5" : "text-accent-red border-accent-red/20 bg-accent-red/5"
+                      )}>
+                        {trade.status}
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-[10px] font-mono font-bold text-white">
-                        {trade.source?.includes('Initial') ? (
-                          <span className="text-accent-cyan">${trade.usd_value?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                        ) : (
-                          `$${trade.usd_value?.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-                        )}
-                      </div>
-                      <div className={cn("text-[8px] font-bold uppercase", trade.status === 'success' ? 'text-accent-green' : 'text-accent-red')}>{trade.status}</div>
+                    <div className="text-[10px] font-mono text-white/90 truncate flex items-center gap-1.5">
+                      <span className="font-bold">{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 4 })} {trade.input}</span>
+                      <span className="text-text-muted lowercase italic text-[8px]">for</span>
+                      <span className="text-accent-cyan font-black">{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 4 })} {trade.output}</span>
                     </div>
                   </div>
                 ))}
