@@ -59,7 +59,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
 
   // Calculate Strategy-Specific PnL Metrics
   const metrics = (bots || []).reduce((acc, bot) => {
-    if (bot.type?.toLowerCase() === selectedId) {
+    if (bot && bot.type?.toLowerCase() === selectedId) {
       if (bot.status === 'active') {
         acc.unrealized += (bot.profit_realized || 0)
       } else if (bot.status === 'completed') {
