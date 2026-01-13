@@ -71,7 +71,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
 
       <div className="flex-1 flex gap-6 min-h-0">
         {/* Left Side: 3x2 Grid */}
-        <div className="grid grid-cols-3 gap-3 flex-[3]">
+        <div className="grid grid-cols-3 gap-2 flex-[3]">
           {STRATEGIES.map((strat) => {
             const isActive = bots?.some((b: any) => b?.type?.toLowerCase() === strat.id && b.status === 'active')
             const isSelected = selectedId === strat.id
@@ -83,8 +83,8 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                 key={strat.id}
                 onClick={() => onSelect?.(strat.id)}
                 className={cn(
-                  "group/btn relative h-20 transition-all duration-500 overflow-hidden",
-                  "transform hover:scale-[1.05] active:scale-95",
+                  "group/btn relative h-[52px] transition-all duration-500 overflow-hidden",
+                  "transform hover:scale-[1.03] active:scale-95",
                   isSelected ? "z-20" : "z-10"
                 )}
               >
@@ -92,9 +92,8 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                 <div className={cn(
                   "absolute inset-0 border transition-all duration-500",
                   isSelected 
-                    ? `bg-background-elevated border-accent-${glowColor} shadow-[inset_0_0_20px_rgba(var(--color-accent-${glowColor}-rgb),0.2)]` 
+                    ? `bg-background-elevated border-accent-${glowColor} shadow-[inset_0_0_15px_rgba(var(--color-accent-${glowColor}-rgb),0.15)]` 
                     : "bg-white/[0.03] border-white/10 group-hover/btn:border-white/30",
-                  // Angled corner effect via clip-path
                   "clip-path-polygon-[0%_0%,100%_0%,100%_75%,85%_100%,0%_100%]"
                 )} 
                 style={{
@@ -104,30 +103,29 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                 {/* Internal Glow / Light Leak */}
                 <div className={cn(
                   "absolute top-0 left-0 w-full h-0.5 transition-opacity duration-500",
-                  isSelected ? `bg-accent-${glowColor} opacity-100 shadow-[0_0_15px_rgba(var(--color-accent-${glowColor}-rgb),0.8)]` : "bg-white/20 opacity-0 group-hover/btn:opacity-50"
+                  isSelected ? `bg-accent-${glowColor} opacity-100 shadow-[0_0_10px_rgba(var(--color-accent-${glowColor}-rgb),0.6)]` : "bg-white/20 opacity-0 group-hover/btn:opacity-50"
                 )} />
 
                 {/* Content Container */}
-                <div className="relative h-full w-full flex flex-col items-center justify-center gap-1 pb-2">
+                <div className="relative h-full w-full flex flex-col items-center justify-center gap-0.5 pb-1">
                   {isActive && (
-                    <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                    <div className="absolute top-1 left-1.5 flex items-center gap-1">
                       <div className="w-1 h-1 rounded-full bg-accent-green animate-ping absolute" />
                       <div className="w-1 h-1 rounded-full bg-accent-green relative" />
-                      <span className="text-[6px] font-black text-accent-green tracking-tighter animate-pulse">LIVE</span>
                     </div>
                   )}
 
                   <strat.icon 
-                    size={24} 
+                    size={18} 
                     className={cn(
                       "transition-all duration-500", 
                       isSelected ? colorClass : "text-text-muted group-hover/btn:text-white",
-                      "group-hover/btn:drop-shadow-[0_0_8px_currentColor]"
+                      "group-hover/btn:drop-shadow-[0_0_5px_currentColor]"
                     )} 
                   />
                   
                   <div className={cn(
-                    "text-[10px] font-black uppercase tracking-[0.25em] transition-all duration-500", 
+                    "text-[8px] font-black uppercase tracking-[0.2em] transition-all duration-500", 
                     (isActive || isSelected) ? "text-white" : "text-text-muted group-hover/btn:text-text-secondary"
                   )}>
                     {strat.label}
@@ -137,7 +135,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                 {/* Interaction Overlay */}
                 <div className={cn(
                   "absolute inset-0 bg-gradient-to-br transition-opacity duration-500 pointer-events-none",
-                  isSelected ? `from-accent-${glowColor}/20 to-transparent opacity-100` : "opacity-0 group-hover/btn:opacity-5"
+                  isSelected ? `from-accent-${glowColor}/15 to-transparent opacity-100` : "opacity-0 group-hover/btn:opacity-5"
                 )} />
               </button>
             )
