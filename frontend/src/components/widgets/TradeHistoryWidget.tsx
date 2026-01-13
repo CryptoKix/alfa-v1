@@ -14,27 +14,22 @@ const formatAmount = (num: number | undefined) => {
   })
 }
 
-const formatTimeAgo = (dateStr: string, nowMs: number) => {
+const formatTimestamp = (dateStr: string) => {
   if (!dateStr) return '-'
   const isoStr = dateStr.replace(' ', 'T') + (dateStr.includes('Z') ? '' : 'Z')
   const date = new Date(isoStr)
   if (isNaN(date.getTime())) return '-'
-  const diff = Math.floor((nowMs - date.getTime()) / 1000)
-  if (diff < 60) return `${Math.max(0, diff)}s`
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
-  return `${Math.floor(diff / 86400)}d`
+  
+  const d = date.getDate().toString().padStart(2, '0')
+  const m = (date.getMonth() + 1).toString().padStart(2, '0')
+  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+  
+  return `${m}/${d} ${time}`
 }
 
 export const TradeHistoryWidget = () => {
   const { history } = useAppSelector(state => state.portfolio)
-  const [now, setNow] = useState(Date.now())
   const [isModalOpen, setIsModalOpen] = useState(false)
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 1000) // Update every second for 's ago'
-    return () => clearInterval(interval)
-  }, [])
 
   return (
     <>
@@ -48,15 +43,15 @@ export const TradeHistoryWidget = () => {
           </h3>
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="text-[9px] uppercase tracking-[0.2em] text-text-muted hover:text-accent-cyan transition-colors font-bold"
+            className="text-[9px] uppercase tracking-[0.2em] text-text-muted hover:text-white transition-colors font-bold"
           >
             View All
           </button>
         </div>
 
         {/* Table Header */}
-        <div className="grid grid-cols-[70px_100px_1fr_70px] gap-4 px-3 pb-2 mr-[6px] text-[9px] font-black text-text-muted uppercase tracking-[0.2em] shrink-0">
-          <div>Time</div>
+        <div className="grid grid-cols-[90px_100px_1fr_70px] gap-4 px-3 pb-2 mr-[6px] text-[9px] font-black text-text-muted uppercase tracking-[0.2em] shrink-0">
+          <div>Timestamp</div>
           <div>Asset Pair</div>
           <div>Execution Detail</div>
           <div className="text-right">Status</div>
@@ -73,8 +68,8 @@ export const TradeHistoryWidget = () => {
                 const isSuccess = trade.status === 'success'
                 
                 return (
-                  <div key={trade.id} className="grid grid-cols-[60px_100px_1fr_70px] gap-3 items-center p-2.5 rounded-xl bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group text-xs font-mono whitespace-nowrap overflow-hidden">
-                    <div className="text-text-muted font-bold shrink-0 text-[11px]">{formatTimeAgo(trade.timestamp, now)}</div>
+                  <div key={trade.id} className="grid grid-cols-[90px_100px_1fr_70px] gap-4 items-center p-2.5 rounded-xl bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group text-xs font-mono whitespace-nowrap overflow-hidden">
+                    <div className="text-text-muted font-bold shrink-0 text-[10px]">{formatTimestamp(trade.timestamp)}</div>
                     
                     <div className="flex items-center gap-1 font-black uppercase tracking-tighter shrink-0 text-[11px]">
                       <span className="text-accent-cyan">{trade.output}</span>
