@@ -3,6 +3,7 @@ import json
 import logging
 import threading
 import time
+import re
 from typing import List, Dict, Any
 from functools import partial
 from helius_infrastructure import HeliusClient, Programs, SubscriptionType
@@ -63,6 +64,7 @@ class CopyTraderEngine:
                     await asyncio.sleep(0.1)
 
                     if WALLET_ADDRESS and WALLET_ADDRESS != "Unknown":
+                        logger.info(f"📡 Subscribing to USER wallet: {WALLET_ADDRESS[:8]}...")
                         await ws.subscribe_logs(
                             partial(self.handle_user_wallet_logs, WALLET_ADDRESS),
                             mentions=[WALLET_ADDRESS],
@@ -70,15 +72,18 @@ class CopyTraderEngine:
                         )
 
                     target_addresses = list(self.active_targets.keys())
-                    for address in target_addresses:
-                        try:
-                            await ws.subscribe_logs(
-                                partial(self.handle_transaction_logs, address),
-                                mentions=[address],
-                                commitment="confirmed"
-                            )
-                        except Exception as e:
-                            logger.error(f"Subscription failed for {address}: {e}")
+                    if target_addresses:
+                        logger.info(f"📡 Subscribing to logs for {len(target_addresses)} targets")
+                        for address in target_addresses:
+                            try:
+                                await ws.subscribe_logs(
+                                    partial(self.handle_transaction_logs, address),
+                                    mentions=[address],
+                                    commitment="confirmed"
+                                )
+                                logger.info(f"✅ Subscribed to target {address[:8]}...")
+                            except Exception as e:
+                                logger.error(f"Subscription failed for {address}: {e}")
                     
                     await run_task
             except Exception as e:
@@ -107,71 +112,63 @@ class CopyTraderEngine:
             return f"{mint[:4]}..."
         except: return f"{mint[:4]}..."
 
-    def decode_transaction_changes(self, signature: str, wallet_address: str):
-        """Decode balance changes for a specific wallet address from a transaction."""
-        for attempt in range(5): # Increased attempts
-            try:
-                tx = self.helius.rpc.get_transaction(signature, encoding='jsonParsed', max_supported_version=0)
-                if not tx:
-                    time.sleep(1.5)
-                    continue
-                
-                meta = tx.get('meta')
-                if not meta or meta.get('err'): return None
-                
-                # Find the wallet index
-                account_keys = tx.get('transaction', {}).get('message', {}).get('accountKeys', [])
-                wallet_index = -1
-                for i, acc in enumerate(account_keys):
-                    pubkey = acc.get('pubkey') if isinstance(acc, dict) else acc
-                    if pubkey == wallet_address:
-                        wallet_index = i
-                        break
-                
-                changes = {}
-                # 1. Native SOL
-                if wallet_index != -1:
-                    pre_sol = meta['preBalances'][wallet_index] / 1e9
-                    post_sol = meta['postBalances'][wallet_index] / 1e9
-                    sol_diff = post_sol - pre_sol
-                    if wallet_index == 0: sol_diff += (meta['fee'] / 1e9)
-                    if abs(sol_diff) > 0.0001:
-                        changes["So11111111111111111111111111111111111111112"] = sol_diff
+    def decode_wallet_changes(self, tx, wallet_address: str):
+        """Analyze transaction for balance changes specifically for the wallet_address."""
+        if not tx or not tx.get('meta'): return None
+        meta = tx['meta']
+        
+        account_keys = [k.get('pubkey') if isinstance(k, dict) else k for k in tx.get('transaction', {}).get('message', {}).get('accountKeys', [])]
+        
+        wallet_index = -1
+        try: wallet_index = account_keys.index(wallet_address)
+        except: pass
 
-                # 2. Tokens
-                # Track all changes for the wallet_address
-                for bal in meta.get('preTokenBalances', []):
-                    if bal.get('owner') == wallet_address:
-                        mint = bal['mint']
-                        changes[mint] = changes.get(mint, 0) - float(bal['uiTokenAmount'].get('uiAmount') or 0)
-                
-                for bal in meta.get('postTokenBalances', []):
-                    if bal.get('owner') == wallet_address:
-                        mint = bal['mint']
-                        changes[mint] = changes.get(mint, 0) + float(bal['uiTokenAmount'].get('uiAmount') or 0)
-                
-                return changes
-            except Exception as e:
-                time.sleep(1)
-        return None
+        net_changes = {}
+
+        # 1. SOL Change
+        if wallet_index != -1:
+            pre_sol = meta['preBalances'][wallet_index] / 1e9
+            post_sol = meta['postBalances'][wallet_index] / 1e9
+            sol_diff = post_sol - pre_sol
+            if wallet_index == 0: sol_diff += (meta['fee'] / 1e9)
+            if abs(sol_diff) > 0.0001:
+                net_changes["So11111111111111111111111111111111111111112"] = sol_diff
+
+        # 2. Token Changes
+        for bal in meta.get('preTokenBalances', []):
+            owner = bal.get('owner') or (account_keys[bal['accountIndex']] if bal['accountIndex'] < len(account_keys) else None)
+            if owner == wallet_address:
+                mint = bal['mint']
+                net_changes[mint] = net_changes.get(mint, 0) - float(bal['uiTokenAmount'].get('uiAmount') or 0)
+        
+        for bal in meta.get('postTokenBalances', []):
+            owner = bal.get('owner') or (account_keys[bal['accountIndex']] if bal['accountIndex'] < len(account_keys) else None)
+            if owner == wallet_address:
+                mint = bal['mint']
+                net_changes[mint] = net_changes.get(mint, 0) + float(bal['uiTokenAmount'].get('uiAmount') or 0)
+        
+        return net_changes
 
     async def handle_user_wallet_logs(self, wallet_address: str, data: Dict[str, Any]):
         val = data.get('value', {})
         signature = val.get('signature')
         if not signature or val.get('err'): return
-        await asyncio.sleep(1.5)
-        changes = self.decode_transaction_changes(signature, wallet_address)
-        if not changes: return
-        for mint, diff in changes.items():
-            if diff > 0.000001:
-                symbol = self.resolve_token(mint)
-                self.socketio.emit('notification', {
-                    'title': 'Funds Received',
-                    'message': f"Received {diff:.4f} {symbol}",
-                    'type': 'success'
-                }, namespace='/bots')
-                from services.portfolio import broadcast_balance
-                broadcast_balance()
+        asyncio.create_task(self.process_user_transfer(signature, wallet_address))
+
+    async def process_user_transfer(self, signature, wallet_address):
+        for _ in range(10): # Smart Polling
+            tx = self.helius.rpc.get_transaction(signature, encoding='jsonParsed', max_supported_version=0)
+            if tx:
+                changes = self.decode_wallet_changes(tx, wallet_address)
+                if changes:
+                    for mint, diff in changes.items():
+                        if diff > 0.000001:
+                            symbol = self.resolve_token(mint)
+                            self.socketio.emit('notification', {'title': 'Funds Received', 'message': f"Received {diff:.4f} {symbol}", 'type': 'success'}, namespace='/bots')
+                            from services.portfolio import broadcast_balance
+                            broadcast_balance()
+                    return
+            await asyncio.sleep(0.3)
 
     async def handle_transaction_logs(self, wallet_address: str, data: Dict[str, Any]):
         val = data.get('value', {})
@@ -183,34 +180,32 @@ class CopyTraderEngine:
         target_programs = [Programs.RAYDIUM_V4, Programs.RAYDIUM_CP, Programs.RAYDIUM_CLMM, Programs.JUPITER_V6, Programs.ORCA_WHIRLPOOL, Programs.METEORA_DLMM, Programs.PUMP_FUN, Programs.PHOENIX, Programs.LIFINITY]
         if not any(p in programs for p in target_programs): return
 
-        # Swap detected
-        await asyncio.sleep(1.5)
-        changes = self.decode_transaction_changes(signature, wallet_address)
-        if not changes: return
+        asyncio.create_task(self.process_whale_swap(signature, wallet_address))
 
-        sent_token = None
-        received_token = None
-        for mint, diff in sorted(changes.items(), key=lambda x: abs(x[1]), reverse=True):
-            if abs(diff) < 1e-9: continue
-            symbol = self.resolve_token(mint)
-            if diff < 0 and not sent_token:
-                sent_token = {'mint': mint, 'symbol': symbol, 'amount': abs(diff)}
-            elif diff > 0 and not received_token:
-                received_token = {'mint': mint, 'symbol': symbol, 'amount': abs(diff)}
-
-        if sent_token and received_token:
-            target = self.active_targets.get(wallet_address, {})
-            alias = target.get('alias', wallet_address[:8])
-            
-            signal_data = {
-                'signature': signature,
-                'wallet': wallet_address,
-                'alias': alias,
-                'timestamp': time.time(),
-                'type': 'Swap Detected',
-                'sent': sent_token,
-                'received': received_token
-            }
-            self.db.save_signal(signal_data)
-            self.socketio.emit('signal_detected', signal_data, namespace='/copytrade')
-            logger.info(f"✅ Decoded {alias} Swap: {sent_token['amount']} {sent_token['symbol']} -> {received_token['amount']} {received_token['symbol']}")
+    async def process_whale_swap(self, signature, wallet_address):
+        for _ in range(10): # Smart Polling
+            tx = self.helius.rpc.get_transaction(signature, encoding='jsonParsed', max_supported_version=0)
+            if tx:
+                changes = self.decode_wallet_changes(tx, wallet_address)
+                if changes:
+                    significant = {m: d for m, d in changes.items() if abs(d) > 1e-9}
+                    outflows = sorted([(m, d) for m, d in significant.items() if d < 0], key=lambda x: abs(x[1]), reverse=True)
+                    inflows = sorted([(m, d) for m, d in significant.items() if d > 0], key=lambda x: x[1], reverse=True)
+                    
+                    if outflows and inflows:
+                        sent_token = {'mint': outflows[0][0], 'symbol': self.resolve_token(outflows[0][0]), 'amount': abs(outflows[0][1])}
+                        recv_token = {'mint': inflows[0][0], 'symbol': self.resolve_token(inflows[0][0]), 'amount': inflows[0][1]}
+                        
+                        target = self.active_targets.get(wallet_address, {})
+                        alias = target.get('alias', wallet_address[:8])
+                        
+                        signal_data = {
+                            'signature': signature, 'wallet': wallet_address, 'alias': alias,
+                            'timestamp': time.time(), 'type': 'Swap Detected',
+                            'sent': sent_token, 'received': recv_token
+                        }
+                        self.db.save_signal(signature, wallet_address, 'Swap Detected', signal_data)
+                        self.socketio.emit('signal_detected', signal_data, namespace='/copytrade')
+                        logger.info(f"✅ Decoded {alias} Swap: {sent_token['amount']} {sent_token['symbol']} -> {recv_token['amount']} {recv_token['symbol']}")
+                        return
+            await asyncio.sleep(0.3)

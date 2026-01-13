@@ -34,16 +34,24 @@ export const NotificationToast = () => {
 const ToastItem = ({ notification, onClose }: { notification: AppNotification; onClose: () => void }) => {
   const [isExiting, setIsExiting] = useState(false)
 
-  const icons = {
+  const handleManualClose = () => {
+    setIsExiting(true)
+    setTimeout(onClose, 300)
+  }
+
+  // Auto-close after 10 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleManualClose()
+    }, 10000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  const icons: Record<string, React.ReactNode> = {
     success: <CheckCircle className="text-accent-green" size={18} />,
     error: <AlertCircle className="text-accent-red" size={18} />,
     info: <Info className="text-accent-cyan" size={18} />,
     signal: <Zap className="text-accent-purple" size={18} />,
-  }
-
-  const handleManualClose = () => {
-    setIsExiting(true)
-    setTimeout(onClose, 300)
   }
 
   return (
