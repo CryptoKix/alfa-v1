@@ -83,8 +83,8 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
       </div>
 
       <div className="flex-1 flex gap-4 min-h-0">
-        {/* Left Side: 3x2 Grid */}
-        <div className="grid grid-cols-3 gap-4 flex-[4]">
+        {/* Left Side: 3x2 Grid (Tactical HUD Style) */}
+        <div className="grid grid-cols-3 gap-3 flex-[4.5]">
           {STRATEGIES.map((strat) => {
             const isActive = bots?.some((b: any) => b?.type?.toLowerCase() === strat.id && b.status === 'active')
             const isSelected = selectedId === strat.id
@@ -94,7 +94,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                 key={strat.id}
                 onClick={() => onSelect?.(strat.id)}
                 className={cn(
-                  "group/btn relative h-[42px] transition-all duration-500",
+                  "group/btn relative h-[58px] transition-all duration-500",
                   "transform hover:scale-[1.05] active:scale-95",
                   isSelected ? "z-20" : "z-10"
                 )}
@@ -102,34 +102,19 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                 {/* Unified Neon Glow (TWAP Purple Style) */}
                 <div 
                   className={cn(
-                    "absolute -inset-1 transition-all duration-500 blur-xl opacity-0 pointer-events-none rounded-2xl",
-                    isSelected ? "opacity-30" : "group-hover/btn:opacity-50"
+                    "absolute -inset-1 transition-all duration-500 blur-xl opacity-0 pointer-events-none rounded-xl",
+                    isSelected ? "opacity-40" : "group-hover/btn:opacity-30"
                   )}
                   style={{ backgroundColor: 'var(--color-accent-purple)' }}
                 />
 
-                {/* Sleek Rounded Frame */}
+                {/* Tactical HUD Frame */}
                 <div className={cn(
-                  "absolute inset-0 border transition-all duration-500 rounded-2xl",
+                  "absolute inset-0 border-2 transition-all duration-500 rounded-xl flex flex-col items-center justify-center gap-1",
                   isSelected 
-                    ? "bg-background-elevated border-accent-purple shadow-[inset_0_0_15px_rgba(var(--color-accent-purple-rgb),0.1)]" 
-                    : "bg-white/[0.03] border-white/10 group-hover/btn:border-accent-purple/50",
-                )} />
-
-                {/* Internal Glow / Light Leak */}
-                <div 
-                  className={cn(
-                    "absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-0.5 transition-all duration-500 rounded-full",
-                    isSelected ? "opacity-100" : "opacity-0 group-hover/btn:opacity-100"
-                  )}
-                  style={{ 
-                    backgroundColor: 'var(--color-accent-purple)',
-                    boxShadow: '0 0 10px var(--color-accent-purple)'
-                  }}
-                />
-
-                {/* Content Container */}
-                <div className="relative h-full w-full flex flex-col items-center justify-center gap-0.5">
+                    ? "bg-background-elevated border-accent-cyan shadow-[inset_0_0_20px_rgba(0,255,255,0.1)]" 
+                    : "bg-black/40 border-white/5 group-hover/btn:border-white/20",
+                )}>
                   {isActive && (
                     <div className="absolute top-1.5 right-2 flex items-center gap-1">
                       <div className="w-1 h-1 rounded-full bg-accent-green animate-ping absolute" />
@@ -138,35 +123,45 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                   )}
 
                   <strat.icon 
-                    size={16} 
+                    size={22} 
                     className={cn(
                       "transition-all duration-500", 
-                      isSelected ? "text-white" : "text-accent-cyan"
+                      isSelected ? "text-white scale-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" : "text-accent-cyan group-hover/btn:text-white"
                     )} 
                   />
                   
                   <div className={cn(
-                    "text-[7px] font-black uppercase tracking-[0.2em] transition-all duration-500", 
-                    isSelected ? "text-white" : "text-accent-cyan"
+                    "text-[9px] font-black uppercase tracking-[0.25em] transition-all duration-500", 
+                    isSelected ? "text-white" : "text-accent-cyan/80 group-hover/btn:text-white"
                   )}>
                     {strat.label}
                   </div>
+
+                  {/* Corner Accents (Selected Only) */}
+                  {isSelected && (
+                    <>
+                      <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-white rounded-tl-sm opacity-50" />
+                      <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-white rounded-tr-sm opacity-50" />
+                      <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-white rounded-bl-sm opacity-50" />
+                      <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-white rounded-br-sm opacity-50" />
+                    </>
+                  )}
                 </div>
               </button>
             )
           })}
         </div>
 
-        {/* Right Side: Strategy Intel & PnL Visualization (Narrower) */}
-        <div className="flex-[3] bg-black/20 rounded-xl border border-white/5 p-2.5 flex flex-col relative group overflow-hidden">
+        {/* Right Side: Strategy Console & PnL Visualization (Narrower) */}
+        <div className="flex-[3] bg-black/40 rounded-2xl border border-white/5 p-3 flex flex-col relative group overflow-hidden shadow-inner">
            <div className="flex items-center justify-between mb-2 shrink-0">
               <div className="flex items-center gap-2">
-                <div className={cn("w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_8px_currentColor]", selectedStrat.color.replace('text-', 'bg-'))} />
-                <span className="text-[10px] font-black text-white uppercase tracking-wider">Strategy Console</span>
+                <div className={cn("w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_8px_currentColor]", selectedId ? "text-accent-cyan" : "text-white")} />
+                <span className="text-[10px] font-black text-white uppercase tracking-wider">Tactical Console</span>
               </div>
               <button 
                 onClick={onViewBots}
-                className="px-2 py-1 bg-accent-cyan text-black hover:bg-white border border-accent-cyan rounded-lg text-[7px] font-black uppercase tracking-wider transition-all shadow-[0_0_8px_rgba(0,255,255,0.2)] transform active:scale-95 shrink-0"
+                className="px-3 py-1.5 bg-accent-cyan text-black hover:bg-white border border-accent-cyan rounded-lg text-[8px] font-black uppercase tracking-wider transition-all shadow-[0_0_8px_rgba(0,255,255,0.2)] transform active:scale-95 shrink-0"
               >
                 View Bots
               </button>
