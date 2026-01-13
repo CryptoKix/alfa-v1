@@ -12,6 +12,7 @@ from extensions import create_app, socketio, helius, db
 from routes import api_bp, copytrade_bp, register_websocket_handlers
 from routes.copytrade import set_copy_trader
 from services.portfolio import balance_poller, broadcast_balance
+from arb_engine import ArbEngine
 from services.bots import dca_scheduler
 from services.trading import execute_trade_logic
 from copy_trader import CopyTraderEngine
@@ -37,6 +38,8 @@ def not_found(e):
 
 # Initialize copy trader engine
 copy_trader = CopyTraderEngine(helius, db, socketio, execute_trade_logic)
+arb_engine = ArbEngine(helius, socketio)
+arb_engine.start()
 set_copy_trader(copy_trader)
 
 if __name__ == '__main__':
