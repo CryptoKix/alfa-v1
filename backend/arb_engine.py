@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import threading
@@ -7,9 +6,14 @@ from typing import List, Dict, Any
 from helius_infrastructure import HeliusClient, Programs
 import requests
 from config import JUPITER_QUOTE_API, JUPITER_API_KEY
+from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger("arb_engine")
 logger.setLevel(logging.INFO)
+if not logger.handlers:
+    ch = logging.StreamHandler()
+    ch.setFormatter(logging.Formatter('%(levelname)s:%(name)s:%(message)s'))
+    logger.addHandler(ch)
 
 class ArbEngine:
     def __init__(self, helius_client: HeliusClient, socketio):
@@ -17,7 +21,6 @@ class ArbEngine:
         self.socketio = socketio
         self._running = False
         self._thread = None
-        self._loop = None
         
         # Pairs to monitor for ARB
         self.monitored_pairs = [
@@ -27,34 +30,31 @@ class ArbEngine:
         
         # Major DEXs to compare
         self.venues = ["Raydium", "Orca", "Meteora", "Phoenix"]
+        self.executor = ThreadPoolExecutor(max_workers=10)
+        logger.info("⚡ ArbEngine Initialized")
 
     def start(self):
-        if self._thread: return
+        if self._thread and self._thread.is_alive(): return
         self._running = True
-        self._thread = threading.Thread(target=self._run_event_loop, daemon=True)
+        self._thread = threading.Thread(target=self.main_loop, daemon=True)
         self._thread.start()
-        print("⚡ Arb Monitor Engine Started")
+        logger.info("⚡ Arb Monitor Engine Thread Started")
 
     def stop(self):
         self._running = False
-        if self._loop: self._loop.call_soon_threadsafe(self._loop.stop)
 
-    def _run_event_loop(self):
-        self._loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._loop)
-        self._loop.run_until_complete(self.main_loop())
-
-    async def main_loop(self):
+    def main_loop(self):
+        logger.info("🔄 Arb Engine Main Loop Started")
         while self._running:
             try:
                 for pair in self.monitored_pairs:
-                    await self.check_pair_arb(pair)
-                await asyncio.sleep(5) # Poll every 5 seconds
+                    self.check_pair_arb(pair)
+                time.sleep(5) # Poll every 5 seconds
             except Exception as e:
                 logger.error(f"Arb Engine Error: {e}")
-                await asyncio.sleep(10)
+                time.sleep(10)
 
-    async def check_pair_arb(self, pair):
+    def check_pair_arb(self, pair):
         """Compare quotes across different venues via Jupiter."""
         input_mint = pair["input"]
         output_mint = pair["output"]
@@ -62,12 +62,12 @@ class ArbEngine:
         
         headers = {'x-api-key': JUPITER_API_KEY} if JUPITER_API_KEY else {}
         
-        tasks = []
+        futures = []
         for venue in self.venues:
             url = f"{JUPITER_QUOTE_API}?inputMint={input_mint}&outputMint={output_mint}&amount={amount}&onlyDirectRoutes=true&dexXLabels={venue}"
-            tasks.append(self.fetch_quote(url, venue, headers))
+            futures.append(self.executor.submit(self.fetch_quote, url, venue, headers))
             
-        results = await asyncio.gather(*tasks)
+        results = [f.result() for f in futures]
         valid_quotes = [r for r in results if r and "outAmount" in r]
         
         if len(valid_quotes) > 1:
@@ -82,7 +82,7 @@ class ArbEngine:
             diff = best_amount - worst_amount
             spread_pct = (diff / worst_amount) * 100
             
-            if spread_pct > 0.01: # Report if > 0.01%
+            if spread_pct > 0.005: # Report even smaller gaps for testing
                 opp = {
                     "input_mint": input_mint,
                     "output_mint": output_mint,
@@ -96,13 +96,11 @@ class ArbEngine:
                     "timestamp": time.time()
                 }
                 self.socketio.emit('arb_opportunity', opp, namespace='/arb')
+                # logger.info(f"Arb Found: {pair['input_symbol']}/{pair['output_symbol']} {spread_pct:.3f}%")
 
-    async def fetch_quote(self, url, venue, headers):
+    def fetch_quote(self, url, venue, headers):
         try:
-            # Using loop.run_in_executor because requests is blocking
-            response = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: requests.get(url, headers=headers, timeout=2).json()
-            )
+            response = requests.get(url, headers=headers, timeout=2).json()
             if "outAmount" in response:
                 response["venue"] = venue
                 return response

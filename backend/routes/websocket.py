@@ -25,6 +25,10 @@ def register_websocket_handlers():
     def handle_prices_connect():
         print(f"[{datetime.now()}] DEBUG: Prices namespace connected: {request.sid}")
 
+    @socketio.on('connect', namespace='/arb')
+    def handle_arb_connect():
+        print(f"[{datetime.now()}] DEBUG: Arb namespace connected: {request.sid}")
+
     @socketio.on('request_balance', namespace='/portfolio')
     def handle_bal_req():
         print(f"[{datetime.now()}] DEBUG: Received request_balance from {request.sid}")

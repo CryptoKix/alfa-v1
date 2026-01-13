@@ -1,12 +1,27 @@
 import { useState, useEffect } from 'react'
 import { Activity, Target, Zap, Clock, Settings2, BarChart3 } from 'lucide-react'
+import { useAppDispatch } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { arbSocket } from '@/services/socket'
+import { addNotification } from '@/features/notifications/notificationsSlice'
 
 export const ArbConfigWidget = () => {
+  const dispatch = useAppDispatch()
   const [opportunities, setOpportunities] = useState<any[]>([])
   const [minProfit, setMinProfit] = useState('0.1')
   const [isMonitoring, setIsMonitoring] = useState(true)
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle')
+
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const res = await fetch('/api/arb/status')
+        const data = await res.json()
+        if (data.running) setIsMonitoring(true)
+      } catch (e) {}
+    }
+    checkStatus()
+  }, [])
 
   useEffect(() => {
     if (!arbSocket) return
@@ -22,6 +37,20 @@ export const ArbConfigWidget = () => {
       arbSocket.off('arb_opportunity', handleArb)
     }
   }, [minProfit, arbSocket])
+
+  const handleInitialize = async () => {
+    setStatus('loading')
+    try {
+      const res = await fetch('/api/arb/start', { method: 'POST' })
+      if (res.ok) {
+        setStatus('success')
+        dispatch(addNotification({ title: 'Arb Engine', message: 'Engine initialized and scanning pools', type: 'success' }))
+        setTimeout(() => setStatus('idle'), 3000)
+      }
+    } catch (e) {
+      setStatus('idle')
+    }
+  }
 
   const formatTime = (ts: number) => {
     return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
@@ -79,16 +108,31 @@ export const ArbConfigWidget = () => {
             <div className="p-4 bg-accent-yellow/5 border border-accent-yellow/10 rounded-xl space-y-2">
                <div className="text-[10px] font-bold text-accent-yellow uppercase">Engine Status</div>
                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-accent-green animate-pulse shadow-[0_0_8px_#00ff9d]" />
-                  <span className="text-xs text-white font-mono uppercase tracking-widest">Scanning Pools...</span>
+                  <div className={cn(
+                    "w-2 h-2 rounded-full shadow-[0_0_8px_#00ff9d] transition-all duration-500",
+                    isMonitoring ? "bg-accent-green animate-pulse" : "bg-white/10"
+                  )} />
+                  <span className="text-xs text-white font-mono uppercase tracking-widest">
+                    {status === 'loading' ? 'Initializing...' : isMonitoring ? 'Scanning Pools...' : 'Engine Idle'}
+                  </span>
                </div>
             </div>
           </div>
         </div>
 
-        <button className="w-full py-4 rounded-2xl bg-accent-yellow text-black font-black text-sm uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(251,191,36,0.2)] hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-2 shrink-0">
-          <Zap size={18} fill="currentColor" />
-          Initialize Arb Engine
+        <button 
+          onClick={handleInitialize}
+          disabled={status === 'loading'}
+          className={cn(
+            "w-full py-4 rounded-2xl text-black font-black text-sm uppercase tracking-[0.2em] transition-all transform active:scale-95 flex items-center justify-center gap-2 shrink-0",
+            isMonitoring 
+              ? "bg-white/5 text-accent-yellow border border-accent-yellow/30 shadow-none hover:bg-white/10" 
+              : "bg-accent-yellow shadow-[0_0_30px_rgba(251,191,36,0.2)] hover:bg-white",
+            status === 'loading' && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          {status === 'loading' ? <Activity size={18} className="animate-spin" /> : <Zap size={18} fill="currentColor" />}
+          {status === 'success' ? 'Ready & Scanning' : isMonitoring ? 'Restart Engine' : 'Initialize Arb Engine'}
         </button>
       </div>
 
