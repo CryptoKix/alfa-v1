@@ -73,24 +73,24 @@ export const TradeHistoryWidget = () => {
                 const isSuccess = trade.status === 'success'
                 
                 return (
-                  <div key={trade.id} className="grid grid-cols-[50px_90px_1fr_60px] gap-3 items-center p-2 rounded-xl bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group text-[10px] font-mono whitespace-nowrap overflow-hidden">
-                    <div className="text-text-muted font-bold shrink-0">{formatTimeAgo(trade.timestamp, now)}</div>
+                  <div key={trade.id} className="grid grid-cols-[60px_100px_1fr_70px] gap-3 items-center p-2.5 rounded-xl bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group text-xs font-mono whitespace-nowrap overflow-hidden">
+                    <div className="text-text-muted font-bold shrink-0 text-[11px]">{formatTimeAgo(trade.timestamp, now)}</div>
                     
-                    <div className="flex items-center gap-1 font-black uppercase tracking-tighter shrink-0">
+                    <div className="flex items-center gap-1 font-black uppercase tracking-tighter shrink-0 text-[11px]">
                       <span className="text-accent-cyan">{trade.output}</span>
                       <span className="text-text-muted opacity-30">/</span>
                       <span className="text-accent-pink">{trade.input}</span>
                     </div>
 
-                    <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                    <div className="flex items-center gap-2 min-w-0 overflow-hidden text-[11px]">
                        <span className="font-bold text-white/90 shrink-0">{formatAmount(trade.amount_in)} {trade.input}</span>
-                       <span className="text-text-muted text-[8px] italic shrink-0">→</span>
+                       <span className="text-text-muted text-[10px] italic shrink-0">→</span>
                        <span className="text-accent-cyan font-black truncate">{formatAmount(trade.amount_out)} {trade.output}</span>
                     </div>
 
                     <div className="text-right shrink-0">
                        <span className={cn(
-                         "uppercase font-black text-[7px] tracking-widest px-1.5 py-0.5 rounded border leading-none", 
+                         "uppercase font-black text-[9px] tracking-widest px-2 py-0.5 rounded border leading-none", 
                          isSuccess ? "text-accent-green border-accent-green/20 bg-accent-green/5" : "text-accent-red border-accent-red/20 bg-accent-red/5"
                        )}>
                          {isSuccess ? 'OK' : 'ERR'}
