@@ -13,18 +13,19 @@ interface ActiveBotsModalProps {
   onCreateNew: () => void
 }
 
-export const ActiveBotsModal = ({ isOpen, onClose, bots, type, onDelete, onPause, onCreateNew }: ActiveBotsModalProps) => {
+export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, onPause, onCreateNew }: ActiveBotsModalProps) => {
   const [expandedBotId, setExpandedBotId] = useState<string | null>(null)
   
   if (!isOpen) return null
   
-  const isAll = type.toLowerCase() === 'all'
-  const filteredBots = bots.filter(b => b && (isAll || b.type.toLowerCase() === type.toLowerCase()) && b.status !== 'deleted')
+  const safeType = type || 'all'
+  const isAll = safeType.toLowerCase() === 'all'
+  const filteredBots = bots.filter(b => b && (isAll || (b.type?.toLowerCase() === safeType.toLowerCase())) && b.status !== 'deleted')
   const activeBots = filteredBots.filter(b => b.status === 'active')
   const completedBots = filteredBots.filter(b => b.status === 'completed')
 
-  const toggleExpand = (id: string, botType: string) => {
-    if (botType.toLowerCase() !== 'grid') return
+  const toggleExpand = (id: string, botType?: string) => {
+    if (botType?.toLowerCase() !== 'grid') return
     setExpandedBotId(prev => prev === id ? null : id)
   }
 
@@ -44,7 +45,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots, type, onDelete, onPause
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <Activity className="text-accent-cyan" size={24} />
-              {isAll ? 'All Active Strategies' : `Active ${type.toUpperCase()} Bots`}
+              {isAll ? 'All Active Strategies' : `Active ${(safeType || '').toUpperCase()} Bots`}
             </h2>
             <div className="text-xs text-text-muted mt-1 uppercase tracking-widest">
               {activeBots.length} Running · {completedBots.length} Completed
@@ -69,7 +70,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots, type, onDelete, onPause
             filteredBots.map(bot => {
                const isExpanded = expandedBotId === bot.id
                const gridLevels = bot.grid_levels || []
-               const isGrid = bot.type.toLowerCase() === 'grid'
+               const isGrid = bot.type?.toLowerCase() === 'grid'
                
                return (
                <div 
@@ -92,7 +93,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots, type, onDelete, onPause
                              <span className={cn(
                                "text-[10px] px-1.5 py-0.5 rounded text-text-muted uppercase tracking-wider font-mono",
                                bot.status === 'active' ? "bg-accent-green/10 text-accent-green" : "bg-white/5"
-                             )}>{bot.type} | {bot.status}</span>
+                             )}>{bot.type || 'N/A'} | {bot.status}</span>
                              {isGrid && (
                                isExpanded ? <ChevronUp size={14} className="text-text-muted" /> : <ChevronDown size={14} className="text-text-muted" />
                              )}
