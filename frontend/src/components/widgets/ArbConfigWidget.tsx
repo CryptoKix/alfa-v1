@@ -363,7 +363,7 @@ export const ArbConfigWidget = () => {
                    <span className="text-[8px] font-black text-text-muted uppercase">Best Sell</span>
                 </div>
              </div>
-             <div className="text-[8px] font-mono text-text-muted uppercase">Live 5s Polling</div>
+             <div className="text-[8px] font-mono text-accent-cyan uppercase tracking-widest opacity-80">Live 5s Polling</div>
           </div>
         </div>
       </div>

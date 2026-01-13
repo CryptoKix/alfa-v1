@@ -178,6 +178,7 @@
 - **Layout Alignment:** Perfectly synchronized the strategy selection grid with the Tactical Console using dynamic height stretching (`items-stretch`) and row-spanning logic.
 - **Border Consistency:** Removed asymmetrical decorative accents and bars from active buttons to ensure a solid, uniform border around all selected elements.
 - **Tactical Console:** Upgraded border brightness to `white/15` for better contrast and visibility.
+- **UI Refinement:** Updated the 'Live 5s Polling' indicator in the Arb Monitor to utilize brand-standard Cyan for better visibility.
 ## [2026-01-11] - Dashboard Refinement & Wallet Integration
 
 ### Bug Fixes & Stability
