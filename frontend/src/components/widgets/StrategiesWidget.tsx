@@ -162,41 +162,41 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
         </div>
 
         {/* Right Side: Strategy Intel & PnL Visualization */}
-        <div className="flex-[4] bg-black/20 rounded-xl border border-white/5 p-3 flex flex-col relative group">
-           <div className="flex items-start justify-between mb-1.5 shrink-0">
+        <div className="flex-[4] bg-black/20 rounded-xl border border-white/5 p-2.5 flex flex-col relative group">
+           <div className="flex items-start justify-between mb-1 shrink-0">
               <div className="min-w-0 flex-1">
-                <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <h4 className="text-[10px] font-black text-white uppercase tracking-wider flex items-center gap-1.5">
                   <span className={cn("w-1 h-2 rounded-full bg-current", selectedStrat.color.replace('text-', 'bg-'))} />
                   {selectedStrat.label} ANALYTICS
                 </h4>
-                <p className="text-[9px] text-text-secondary mt-0.5 leading-relaxed line-clamp-1 italic pr-2">
+                <p className="text-[8px] text-text-secondary mt-0.5 leading-tight line-clamp-1 italic pr-2">
                   {selectedStrat.desc}
                 </p>
               </div>
               <button 
                 onClick={onViewBots}
-                className="px-3 py-1.5 bg-accent-cyan text-black hover:bg-white border border-accent-cyan rounded-lg text-[8px] font-black uppercase tracking-wider transition-all shadow-[0_0_10px_rgba(0,255,255,0.2)] transform active:scale-95 shrink-0"
+                className="px-2 py-1 bg-accent-cyan text-black hover:bg-white border border-accent-cyan rounded-lg text-[7px] font-black uppercase tracking-wider transition-all shadow-[0_0_8px_rgba(0,255,255,0.2)] transform active:scale-95 shrink-0"
               >
                 View Bots
               </button>
            </div>
 
            {/* PnL Visualization Panel */}
-           <div className="flex-1 flex flex-col justify-center gap-2">
-              <div className="grid grid-cols-2 gap-2">
-                 <div className="bg-background-elevated/50 border border-white/5 rounded-lg p-2 flex flex-col gap-0.5">
-                    <span className="text-[7px] font-black text-text-muted uppercase tracking-[0.2em]">Active Unrealized</span>
+           <div className="flex-1 flex flex-col justify-center gap-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
+                 <div className="bg-background-elevated/50 border border-white/5 rounded-lg p-1.5 flex flex-col gap-0.5">
+                    <span className="text-[6px] font-black text-text-muted uppercase tracking-[0.1em]">Active Unrealized</span>
                     <div className={cn(
-                      "text-sm font-black font-mono tracking-tighter",
+                      "text-xs font-black font-mono tracking-tighter",
                       metrics.unrealized >= 0 ? "text-accent-green" : "text-accent-red"
                     )}>
                       ${metrics.unrealized.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                  </div>
-                 <div className="bg-background-elevated/50 border border-white/5 rounded-lg p-2 flex flex-col gap-0.5 text-right">
-                    <span className="text-[7px] font-black text-text-muted uppercase tracking-[0.2em]">Total Realized</span>
+                 <div className="bg-background-elevated/50 border border-white/5 rounded-lg p-1.5 flex flex-col gap-0.5 text-right">
+                    <span className="text-[6px] font-black text-text-muted uppercase tracking-[0.1em]">Total Realized</span>
                     <div className={cn(
-                      "text-sm font-black font-mono tracking-tighter text-white"
+                      "text-xs font-black font-mono tracking-tighter text-white"
                     )}>
                       ${metrics.realized.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
@@ -205,10 +205,10 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
 
               {/* Strategy Features (If any) */}
               {selectedStrat.features.length > 0 && (
-                <div className="flex gap-1.5 overflow-hidden">
+                <div className="flex gap-1 overflow-hidden">
                   {selectedStrat.features.map((f, i) => (
-                    <div key={i} className="flex items-center gap-1 px-1.5 py-0.5 bg-white/5 rounded border border-white/5 shrink-0">
-                      <span className="text-[6px] font-bold text-text-muted uppercase whitespace-nowrap">{f}</span>
+                    <div key={i} className="flex items-center gap-1 px-1 py-0.5 bg-white/5 rounded border border-white/5 shrink-0">
+                      <span className="text-[5px] font-bold text-text-muted uppercase whitespace-nowrap">{f}</span>
                     </div>
                   ))}
                 </div>
