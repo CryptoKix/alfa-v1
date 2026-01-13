@@ -5,11 +5,10 @@ interface HistoryModalProps {
   isOpen: boolean
   onClose: () => void
   history: Trade[]
-  formatTimeAgo: (dateStr: string, nowMs: number) => string
-  now: number
+  formatTimestamp: (dateStr: string) => string
 }
 
-export const HistoryModal = ({ isOpen, onClose, history, formatTimeAgo, now }: HistoryModalProps) => {
+export const HistoryModal = ({ isOpen, onClose, history, formatTimestamp }: HistoryModalProps) => {
   if (!isOpen) return null
 
   return (
@@ -54,7 +53,7 @@ export const HistoryModal = ({ isOpen, onClose, history, formatTimeAgo, now }: H
                 return (
                   <tr key={trade.id} className="group bg-background-elevated/30 hover:bg-white/5 transition-colors">
                     <td className="px-4 py-3 first:rounded-l-xl last:rounded-r-xl text-text-muted text-xs">
-                      {formatTimeAgo(trade.timestamp, now)}
+                      {formatTimestamp(trade.timestamp)}
                     </td>
                     <td className="px-4 py-3 text-accent-cyan font-bold uppercase text-[10px]">
                       {trade.source || 'Manual'}

@@ -110,8 +110,7 @@ export const TradeHistoryWidget = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         history={history}
-        formatTimeAgo={(d, n) => formatTimeAgo(d, n)} // wrapper to match signature if needed
-        now={now}
+        formatTimestamp={formatTimestamp}
       />
     </>
   )
