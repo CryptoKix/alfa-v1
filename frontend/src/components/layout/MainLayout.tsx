@@ -1,5 +1,5 @@
 import React from 'react'
-import { Sidebar } from './Sidebar'
+import { NavigationWidget } from '../widgets/NavigationWidget'
 import { Header } from './Header'
 
 interface MainLayoutProps {
@@ -8,14 +8,13 @@ interface MainLayoutProps {
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
-    <div className="h-screen w-screen bg-background-primary flex text-text-primary overflow-hidden font-sans">
-      <Sidebar />
-      <div className="flex-1 flex flex-col h-full relative min-w-0">
-         {/* Scanline Effect Background */}
-         <div className="scanline" />
-         
-         <Header />
-         <main className="flex-1 overflow-hidden p-6 relative z-10 flex flex-col">
+    <div className="h-screen w-screen bg-black flex text-text-primary overflow-hidden font-sans p-4 gap-4">
+      <NavigationWidget />
+      <div className="flex-1 flex flex-col h-full relative min-w-0 bg-transparent gap-4">
+         <div className="bg-background-card border border-white/5 rounded-2xl overflow-hidden shrink-0 shadow-lg">
+            <Header />
+         </div>
+         <main className="flex-1 overflow-hidden relative z-10 flex flex-col bg-transparent">
            {children}
          </main>
       </div>

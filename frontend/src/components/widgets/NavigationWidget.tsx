@@ -11,7 +11,7 @@ const navItems = [
   { icon: Crosshair, label: 'Sniper', path: '/sniper', disabled: true },
 ]
 
-export const Sidebar = () => {
+export const NavigationWidget = () => {
   const activePath = window.location.pathname
   const { lastUpdate, connected: priceConnected } = useAppSelector(state => state.prices)
   const { connected: webConnected } = useAppSelector(state => state.portfolio)
@@ -49,15 +49,17 @@ export const Sidebar = () => {
   const webTextClass = webConnected ? 'text-accent-cyan' : 'text-red-500'
 
   return (
-    <aside className="w-20 md:w-64 bg-background-card border-r border-border flex flex-col shrink-0">
-      <div className="h-16 flex items-center justify-center border-b border-border">
+    <aside className="w-20 md:w-64 bg-background-card border border-white/5 rounded-2xl flex flex-col shrink-0 h-full relative overflow-hidden shadow-xl p-4">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50" />
+
+      <div className="h-16 flex items-center justify-center border-b border-white/5 mb-4 shrink-0">
         <h1 className="hidden md:block text-2xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-accent-cyan to-accent-purple">
           TACTIX
         </h1>
         <h1 className="md:hidden text-2xl font-black text-accent-cyan">T</h1>
       </div>
 
-      <nav className="flex-1 py-6 space-y-2 px-3">
+      <nav className="flex-1 space-y-2 overflow-y-auto custom-scrollbar">
         {navItems.map((item) => (
           <a
             key={item.path}
@@ -74,16 +76,16 @@ export const Sidebar = () => {
               "transition-transform duration-300",
               activePath === item.path ? "scale-110" : "group-hover:scale-110"
             )} />
-            <span className="hidden md:block font-bold text-sm tracking-wide">{item.label}</span>
+            <span className="hidden md:block font-bold text-xs tracking-wide uppercase">{item.label}</span>
           </a>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-border space-y-2">
+      <div className="pt-4 border-t border-white/5 space-y-2 mt-auto">
         {/* Price Status */}
         <div className="flex items-center gap-3 px-3 py-2 bg-background-elevated/30 rounded-lg border border-white/5">
            <div className={cn("w-2 h-2 rounded-full transition-colors duration-500", priceColor, pricePulse && "animate-pulse")} />
-           <span className={cn("hidden md:block text-[10px] font-mono transition-colors duration-500", priceTextClass)}>
+           <span className={cn("hidden md:block text-[9px] font-mono font-bold uppercase transition-colors duration-500", priceTextClass)}>
              {priceStatusText}
            </span>
         </div>
@@ -91,7 +93,7 @@ export const Sidebar = () => {
         {/* Web Status */}
         <div className="flex items-center gap-3 px-3 py-2 bg-background-elevated/30 rounded-lg border border-white/5">
            <div className={cn("w-2 h-2 rounded-full transition-colors duration-500", webColor, webConnected && "animate-pulse")} />
-           <span className={cn("hidden md:block text-[10px] font-mono transition-colors duration-500", webTextClass)}>
+           <span className={cn("hidden md:block text-[9px] font-mono font-bold uppercase transition-colors duration-500", webTextClass)}>
              {webStatusText}
            </span>
         </div>

@@ -11,7 +11,7 @@ export const Header = () => {
 
   return (
     <>
-      <header className="h-16 flex items-center justify-between px-6 bg-background-card/50 backdrop-blur border-b border-border sticky top-0 z-10">
+      <header className="h-16 flex items-center justify-between px-6 bg-background-card/50 backdrop-blur sticky top-0 z-10">
         {/* Breadcrumb / Page Title Placeholder */}
         <div className="flex items-center gap-4">
           <span className="text-text-secondary text-sm font-mono">Dashboard / Overview</span>
