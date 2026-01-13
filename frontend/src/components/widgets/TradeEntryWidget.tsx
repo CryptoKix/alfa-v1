@@ -4,7 +4,7 @@ import { useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 
 export const TradeEntryWidget = () => {
-  const { totalUsd, holdings } = useAppSelector(state => state.portfolio)
+  const { holdings } = useAppSelector(state => state.portfolio)
   const prices = useAppSelector(state => state.prices.prices)
   
   // Available Tokens: Merge current holdings with defaults

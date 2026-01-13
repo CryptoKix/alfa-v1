@@ -6,7 +6,7 @@ import { SendModal } from '@/components/modals/SendModal'
 import { cn } from '@/lib/utils'
 
 export const Header = () => {
-  const { wallet, walletAlias, connected: webConnected } = useAppSelector(state => state.portfolio)
+  const { walletAlias, connected: webConnected } = useAppSelector(state => state.portfolio)
   const { lastUpdate, connected: priceConnected } = useAppSelector(state => state.prices)
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false)
   const [isSendModalOpen, setIsSendModalOpen] = useState(false)

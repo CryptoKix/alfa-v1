@@ -8,6 +8,11 @@ export interface CopyTarget {
   config: {
     scale_factor: number
     max_per_trade: number
+    pump_scale?: number
+    pump_max?: number
+    major_scale?: number
+    major_max?: number
+    auto_execute?: boolean
   }
   performance: {
     total_profit_sol?: number
@@ -20,6 +25,7 @@ export interface CopySignal {
   id: number
   signature: string
   wallet: string
+  alias?: string
   timestamp: number
   type: string
   sent?: { mint: string; symbol: string; amount: number }

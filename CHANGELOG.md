@@ -7,6 +7,11 @@
 - **Status:** Successfully pushed the restored "Cyberpunk Obsidian" architecture.
 - **Security:** Verified that `.env`, `keypair.json`, and `.db` files are strictly ignored and remain local.
 
+### Feature: Arbitrage Monitor (Phase 1)
+- **Arb Monitor Engine:** Implemented a real-time arbitrage detection engine that compares Jupiter quotes across specific venues (Raydium, Orca, Meteora, Phoenix).
+- **Arb Visualization:** Created the `ArbConfigWidget` featuring a 3-column layout: Configuration, Real-time Analysis (Heatmap placeholder), and Opportunity Log.
+- **Cross-DEX Spreads:** Added logic to detect and broadcast price discrepancies > 0.01% via Socket.IO.
+
 ### Feature: Strategy Terminal UI v2
 - **Command Deck Layout:** Restored the 3x2 grid layout for strategy selection alongside a dynamic **Strategy Console** analytics panel.
 - **Button Flair Upgrades:**

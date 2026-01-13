@@ -7,12 +7,20 @@ import { updateBots } from '../features/bots/botsSlice'
 import { setTargets, addSignal, setSignals } from '../features/copytrade/copytradeSlice'
 import { addNotification } from '../features/notifications/notificationsSlice'
 
+export let portfolioSocket: any
+export let priceSocket: any
+export let historySocket: any
+export let botsSocket: any
+export let copytradeSocket: any
+export let arbSocket: any
+
 export const initSockets = () => {
-  const portfolioSocket = io('/portfolio', { transports: ['websocket', 'polling'] })
-  const priceSocket = io('/prices', { transports: ['websocket', 'polling'] })
-  const historySocket = io('/history', { transports: ['websocket', 'polling'] })
-  const botsSocket = io('/bots', { transports: ['websocket', 'polling'] })
-  const copytradeSocket = io('/copytrade', { transports: ['websocket', 'polling'] })
+  portfolioSocket = io('/portfolio', { transports: ['websocket', 'polling'] })
+  priceSocket = io('/prices', { transports: ['websocket', 'polling'] })
+  historySocket = io('/history', { transports: ['websocket', 'polling'] })
+  botsSocket = io('/bots', { transports: ['websocket', 'polling'] })
+  copytradeSocket = io('/copytrade', { transports: ['websocket', 'polling'] })
+  arbSocket = io('/arb', { transports: ['websocket', 'polling'] })
 
   // Initial Fetch for Bots
   const fetchInitialBots = async () => {
@@ -26,7 +34,7 @@ export const initSockets = () => {
   fetchInitialBots()
 
   // Portfolio listeners
-  portfolioSocket.on('connect_error', (err) => {
+  portfolioSocket.on('connect_error', (err: any) => {
     console.error('[Socket] Portfolio Connection Error:', err)
     store.dispatch(setWebConnection(false))
   })
@@ -37,12 +45,12 @@ export const initSockets = () => {
     portfolioSocket.emit('request_balance')
   })
 
-  portfolioSocket.on('disconnect', (reason) => {
+  portfolioSocket.on('disconnect', (reason: any) => {
     console.warn('[Socket] Portfolio Disconnected:', reason)
     store.dispatch(setWebConnection(false))
   })
 
-  portfolioSocket.on('balance_update', (data) => {
+  portfolioSocket.on('balance_update', (data: any) => {
     store.dispatch(updatePortfolio(data))
   })
 
@@ -52,7 +60,7 @@ export const initSockets = () => {
     botsSocket.emit('request_bots')
   })
 
-  botsSocket.on('bots_update', (data) => {
+  botsSocket.on('bots_update', (data: any) => {
     store.dispatch(updateBots(data.bots))
   })
 
@@ -71,11 +79,11 @@ export const initSockets = () => {
     copytradeSocket.emit('request_signals')
   })
 
-  copytradeSocket.on('targets_update', (data) => {
+  copytradeSocket.on('targets_update', (data: any) => {
     store.dispatch(setTargets(data.targets))
   })
 
-  copytradeSocket.on('signals_update', (data) => {
+  copytradeSocket.on('signals_update', (data: any) => {
     store.dispatch(setTargets(data.targets))
     store.dispatch(setSignals(data.signals))
     
@@ -96,7 +104,7 @@ export const initSockets = () => {
     })
   })
 
-  copytradeSocket.on('signal_detected', (data) => {
+  copytradeSocket.on('signal_detected', (data: any) => {
     store.dispatch(addSignal(data))
     const alias = data.alias || data.wallet?.slice(0, 8) || 'Whale'
     const recvAsset = data.received?.symbol || 'Asset'
@@ -118,7 +126,7 @@ export const initSockets = () => {
     historySocket.emit('request_history', { wallet: state.portfolio.wallet !== '0x...' ? state.portfolio.wallet : null })
   })
 
-  historySocket.on('history_update', (data) => {
+  historySocket.on('history_update', (data: any) => {
     store.dispatch(updateHistory(data.history))
   })
 
@@ -128,12 +136,12 @@ export const initSockets = () => {
     store.dispatch(setPriceConnection(true))
   })
 
-  priceSocket.on('connect_error', (err) => {
+  priceSocket.on('connect_error', (err: any) => {
     console.error('[Socket] Prices Connection Error:', err)
     store.dispatch(setPriceConnection(false))
   })
 
-  priceSocket.on('disconnect', (reason) => {
+  priceSocket.on('disconnect', (reason: any) => {
     console.warn('[Socket] Prices Disconnected:', reason)
     store.dispatch(setPriceConnection(false))
   })

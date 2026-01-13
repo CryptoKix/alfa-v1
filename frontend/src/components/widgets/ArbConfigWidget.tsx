@@ -1,0 +1,182 @@
+import { useState, useEffect } from 'react'
+import { Activity, Target, Zap, Clock, Settings2, BarChart3 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { arbSocket } from '@/services/socket'
+
+export const ArbConfigWidget = () => {
+  const [opportunities, setOpportunities] = useState<any[]>([])
+  const [minProfit, setMinProfit] = useState('0.1')
+  const [isMonitoring, setIsMonitoring] = useState(true)
+
+  useEffect(() => {
+    if (!arbSocket) return
+
+    const handleArb = (data: any) => {
+      if (data.spread_pct >= parseFloat(minProfit)) {
+        setOpportunities(prev => [data, ...prev].slice(0, 50))
+      }
+    }
+
+    arbSocket.on('arb_opportunity', handleArb)
+    return () => {
+      arbSocket.off('arb_opportunity', handleArb)
+    }
+  }, [minProfit, arbSocket])
+
+  const formatTime = (ts: number) => {
+    return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+  }
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-2 h-full animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-0">
+      
+      {/* COLUMN 1: Config */}
+      <div className="lg:w-[380px] bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 shrink-0 h-full">
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-yellow to-accent-cyan opacity-50" />
+        
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-accent-yellow/10 rounded-lg text-accent-yellow">
+              <Settings2 size={18} />
+            </div>
+            <div>
+              <h2 className="text-xs font-bold text-white uppercase tracking-tight">ARB CONFIG</h2>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
+          <div className="flex-1 overflow-auto custom-scrollbar p-4 space-y-4">
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase text-text-muted font-bold block px-1">Min Profit Threshold (%)</label>
+              <input 
+                type="number" 
+                value={minProfit} 
+                onChange={(e) => setMinProfit(e.target.value)} 
+                className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-accent-yellow/50 outline-none" 
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
+              <div>
+                <div className="text-sm font-bold text-white uppercase">Live Monitor</div>
+                <div className="text-[10px] text-text-muted mt-1 uppercase">Scan all DEX venues</div>
+              </div>
+              <button 
+                onClick={() => setIsMonitoring(!isMonitoring)}
+                className={cn(
+                  "w-12 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out",
+                  isMonitoring ? "bg-accent-yellow" : "bg-white/10"
+                )}
+              >
+                <div className={cn(
+                  "w-4 h-4 rounded-full bg-white transition-transform duration-200",
+                  isMonitoring ? "translate-x-6" : "translate-x-0"
+                )} />
+              </button>
+            </div>
+
+            <div className="p-4 bg-accent-yellow/5 border border-accent-yellow/10 rounded-xl space-y-2">
+               <div className="text-[10px] font-bold text-accent-yellow uppercase">Engine Status</div>
+               <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-accent-green animate-pulse shadow-[0_0_8px_#00ff9d]" />
+                  <span className="text-xs text-white font-mono uppercase tracking-widest">Scanning Pools...</span>
+               </div>
+            </div>
+          </div>
+        </div>
+
+        <button className="w-full py-4 rounded-2xl bg-accent-yellow text-black font-black text-sm uppercase tracking-[0.2em] shadow-[0_0_30px_rgba(251,191,36,0.2)] hover:bg-white transition-all transform active:scale-95 flex items-center justify-center gap-2 shrink-0">
+          <Zap size={18} fill="currentColor" />
+          Initialize Arb Engine
+        </button>
+      </div>
+
+      {/* COLUMN 2: Visualization */}
+      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan to-accent-yellow opacity-50" />
+        
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
+              <BarChart3 size={18} />
+            </div>
+            <div>
+              <h2 className="text-xs font-bold text-white uppercase tracking-tight">ANALYSIS</h2>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col items-center justify-center p-8 text-center gap-4">
+           <div className="w-20 h-20 rounded-full border-2 border-accent-yellow/20 flex items-center justify-center relative">
+              <div className="absolute inset-0 rounded-full border-2 border-accent-yellow border-t-transparent animate-spin" />
+              <Target size={32} className="text-accent-yellow opacity-50" />
+           </div>
+           <div>
+              <div className="text-sm font-black text-white uppercase tracking-widest mb-2">Cross-DEX Heatmap</div>
+              <p className="text-[10px] text-text-muted uppercase leading-relaxed max-w-xs">
+                Monitoring SOL/USDC spreads across Raydium, Orca, and Meteora DLMM in real-time.
+              </p>
+           </div>
+        </div>
+      </div>
+
+      {/* COLUMN 3: Opportunities */}
+      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-yellow to-accent-pink opacity-50" />
+        
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-accent-pink/10 rounded-lg text-accent-pink">
+              <Activity size={18} />
+            </div>
+            <div>
+              <h2 className="text-xs font-bold text-white uppercase tracking-tight">OPPORTUNITIES</h2>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
+          <div className="flex-1 overflow-auto custom-scrollbar p-3 space-y-2">
+            {opportunities.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-text-muted gap-3 opacity-50">
+                <Target size={32} strokeWidth={1} />
+                <div className="text-center font-bold text-[10px] uppercase tracking-widest">Scanning for gaps...</div>
+              </div>
+            ) : (
+              opportunities.map((opp, i) => (
+                <div key={i} className="p-3 rounded-xl border border-white/5 bg-white/[0.02] transition-all relative overflow-hidden group">
+                  <div className="flex items-start gap-3">
+                    <div className="p-1.5 rounded-lg shrink-0 text-accent-yellow bg-accent-yellow/10">
+                      <Zap size={14} />
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-0.5">
+                        <span className="text-[10px] font-black text-white uppercase tracking-tight truncate">
+                          {opp.input_symbol}/{opp.output_symbol} ARB
+                        </span>
+                        <span className="text-[8px] text-text-muted font-mono shrink-0 flex items-center gap-1">
+                          <Clock size={8} />
+                          {formatTime(opp.timestamp)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <div className="text-[10px] text-text-secondary leading-none">
+                          {opp.best_venue} → {opp.worst_venue}
+                        </div>
+                        <div className="text-[11px] font-black text-accent-green leading-none">
+                          +{opp.spread_pct.toFixed(3)}%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
