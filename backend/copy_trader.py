@@ -10,6 +10,8 @@ from helius_infrastructure import HeliusClient, Programs, SubscriptionType
 from database import TactixDB
 from config import WALLET_ADDRESS
 
+MAJOR_TOKENS = ['So11111111111111111111111111111111111111112', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN']
+
 logger = logging.getLogger("copy_trader")
 logger.setLevel(logging.INFO)
 if not logger.handlers:
@@ -170,6 +172,27 @@ class CopyTraderEngine:
                     return
             await asyncio.sleep(0.3)
 
+
+    def decode_swap(self, signature, wallet_address):
+        """Helper for API to decode a specific transaction."""
+        try:
+            tx = self.helius.rpc.get_transaction(signature, encoding='jsonParsed', max_supported_version=0)
+            if not tx: return None
+            changes = self.decode_wallet_changes(tx, wallet_address)
+            if not changes: return None
+            
+            significant = {m: d for m, d in changes.items() if abs(d) > 1e-9}
+            outflows = sorted([(m, d) for m, d in significant.items() if d < 0], key=lambda x: abs(x[1]), reverse=True)
+            inflows = sorted([(m, d) for m, d in significant.items() if d > 0], key=lambda x: x[1], reverse=True)
+            
+            if outflows and inflows:
+                return {
+                    'sent': {'mint': outflows[0][0], 'symbol': self.resolve_token(outflows[0][0]), 'amount': abs(outflows[0][1])},
+                    'received': {'mint': inflows[0][0], 'symbol': self.resolve_token(inflows[0][0]), 'amount': inflows[0][1]}
+                }
+        except: pass
+        return None
+
     async def handle_transaction_logs(self, wallet_address: str, data: Dict[str, Any]):
         val = data.get('value', {})
         signature = val.get('signature')
@@ -204,8 +227,59 @@ class CopyTraderEngine:
                             'timestamp': time.time(), 'type': 'Swap Detected',
                             'sent': sent_token, 'received': recv_token
                         }
+
                         self.db.save_signal(signature, wallet_address, 'Swap Detected', signal_data)
                         self.socketio.emit('signal_detected', signal_data, namespace='/copytrade')
                         logger.info(f"✅ Decoded {alias} Swap: {sent_token['amount']} {sent_token['symbol']} -> {recv_token['amount']} {recv_token['symbol']}")
+                        
+                        # --- Auto-Execution Logic ---
+                        if target.get('status') == 'active' and target.get('config_json'):
+                            config = json.loads(target['config_json'])
+                            if config.get('auto_execute'):
+                                try:
+                                    # --- Risk Profile Determination ---
+                                    is_pump = recv_token['mint'].endswith('pump') or sent_token['mint'].endswith('pump')
+                                    is_major = recv_token['mint'] in MAJOR_TOKENS and sent_token['mint'] in MAJOR_TOKENS
+                                    
+                                    if is_pump:
+                                        scale = float(config.get('pump_scale', 0.05))
+                                        max_sol = float(config.get('pump_max', 0.2))
+                                        profile_name = "Pump.fun"
+                                    elif is_major:
+                                        scale = float(config.get('major_scale', 0.5))
+                                        max_sol = float(config.get('major_max', 5.0))
+                                        profile_name = "Major"
+                                    else:
+                                        scale = float(config.get('scale_factor', 0.1))
+                                        max_sol = float(config.get('max_per_trade', 1.0))
+                                        profile_name = "Standard"
+
+                                    is_buy = sent_token['mint'] == "So11111111111111111111111111111111111111112"
+                                    
+                                    trade_amount = 0
+                                    if is_buy:
+                                        trade_amount = min(sent_token['amount'] * scale, max_sol)
+                                        logger.info(f"🤖 Auto-Copy Buy ({profile_name}): {trade_amount} SOL -> {recv_token['symbol']}")
+                                    else:
+                                        trade_amount = sent_token['amount'] * scale
+                                        logger.info(f"🤖 Auto-Copy Sell ({profile_name}): {trade_amount} {sent_token['symbol']} -> {recv_token['symbol']}")
+                                    
+                                    if trade_amount > 0:
+                                        import threading
+                                        threading.Thread(
+                                            target=self.execute_trade,
+                                            args=(sent_token['mint'], recv_token['mint'], trade_amount),
+                                            kwargs={'source': f"Copy: {alias}"},
+                                            daemon=True
+                                        ).start()
+                                        
+                                        self.socketio.emit('notification', {
+                                            'title': 'Copy Trade Triggered',
+                                            'message': f"Copying {alias}: {trade_amount:.4f} {sent_token['symbol']} -> {recv_token['symbol']}",
+                                            'type': 'info'
+                                        }, namespace='/bots')
+                                except Exception as e:
+                                    logger.error(f"❌ Auto-Execute Error: {e}")
                         return
+
             await asyncio.sleep(0.3)

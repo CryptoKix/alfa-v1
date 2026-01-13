@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { MainLayout } from '@/components/layout/MainLayout'
 import { StrategiesWidget } from '@/components/widgets/StrategiesWidget'
 import { GridConfigWidget } from '@/components/widgets/GridConfigWidget'
 import { TWAPConfigWidget } from '@/components/widgets/TWAPConfigWidget'
@@ -39,7 +38,7 @@ export default function StrategiesPage() {
   }
 
   return (
-    <MainLayout>
+    <>
       <div className="flex flex-col gap-2 h-full overflow-hidden">
         {/* Top Header Section: Terminal Grid + Intel */}
         <div className="h-[200px] shrink-0">
@@ -82,6 +81,6 @@ export default function StrategiesPage() {
         onDelete={handleDeleteBot}
         onCreateNew={() => setIsBotsModalOpen(false)}
       />
-    </MainLayout>
+    </>
   )
 }

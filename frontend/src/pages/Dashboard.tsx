@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { MainLayout } from '@/components/layout/MainLayout'
 import { PortfolioWidget } from '@/components/widgets/PortfolioWidget'
 import { TradeHistoryWidget } from '@/components/widgets/TradeHistoryWidget'
 import { AlertsWidget } from '@/components/widgets/AlertsWidget'
@@ -38,7 +37,7 @@ export default function Dashboard() {
   }
 
   return (
-    <MainLayout>
+    <>
       <div className="flex flex-col gap-2 h-full min-h-0">
         {/* Top Row: Portfolio & Alerts */}
         <div className="flex-[4] min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-2">
@@ -70,6 +69,6 @@ export default function Dashboard() {
         onDelete={handleDeleteBot}
         onCreateNew={() => setIsBotsModalOpen(false)}
       />
-    </MainLayout>
+    </>
   )
 }

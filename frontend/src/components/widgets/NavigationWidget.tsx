@@ -1,4 +1,5 @@
 import { LayoutDashboard, Zap, Bot, Users, Crosshair } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -10,7 +11,8 @@ const navItems = [
 ]
 
 export const NavigationWidget = () => {
-  const activePath = window.location.pathname
+  const location = useLocation()
+  const activePath = location.pathname
 
   return (
     <aside className="w-20 md:w-64 bg-background-card border border-white/5 rounded-2xl flex flex-col shrink-0 h-full relative overflow-hidden shadow-xl px-4 pb-4">
@@ -25,9 +27,9 @@ export const NavigationWidget = () => {
 
       <nav className="flex-1 space-y-1 overflow-y-auto custom-scrollbar mt-2">
         {navItems.map((item) => (
-          <a
+          <Link
             key={item.path}
-            href={item.disabled ? '#' : item.path}
+            to={item.disabled ? '#' : item.path}
             className={cn(
               "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group",
               activePath === item.path
@@ -41,7 +43,7 @@ export const NavigationWidget = () => {
               activePath === item.path ? "scale-110" : "group-hover:scale-110"
             )} />
             <span className="hidden md:block font-bold text-xs tracking-wide uppercase">{item.label}</span>
-          </a>
+          </Link>
         ))}
       </nav>
     </aside>

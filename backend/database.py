@@ -125,6 +125,19 @@ class TactixDB:
                 )
             ''')
             
+            # 8. Copy Trade Targets Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS targets (
+                    address TEXT PRIMARY KEY,
+                    alias TEXT,
+                    tags TEXT, -- JSON list
+                    config_json TEXT, -- JSON config
+                    performance_json TEXT, -- JSON performance stats
+                    status TEXT DEFAULT 'active', -- 'active', 'paused', 'deleted'
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
             conn.commit()
 
     def save_user_wallet(self, address, alias, is_default=0):

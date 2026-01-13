@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Users, Activity } from 'lucide-react'
+import { Users, Activity, Zap, Clock } from 'lucide-react'
 import { useAppSelector, useAppDispatch } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { setTargets, setSignals } from '@/features/copytrade/copytradeSlice'
@@ -13,6 +13,15 @@ export const CopyTradeConfigWidget = () => {
   const selectedTarget = useMemo(() => targets?.find(t => t.address === selectedAddress), [targets, selectedAddress])
   const [editScale, setEditScale] = useState('0.1')
   const [editMax, setEditMax] = useState('1.0')
+  const [pumpScale, setPumpScale] = useState('0.05')
+  const [pumpMax, setPumpMax] = useState('0.2')
+  const [majorScale, setMajorScale] = useState('0.5')
+  const [majorMax, setMajorMax] = useState('5.0')
+  const [autoExecute, setAutoExecute] = useState(false)
+
+  const formatTime = (ts: number) => {
+    return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+  }
 
   useEffect(() => {
     fetchTargets()
@@ -21,8 +30,14 @@ export const CopyTradeConfigWidget = () => {
 
   useEffect(() => {
     if (selectedTarget) {
-      setEditScale(selectedTarget.config?.scale_factor?.toString() || '0.1')
-      setEditMax(selectedTarget.config?.max_per_trade?.toString() || '1.0')
+      const cfg = selectedTarget.config || {}
+      setEditScale(cfg.scale_factor?.toString() || '0.1')
+      setEditMax(cfg.max_per_trade?.toString() || '1.0')
+      setPumpScale(cfg.pump_scale?.toString() || '0.05')
+      setPumpMax(cfg.pump_max?.toString() || '0.2')
+      setMajorScale(cfg.major_scale?.toString() || '0.5')
+      setMajorMax(cfg.major_max?.toString() || '5.0')
+      setAutoExecute(!!cfg.auto_execute)
     }
   }, [selectedTarget])
 
@@ -53,7 +68,15 @@ export const CopyTradeConfigWidget = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           address: selectedAddress,
-          config: { scale_factor: parseFloat(editScale), max_per_trade: parseFloat(editMax) }
+          config: { 
+            scale_factor: parseFloat(editScale), 
+            max_per_trade: parseFloat(editMax),
+            pump_scale: parseFloat(pumpScale),
+            pump_max: parseFloat(pumpMax),
+            major_scale: parseFloat(majorScale),
+            major_max: parseFloat(majorMax),
+            auto_execute: autoExecute
+          }
         })
       })
       dispatch(addNotification({ title: 'Config Updated', message: 'Parameters saved.', type: 'success' }))
@@ -62,11 +85,11 @@ export const CopyTradeConfigWidget = () => {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-2 h-full min-h-0">
-      <div className="lg:w-[300px] bg-background-card border border-white/5 rounded-2xl flex flex-col shrink-0 overflow-hidden shadow-xl h-full relative">
+    <div className="flex flex-col lg:flex-row gap-2 h-full animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-0">
+      <div className="lg:w-[380px] bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 shrink-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-20" />
         
-        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] px-4">
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
               <Users size={18} />
@@ -78,20 +101,45 @@ export const CopyTradeConfigWidget = () => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto custom-scrollbar p-4 space-y-2">
+        <div className="flex-1 overflow-auto custom-scrollbar space-y-2 pr-1">
           {targets?.map(t => (
-            <button key={t.address} onClick={() => setSelectedAddress(t.address)} className={cn("w-full p-2 rounded-lg text-left text-[10px] border", selectedAddress === t.address ? "bg-accent-cyan/10 border-accent-cyan/30" : "bg-white/5 border-transparent")}>
-              <div className="font-bold text-white">{t.alias}</div>
-              <div className="text-text-muted truncate">{t.address}</div>
+            <button 
+              key={t.address} 
+              onClick={() => setSelectedAddress(t.address)} 
+              className={cn(
+                "w-full p-3 rounded-xl text-left border transition-all relative overflow-hidden group",
+                selectedAddress === t.address 
+                  ? "bg-accent-cyan/10 border-accent-cyan/30 ring-1 ring-accent-cyan/20" 
+                  : "bg-white/[0.02] border-white/5 hover:bg-white/5 hover:border-white/10"
+              )}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <div className={cn(
+                  "text-[10px] font-black uppercase tracking-tight truncate",
+                  selectedAddress === t.address ? "text-accent-cyan" : "text-white"
+                )}>
+                  {t.alias}
+                </div>
+                <div className="flex items-center gap-1">
+                   {t.config?.auto_execute && (
+                     <div className="w-1.5 h-1.5 rounded-full bg-accent-cyan animate-pulse" />
+                   )}
+                </div>
+              </div>
+              <div className="text-[8px] text-text-muted font-mono truncate">{t.address}</div>
+              
+              {selectedAddress === t.address && (
+                <div className="absolute right-0 top-0 bottom-0 w-1 bg-accent-cyan shadow-[0_0_10px_rgba(34,211,238,0.5)]" />
+              )}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl flex flex-col overflow-hidden shadow-xl h-full relative">
+      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-cyan opacity-50 z-20" />
         
-        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] px-4">
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple">
               <Activity size={18} />
@@ -103,32 +151,95 @@ export const CopyTradeConfigWidget = () => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto custom-scrollbar p-6">
-          {selectedTarget ? (
-            <div className="space-y-6">
-              <h2 className="text-xl font-black text-white uppercase">{selectedTarget.alias}</h2>
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                   <label className="text-[10px] uppercase text-text-muted">Scale Factor</label>
-                   <input type="number" value={editScale} onChange={(e) => setEditScale(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-white" />
-                 </div>
-                 <div className="space-y-2">
-                   <label className="text-[10px] uppercase text-text-muted">Max SOL</label>
-                   <input type="number" value={editMax} onChange={(e) => setEditMax(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-white" />
-                 </div>
+        <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
+          <div className="flex-1 overflow-auto custom-scrollbar p-2">
+            {selectedTarget ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                   <h2 className="text-sm font-black text-white uppercase truncate">{selectedTarget.alias}</h2>
+                   <div className="text-[8px] text-text-muted font-mono truncate max-w-[150px]">{selectedTarget.address}</div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {/* Standard Profile */}
+                  <div className="p-3 bg-white/5 rounded-xl border border-white/10 flex flex-col gap-3">
+                    <div className="text-[10px] font-black text-accent-cyan uppercase tracking-wider text-center border-b border-white/5 pb-2">Standard</div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] uppercase text-text-muted font-bold block">Scale Factor</label>
+                      <input type="number" value={editScale} onChange={(e) => setEditScale(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-cyan/50 outline-none h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] uppercase text-text-muted font-bold block">Max SOL</label>
+                      <input type="number" value={editMax} onChange={(e) => setEditMax(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-cyan/50 outline-none h-9" />
+                    </div>
+                  </div>
+
+                  {/* Pump.fun Profile */}
+                  <div className="p-3 bg-white/5 rounded-xl border border-white/10 flex flex-col gap-3">
+                    <div className="text-[10px] font-black text-accent-pink uppercase tracking-wider text-center border-b border-white/5 pb-2">Pump.fun</div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] uppercase text-text-muted font-bold block">Scale Factor</label>
+                      <input type="number" value={pumpScale} onChange={(e) => setPumpScale(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-pink/50 outline-none h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] uppercase text-text-muted font-bold block">Max SOL</label>
+                      <input type="number" value={pumpMax} onChange={(e) => setPumpMax(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-pink/50 outline-none h-9" />
+                    </div>
+                  </div>
+
+                  {/* Major Profile */}
+                  <div className="p-3 bg-white/5 rounded-xl border border-white/10 flex flex-col gap-3">
+                    <div className="text-[10px] font-black text-accent-purple uppercase tracking-wider text-center border-b border-white/5 pb-2">Major</div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] uppercase text-text-muted font-bold block">Scale Factor</label>
+                      <input type="number" value={majorScale} onChange={(e) => setMajorScale(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-purple/50 outline-none h-9" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] uppercase text-text-muted font-bold block">Max SOL</label>
+                      <input type="number" value={majorMax} onChange={(e) => setMajorMax(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-purple/50 outline-none h-9" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10">
+                    <div className="flex flex-col">
+                      <div className="text-[10px] font-black text-white uppercase leading-none">Auto-Execute</div>
+                      <div className="text-[8px] text-text-muted mt-1 uppercase tracking-tighter font-bold">Mirror trades</div>
+                    </div>
+                    <button 
+                      onClick={() => setAutoExecute(!autoExecute)}
+                      className={cn(
+                        "w-10 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out",
+                        autoExecute ? "bg-accent-cyan" : "bg-white/10"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-4 h-4 rounded-full bg-white transition-transform duration-200",
+                        autoExecute ? "translate-x-5" : "translate-x-0"
+                      )} />
+                    </button>
+                  </div>
+
+                  <button onClick={handleUpdateConfig} className="w-full bg-accent-purple text-white rounded-xl font-black uppercase tracking-[0.2em] hover:bg-purple-500 transition-all text-xs shadow-lg active:scale-95 h-full">
+                    Save Config
+                  </button>
+                </div>
               </div>
-              <button onClick={handleUpdateConfig} className="w-full py-3 bg-accent-purple text-white rounded-xl font-bold uppercase tracking-widest hover:bg-purple-500 transition-all">Save Config</button>
-            </div>
-          ) : (
-            <div className="h-full flex items-center justify-center text-text-muted italic">Select a target wallet</div>
-          )}
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-text-muted italic text-[10px] opacity-50 gap-2">
+                <Users size={24} strokeWidth={1} />
+                <span>Select a target wallet</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl flex flex-col overflow-hidden shadow-xl h-full relative">
+      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-pink opacity-50 z-20" />
         
-        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] px-4">
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
               <Activity size={18} />
@@ -140,16 +251,39 @@ export const CopyTradeConfigWidget = () => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto custom-scrollbar p-4 space-y-2">
-          {signals?.map(s => (
-            <div key={s.signature} className="p-2 bg-white/5 rounded-lg text-[10px] flex flex-col gap-1">
-              <div className="flex justify-between font-bold">
-                <span className="text-accent-cyan">SIGNAL</span>
-                <span className="text-text-muted">{new Date(s.timestamp * 1000).toLocaleTimeString()}</span>
+        <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
+          <div className="flex-1 overflow-auto custom-scrollbar p-3 space-y-2">
+            {signals?.map(s => (
+              <div key={s.signature} className="p-3 rounded-xl border border-white/5 bg-white/[0.02] transition-all relative overflow-hidden group">
+                <div className="flex items-start gap-3">
+                  <div className="p-1.5 rounded-lg shrink-0 text-accent-cyan bg-accent-cyan/10">
+                    <Zap size={14} />
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                      <span className="text-[10px] font-black text-white uppercase tracking-tight truncate">
+                        {s.type || 'SIGNAL'} - {s.alias}
+                      </span>
+                      <span className="text-[8px] text-text-muted font-mono shrink-0 flex items-center gap-1">
+                        <Clock size={8} />
+                        {formatTime(s.timestamp)}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-text-secondary leading-relaxed line-clamp-2">
+                      {s.sent && s.received ? (
+                        <span className="flex items-center gap-1">
+                          Sold {s.sent.amount.toFixed(2)} {s.sent.symbol} → Bought {s.received.amount.toFixed(2)} {s.received.symbol}
+                        </span>
+                      ) : (
+                        `Activity detected for ${s.alias}`
+                      )}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="truncate text-white/60">{s.signature}</div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </div>
