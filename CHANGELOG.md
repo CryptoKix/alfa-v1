@@ -1,5 +1,42 @@
 # Tactix-Gem Project Changelog
 
+## [2026-01-13] - Architecture Restoration, UI Flair & Log Density
+
+### Github Repository Initialized
+- **URL:** [https://github.com/CryptoKix/TacTix](https://github.com/CryptoKix/TacTix)
+- **Status:** Successfully pushed the restored "Cyberpunk Obsidian" architecture.
+- **Security:** Verified that `.env`, `keypair.json`, and `.db` files are strictly ignored and remain local.
+
+### Feature: Strategy Terminal UI v2
+- **Command Deck Layout:** Restored the 3x2 grid layout for strategy selection alongside a dynamic **Strategy Console** analytics panel.
+- **Button Flair Upgrades:**
+    - **Rounded Aesthetic:** Transitioned from industrial bevels to a sleek `rounded-2xl` organic design for better integration with the UI.
+    - **Neon Hover Glows:** Unified all strategy buttons to use the vibrant **TWAP Purple** neon bloom effect on hover and selection.
+    - **Brand Color Sync:** Default icons and text now utilize primary `accent-cyan`, switching to white on selection for high-contrast emphasis.
+- **Dynamic Metrics:** The terminal now displays real-time **Unrealized PnL** (active bots) and **Total Realized PnL** (completed bots) specific to each strategy engine.
+
+### Feature: High-Density Execution Logs
+- **Single-Row Architecture:** Hardened all execution rows across Dashboard and Strategies to a strict single-line format (`Timestamp | Pair | Swap Details | Price | Status`).
+- **Swap Details:** Implemented a concise `[Amount] Asset → [Amount] Asset` logic with color-coded token highlights.
+- **Absolute Timestamps:** Switched from relative "time ago" to absolute `MM/DD HH:MM:SS` formatting for forensic accuracy.
+- **Status-Aware Coloring:** Success rows (`OK`) now automatically highlight the timestamp in `accent-green`, improving scannability.
+- **Logical Flow:** Reordered columns so the Asset Pair strictly follows the `[Input] / [Output]` direction of the trade.
+
+### Feature: Master Engine Controller (ActiveBotsModal)
+- **Portal Rendering:** Fully refactored the modal to use **React Portals**, ensuring it renders at the document body level to fix "Black Screen" and clipping issues.
+- **Financial Labels:** Replaced generic "Tactical Yield" with status-specific PnL descriptors: **Realized PnL** (Completed) and **Unrealized PnL** (Active).
+- **Smart Interface:** Automatically hides action buttons (Pause/Decommission) for completed bots to prevent accidental interactions.
+
+### Bot Engine & Logic Fixes
+- **Grid Interval Logic:** Refactored the Grid Bot engine to a strict interval-trigger model. The bot now sells exactly at the level price shown in the UI, resolving issues where positions were held too long.
+- **Smart Initialization:** Updated bot deployment to correctly fund "Sell Levels" based on real-time market price during setup.
+
+### Stability & Resilience
+- **Crash Protection:** Resolved multiple "Black Screen" runtime errors by hardening null-checks in `reduce/filter` functions and fixing syntax errors in the modal component.
+- **Data Synchronization:** Implemented an automated REST fetch on application startup to ensure bot data is populated immediately while WebSockets establish.
+- **Type Safety:** Added explicit `Number()` casting to all financial calculations to prevent malformed data from stalling the UI.
+
+
 ## [2026-01-12] - Grid Trailing, TWAP Engine & Copy Trader UI
 
 ### Feature: Grid Bot v2 (Trailing & Automation)
