@@ -187,13 +187,13 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots, type, onDelete, onPause
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-white/5 bg-background-elevated/50 flex justify-end gap-3 shrink-0">
+        <div className="p-6 border-t border-white/5 bg-background-elevated/50 flex justify-end gap-3 shrink-0">
            <button 
               onClick={onCreateNew}
-              className="px-4 py-2 bg-accent-cyan text-black rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-cyan-400 transition-colors flex items-center gap-2"
+              className="px-6 py-3 bg-accent-cyan text-black hover:bg-white border border-accent-cyan rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all duration-300 shadow-[0_0_20px_rgba(0,255,255,0.2)] hover:shadow-[0_0_40px_rgba(0,255,255,0.4)] flex items-center gap-3 transform hover:-translate-y-0.5 active:scale-95"
            >
-              <Play size={14} fill="currentColor" />
-              Create New Strategy
+              <Plus size={16} strokeWidth={3} />
+              Initialize New Engine
            </button>
         </div>
       </div>

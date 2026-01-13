@@ -217,20 +217,23 @@ export const TWAPConfigWidget = () => {
           onClick={handleDeploy}
           disabled={status === 'loading' || !totalAmt || !duration || !interval || hasInsufficientBalance}
           className={cn(
-            "w-full py-3 rounded-xl font-black text-base uppercase tracking-wider transition-all transform active:scale-95 flex items-center justify-center gap-2 shrink-0",
+            "w-full py-4 rounded-2xl font-black text-base uppercase tracking-[0.2em] transition-all duration-500 transform active:scale-95 flex items-center justify-center gap-3 shrink-0 group/launch",
             totalAmt > 0 && duration && interval && status !== 'loading' && !hasInsufficientBalance
-              ? "bg-accent-purple text-white hover:bg-purple-500 shadow-[0_0_20px_rgba(153,69,255,0.3)]"
-              : "bg-white/5 text-white/20 cursor-not-allowed border border-white/5"
+              ? "bg-accent-purple text-white hover:bg-white hover:text-black shadow-[0_0_30px_rgba(153,69,255,0.2)] hover:shadow-[0_0_50px_rgba(153,69,255,0.4)] border border-accent-purple"
+              : "bg-white/5 text-white/10 cursor-not-allowed border border-white/5 opacity-50"
           )}
         >
           {status === 'loading' ? (
-            <span className="animate-pulse text-xs">Deploying...</span>
+            <div className="flex items-center gap-2">
+              <Activity size={20} className="animate-spin" />
+              <span className="animate-pulse text-xs tracking-widest">Broadcasting...</span>
+            </div>
           ) : hasInsufficientBalance && totalAmt > 0 ? (
-            <span className="text-xs">Insufficient Balance</span>
+            <span className="text-xs">Liquidity Issue</span>
           ) : (
             <>
-              <Play size={18} fill="currentColor" />
-              Start TWAP
+              <Play size={20} fill="currentColor" className="transition-transform group-hover/launch:scale-125" />
+              Execute TWAP
             </>
           )}
         </button>

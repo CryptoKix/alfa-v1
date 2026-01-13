@@ -283,20 +283,23 @@ export const GridConfigWidget = () => {
           onClick={handleDeploy}
           disabled={status === 'loading' || !totalInv || !lowerPrice || !upperPrice || hasInsufficientBalance}
           className={cn(
-            "w-full py-3 rounded-xl font-black text-base uppercase tracking-wider transition-all transform active:scale-95 flex items-center justify-center gap-2 shrink-0",
+            "w-full py-4 rounded-2xl font-black text-base uppercase tracking-[0.2em] transition-all duration-500 transform active:scale-95 flex items-center justify-center gap-3 shrink-0 group/launch",
             totalInv > 0 && steps > 0 && lowerPrice && upperPrice && status !== 'loading' && !hasInsufficientBalance
-              ? "bg-accent-green text-black hover:bg-green-400 shadow-[0_0_20px_rgba(0,255,157,0.3)]"
-              : "bg-white/5 text-white/20 cursor-not-allowed border border-white/5"
+              ? "bg-accent-green text-black hover:bg-white shadow-[0_0_30px_rgba(0,255,157,0.2)] hover:shadow-[0_0_50px_rgba(0,255,157,0.4)] border border-accent-green"
+              : "bg-white/5 text-white/10 cursor-not-allowed border border-white/5 opacity-50"
           )}
         >
           {status === 'loading' ? (
-            <span className="animate-pulse text-xs">Deploying...</span>
+            <div className="flex items-center gap-2">
+              <Activity size={20} className="animate-spin" />
+              <span className="animate-pulse text-xs tracking-widest">Deploying Sync...</span>
+            </div>
           ) : hasInsufficientBalance && totalInv > 0 ? (
-            <span className="text-xs">Insufficient Balance</span>
+            <span className="text-xs">Balance Critical</span>
           ) : (
             <>
-              <Play size={18} fill="currentColor" />
-              Launch Bot
+              <Play size={20} fill="currentColor" className="transition-transform group-hover/launch:scale-125" />
+              Initialize Grid
             </>
           )}
         </button>

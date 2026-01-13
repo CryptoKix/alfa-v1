@@ -136,12 +136,12 @@ export const TradeEntryWidget = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-background-elevated rounded-xl p-1 mb-4 border border-white/5">
+      <div className="flex bg-background-elevated rounded-xl p-1.5 mb-4 border border-white/5 relative group/tabs">
         <button
           onClick={() => setSide('buy')}
           className={cn(
-            "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all",
-            side === 'buy' ? "bg-accent-cyan text-black shadow-lg shadow-cyan-500/20" : "text-text-muted hover:text-white"
+            "flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all duration-300 relative z-10",
+            side === 'buy' ? "bg-accent-cyan text-black shadow-glow-cyan" : "text-text-muted hover:text-white"
           )}
         >
           BUY
@@ -149,8 +149,8 @@ export const TradeEntryWidget = () => {
         <button
           onClick={() => setSide('sell')}
           className={cn(
-            "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all",
-            side === 'sell' ? "bg-accent-pink text-black shadow-lg shadow-pink-500/20" : "text-text-muted hover:text-white"
+            "flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all duration-300 relative z-10",
+            side === 'sell' ? "bg-accent-pink text-black shadow-glow-pink" : "text-text-muted hover:text-white"
           )}
         >
           SELL
@@ -299,11 +299,25 @@ export const TradeEntryWidget = () => {
         onClick={handleTrade}
         disabled={!amount || status === 'loading'}
         className={cn(
-          "w-full py-3.5 mt-4 rounded-xl font-black text-base uppercase tracking-wider transition-all transform active:scale-95",
-          !amount || status === 'loading' ? "bg-white/5 text-white/20" : side === 'buy' ? "bg-accent-cyan text-black" : "bg-accent-pink text-black"
+          "w-full py-4.5 mt-4 rounded-2xl font-black text-lg uppercase tracking-[0.25em] transition-all duration-500 transform active:scale-95 flex items-center justify-center gap-3",
+          !amount || status === 'loading' 
+            ? "bg-white/5 text-white/10 cursor-not-allowed border border-white/5 opacity-50" 
+            : side === 'buy' 
+              ? "bg-accent-cyan text-black hover:bg-white shadow-[0_0_35px_rgba(0,255,255,0.25)] hover:shadow-[0_0_55px_rgba(0,255,255,0.45)] border border-accent-cyan" 
+              : "bg-accent-pink text-black hover:bg-white shadow-[0_0_35px_rgba(255,0,128,0.25)] hover:shadow-[0_0_55px_rgba(255,0,128,0.45)] border border-accent-pink"
         )}
       >
-        {status === 'loading' ? 'Processing...' : `${side.toUpperCase()} ${toToken.symbol}`}
+        {status === 'loading' ? (
+          <div className="flex items-center gap-2">
+            <Activity size={22} className="animate-spin" />
+            <span className="animate-pulse">Confirming...</span>
+          </div>
+        ) : (
+          <>
+            <Zap size={22} fill="currentColor" />
+            {side.toUpperCase()} {toToken.symbol}
+          </>
+        )}
       </button>
     </div>
   )

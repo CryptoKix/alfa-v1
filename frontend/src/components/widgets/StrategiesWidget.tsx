@@ -111,7 +111,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
               </div>
               <button 
                 onClick={onViewBots}
-                className="px-3 py-1.5 bg-accent-cyan/10 hover:bg-accent-cyan/20 border border-accent-cyan/20 rounded-lg text-accent-cyan text-[9px] font-black uppercase tracking-widest transition-all shadow-[0_0_10px_rgba(0,255,255,0.05)] hover:shadow-[0_0_15px_rgba(0,255,255,0.15)]"
+                className="px-4 py-2 bg-accent-cyan text-black hover:bg-white border border-accent-cyan rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-300 shadow-[0_0_15px_rgba(0,255,255,0.2)] hover:shadow-[0_0_25px_rgba(0,255,255,0.4)] transform hover:-translate-y-0.5 active:scale-95"
               >
                 View Bots
               </button>
