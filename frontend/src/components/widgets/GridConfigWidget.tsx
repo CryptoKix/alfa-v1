@@ -423,7 +423,10 @@ export const GridConfigWidget = () => {
               <div className="space-y-1">
                 {gridTrades.map(trade => (
                   <div key={trade.id} className="grid grid-cols-[95px_90px_1fr_55px] gap-2 items-end p-2 bg-background-elevated/30 border border-white/5 rounded-lg hover:bg-white/5 transition-all group font-mono whitespace-nowrap overflow-hidden">
-                    <div className="text-[11px] font-black uppercase tracking-tight text-text-muted shrink-0 leading-none">
+                    <div className={cn(
+                      "text-[11px] font-black uppercase tracking-tight shrink-0 leading-none transition-colors duration-500",
+                      trade.status === 'success' ? "text-accent-green" : "text-text-muted"
+                    )}>
                       {(() => {
                         if (!trade.timestamp) return '-'
                         const isoStr = trade.timestamp.replace(' ', 'T') + (trade.timestamp.includes('Z') ? '' : 'Z')

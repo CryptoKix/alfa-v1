@@ -69,7 +69,12 @@ export const TradeHistoryWidget = () => {
                 
                 return (
                   <div key={trade.id} className="grid grid-cols-[100px_100px_1fr_70px] gap-4 items-end p-2.5 rounded-xl bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group text-xs font-mono whitespace-nowrap overflow-hidden">
-                    <div className="text-text-muted font-black shrink-0 text-[11px] leading-none">{formatTimestamp(trade.timestamp)}</div>
+                    <div className={cn(
+                      "font-black shrink-0 text-[11px] leading-none transition-colors duration-500",
+                      isSuccess ? "text-accent-green" : "text-text-muted"
+                    )}>
+                      {formatTimestamp(trade.timestamp)}
+                    </div>
                     
                     <div className="flex items-end gap-1 font-black uppercase tracking-tighter shrink-0 text-[11px] leading-none">
                       <span className="text-accent-pink inline-block leading-none">{trade.input}</span>
