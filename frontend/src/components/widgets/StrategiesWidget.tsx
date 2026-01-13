@@ -83,7 +83,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
 
       <div className="flex-1 flex gap-4 min-h-0">
         {/* Left Side: 3x2 Grid */}
-        <div className="grid grid-cols-3 gap-2 flex-[4.5]">
+        <div className="grid grid-cols-3 gap-4 flex-[4]">
           {STRATEGIES.map((strat) => {
             const isActive = bots?.some((b: any) => b?.type?.toLowerCase() === strat.id && b.status === 'active')
             const isSelected = selectedId === strat.id
