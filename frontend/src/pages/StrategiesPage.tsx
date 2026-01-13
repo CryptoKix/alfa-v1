@@ -40,7 +40,7 @@ export default function StrategiesPage() {
 
   return (
     <MainLayout>
-      <div className="flex flex-col gap-2 h-[calc(100vh-110px)] overflow-hidden">
+      <div className="flex flex-col gap-2 h-full overflow-hidden">
         {/* Top Header Section: Terminal Grid + Intel */}
         <div className="h-[200px] shrink-0">
           <StrategiesWidget 

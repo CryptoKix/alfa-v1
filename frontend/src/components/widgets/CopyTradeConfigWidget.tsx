@@ -62,7 +62,7 @@ export const CopyTradeConfigWidget = () => {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 h-full min-h-0">
+    <div className="flex flex-col lg:flex-row gap-2 h-full min-h-0">
       <div className="lg:w-[300px] bg-background-card border border-white/5 rounded-2xl p-4 flex flex-col gap-4 shrink-0 overflow-auto custom-scrollbar">
         <h2 className="text-sm font-bold text-white uppercase flex items-center gap-2">
           <Users size={16} /> Targets
