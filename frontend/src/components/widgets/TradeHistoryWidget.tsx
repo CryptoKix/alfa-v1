@@ -72,9 +72,9 @@ export const TradeHistoryWidget = () => {
                     <div className="text-text-muted font-bold shrink-0 text-[10px]">{formatTimestamp(trade.timestamp)}</div>
                     
                     <div className="flex items-center gap-1 font-black uppercase tracking-tighter shrink-0 text-[11px]">
-                      <span className="text-accent-cyan">{trade.output}</span>
-                      <span className="text-text-muted opacity-30">/</span>
                       <span className="text-accent-pink">{trade.input}</span>
+                      <span className="text-text-muted opacity-30">/</span>
+                      <span className="text-accent-cyan">{trade.output}</span>
                     </div>
 
                     <div className="flex items-center gap-2 min-w-0 overflow-hidden text-[11px]">

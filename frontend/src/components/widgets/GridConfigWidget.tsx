@@ -437,9 +437,9 @@ export const GridConfigWidget = () => {
                     </div>
                     
                     <div className="flex items-center gap-1 font-black text-[11px] uppercase tracking-tighter shrink-0">
-                      <span className="text-accent-cyan">{trade.output}</span>
-                      <span className="text-text-muted opacity-30">/</span>
                       <span className="text-accent-pink">{trade.input}</span>
+                      <span className="text-text-muted opacity-30">/</span>
+                      <span className="text-accent-cyan">{trade.output}</span>
                     </div>
 
                     <div className="text-[11px] text-white/90 flex items-center gap-1.5 min-w-0 overflow-hidden">
