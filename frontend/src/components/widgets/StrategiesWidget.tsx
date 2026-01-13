@@ -88,21 +88,21 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                   isSelected ? "z-20" : "z-10"
                 )}
               >
-                {/* Real Neon Glow (Behind the clip-path) */}
+                {/* Unified Neon Glow (TWAP Purple Style) */}
                 <div 
                   className={cn(
                     "absolute -inset-1 transition-all duration-500 blur-xl opacity-0 pointer-events-none",
                     isSelected ? "opacity-30" : "group-hover/btn:opacity-50"
                   )}
-                  style={{ backgroundColor: `var(--color-accent-${glowColor})` }}
+                  style={{ backgroundColor: 'var(--color-accent-purple)' }}
                 />
 
                 {/* The "Swanky" Beveled Frame */}
                 <div className={cn(
                   "absolute inset-0 border transition-all duration-500",
                   isSelected 
-                    ? `bg-background-elevated border-accent-${glowColor}` 
-                    : `bg-white/[0.03] border-white/10 group-hover/btn:border-accent-${glowColor}/50`,
+                    ? "bg-background-elevated border-accent-purple" 
+                    : "bg-white/[0.03] border-white/10 group-hover/btn:border-accent-purple/50",
                   "clip-path-polygon-[0%_0%,100%_0%,100%_75%,85%_100%,0%_100%]"
                 )} 
                 style={{
@@ -116,8 +116,8 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                     isSelected ? "opacity-100" : "opacity-0 group-hover/btn:opacity-100"
                   )}
                   style={{ 
-                    backgroundColor: `var(--color-accent-${glowColor})`,
-                    boxShadow: `0 0 10px var(--color-accent-${glowColor})`
+                    backgroundColor: 'var(--color-accent-purple)',
+                    boxShadow: '0 0 10px var(--color-accent-purple)'
                   }}
                 />
 
