@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client'
+import axios from 'axios'
 import { store } from '../app/store'
 import { updatePortfolio, updateHistory, setWebConnection } from '../features/portfolio/portfolioSlice'
 import { updatePrice, setPriceConnection } from '../features/prices/pricesSlice'
@@ -12,6 +13,17 @@ export const initSockets = () => {
   const historySocket = io('/history', { transports: ['websocket', 'polling'] })
   const botsSocket = io('/bots', { transports: ['websocket', 'polling'] })
   const copytradeSocket = io('/copytrade', { transports: ['websocket', 'polling'] })
+
+  // Initial Fetch for Bots
+  const fetchInitialBots = async () => {
+    try {
+      const res = await axios.get('/api/dca/list')
+      store.dispatch(updateBots(res.data))
+    } catch (e) {
+      console.error('[Socket] Initial Bots Fetch Error:', e)
+    }
+  }
+  fetchInitialBots()
 
   // Portfolio listeners
   portfolioSocket.on('connect_error', (err) => {

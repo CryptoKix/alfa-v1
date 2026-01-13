@@ -87,9 +87,9 @@ def api_dca_add():
         sell_levels_count = 0
         for i in range(s):
             price_level = lb + (i * (ub - lb) / (s - 1))
-            # If level price is above current market price, it's a SELL level (needs inventory)
-            # The last level is just a boundary target, we never buy AT the upper bound
-            is_sell_level = (price_level > current_price) and (i < s - 1)
+            # New Interval Model: level[i] manages interval [level[i-1], level[i]].
+            # Position on level[i] means bought at level[i-1], waiting to sell at level[i].
+            is_sell_level = (i > 0) and (price_level > current_price)
             if is_sell_level:
                 sell_levels_count += 1
             

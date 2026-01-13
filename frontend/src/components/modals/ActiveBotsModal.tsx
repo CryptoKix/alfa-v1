@@ -17,13 +17,20 @@ interface ActiveBotsModalProps {
 export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, onPause, onCreateNew }: ActiveBotsModalProps) => {
   const [expandedBotId, setExpandedBotId] = useState<string | null>(null)
   
+  console.log('[ActiveBotsModal] Render:', { isOpen, type, botsCount: bots.length });
+  
   if (!isOpen) return null
   
   const safeType = type || 'all'
   const isAll = safeType.toLowerCase() === 'all'
-  const filteredBots = bots.filter(b => b && (isAll || (b.type?.toLowerCase() === safeType.toLowerCase())) && b.status !== 'deleted')
-  const activeBots = filteredBots.filter(b => b.status === 'active')
-  const completedBots = filteredBots.filter(b => b.status === 'completed')
+  const filteredBots = bots.filter(b => {
+    if (!b) return false;
+    const match = (isAll || (b.type?.toLowerCase() === safeType.toLowerCase())) && b.status !== 'deleted';
+    if (!match && !isAll) console.log(`[ActiveBotsModal] Skipping bot ${b.id}: type ${b.type} != ${safeType}`);
+    return match;
+  });
+
+  console.log('[ActiveBotsModal] Filtered:', { filteredCount: filteredBots.length });
 
   const toggleExpand = (id: string, botType?: string) => {
     if (botType?.toLowerCase() !== 'grid') return
