@@ -19,9 +19,14 @@ export const NavigationWidget = () => {
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50" />
 
       <div className="h-16 flex items-center justify-center border-b border-white/5 mb-2 shrink-0">
-        <h1 className="hidden md:block text-2xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-accent-cyan to-accent-purple">
-          TACTIX
-        </h1>
+        <div className="hidden md:flex items-baseline gap-2">
+          <h1 className="text-2xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-accent-cyan to-accent-purple">
+            TACTIX
+          </h1>
+          <span className="text-[8px] font-bold text-accent-cyan uppercase tracking-widest opacity-80">
+            v1.0.1 Alpha
+          </span>
+        </div>
         <h1 className="md:hidden text-2xl font-black text-accent-cyan">T</h1>
       </div>
 

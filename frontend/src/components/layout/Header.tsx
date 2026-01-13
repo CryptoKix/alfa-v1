@@ -99,11 +99,8 @@ export const Header = () => {
             <div className="w-8 h-8 rounded-full bg-accent-purple/20 flex items-center justify-center border border-accent-purple/30 group-hover:border-accent-purple/50 transition-colors">
               <Wallet size={14} className="text-accent-purple group-hover:text-accent-purple/80 transition-colors" />
             </div>
-            <div className="flex flex-col items-start">
+            <div className="flex flex-col items-start justify-center">
               <span className="text-[10px] font-bold text-white leading-none">{walletAlias}</span>
-              <span className="text-[9px] font-mono text-text-secondary leading-none mt-1">
-                {wallet.slice(0, 4)}...{wallet.slice(-4)}
-              </span>
             </div>
           </button>
         </div>

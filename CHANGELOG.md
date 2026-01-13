@@ -161,6 +161,8 @@
 - **Precision Tuning:** Standardized price displays to 2 decimal places and asset amounts to 6 decimal places across all widgets.
 - **Visual Consistency:** Applied uniform icons, font weights (medium), and color coding (Cyan/Pink) across the entire application.
 
+- **Branding:** Added 'v1.0.1 Alpha' versioning tag to the main TACTIX logo in the navigation sidebar.
+- **Header Optimization:** Removed truncated wallet address from the user profile badge to prioritize alias visibility and minimize clutter.
 ## [2026-01-11] - Dashboard Refinement & Wallet Integration
 
 ### Bug Fixes & Stability
