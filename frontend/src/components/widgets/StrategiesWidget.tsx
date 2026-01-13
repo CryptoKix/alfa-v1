@@ -75,23 +75,64 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
           {STRATEGIES.map((strat) => {
             const isActive = bots?.some((b: any) => b?.type?.toLowerCase() === strat.id && b.status === 'active')
             const isSelected = selectedId === strat.id
+            const colorClass = strat.color // e.g., 'text-accent-cyan'
+            const borderColorClass = isSelected ? colorClass.replace('text-', 'border-') : 'border-white/5'
+            const glowColor = strat.color.split('-').pop() // e.g., 'cyan'
             
             return (
               <button
                 key={strat.id}
                 onClick={() => onSelect?.(strat.id)}
                 className={cn(
-                  "group/btn relative border rounded-xl p-2 flex flex-col items-center justify-center gap-1.5 transition-all text-center overflow-hidden",
+                  "group/btn relative border rounded-xl p-3 flex flex-col items-center justify-center gap-2 transition-all duration-500 text-center overflow-hidden",
                   isSelected 
-                    ? "bg-accent-cyan/10 border-accent-cyan/40 shadow-[0_0_15px_rgba(0,255,255,0.1)]" 
-                    : "bg-white/[0.02] border-white/5 hover:bg-white/5 hover:border-white/10"
+                    ? `bg-background-elevated/50 ${borderColorClass} shadow-[0_0_20px_rgba(var(--color-accent-${glowColor}-rgb),0.15)]` 
+                    : "bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/20",
+                  "transform hover:scale-[1.02] active:scale-[0.98]"
                 )}
               >
-                {isActive && (
-                  <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse shadow-[0_0_8px_rgba(0,255,157,0.5)]" />
+                {/* Background Flair Gradient */}
+                <div className={cn(
+                  "absolute inset-0 opacity-0 group-hover/btn:opacity-10 transition-opacity duration-500 bg-gradient-to-br",
+                  isSelected ? "opacity-20" : "",
+                  `from-accent-${glowColor} to-transparent`
+                )} />
+
+                {/* Animated Scanline Overlay */}
+                {isSelected && (
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    <div className="w-full h-full bg-white/5 animate-pulse opacity-20" />
+                  </div>
                 )}
-                <strat.icon size={18} className={cn("transition-transform duration-300 group-hover/btn:scale-110", isSelected ? "text-accent-cyan" : "text-text-muted")} />
-                <div className={cn("text-[10px] font-black uppercase tracking-widest", (isActive || isSelected) ? "text-white" : "text-text-muted")}>{strat.label}</div>
+
+                {isActive && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1">
+                    <div className="w-1 h-1 rounded-full bg-accent-green animate-ping absolute" />
+                    <div className="w-1 h-1 rounded-full bg-accent-green relative" />
+                  </div>
+                )}
+
+                <strat.icon 
+                  size={20} 
+                  className={cn(
+                    "transition-all duration-500 z-10", 
+                    isSelected ? colorClass : "text-text-muted group-hover/btn:text-white",
+                    "group-hover/btn:scale-110 group-hover/btn:rotate-3"
+                  )} 
+                />
+                
+                <div className={cn(
+                  "text-[9px] font-black uppercase tracking-[0.2em] transition-all duration-500 z-10", 
+                  (isActive || isSelected) ? "text-white" : "text-text-muted group-hover/btn:text-text-secondary"
+                )}>
+                  {strat.label}
+                </div>
+
+                {/* Bottom Border Accent */}
+                <div className={cn(
+                  "absolute bottom-0 left-0 h-0.5 transition-all duration-700",
+                  isSelected ? `w-full bg-accent-${glowColor}` : "w-0 group-hover/btn:w-1/2 bg-white/20"
+                )} />
               </button>
             )
           })}
