@@ -82,8 +82,8 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
       </div>
 
       <div className="flex-1 flex gap-4 min-h-0">
-        {/* Left Side: 3x2 Grid (Narrower) */}
-        <div className="grid grid-cols-3 gap-2 flex-[2]">
+        {/* Left Side: 3x2 Grid */}
+        <div className="grid grid-cols-3 gap-2 flex-[4.5]">
           {STRATEGIES.map((strat) => {
             const isActive = bots?.some((b: any) => b?.type?.toLowerCase() === strat.id && b.status === 'active')
             const isSelected = selectedId === strat.id
@@ -161,15 +161,15 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
           })}
         </div>
 
-        {/* Right Side: Strategy Intel & PnL Visualization */}
-        <div className="flex-[4] bg-black/20 rounded-xl border border-white/5 p-2.5 flex flex-col relative group">
-           <div className="flex items-start justify-between mb-1 shrink-0">
+        {/* Right Side: Strategy Intel & PnL Visualization (Narrower) */}
+        <div className="flex-[3] bg-black/20 rounded-xl border border-white/5 p-2.5 flex flex-col relative group overflow-hidden">
+           <div className="flex items-start justify-between mb-1 shrink-0 gap-2">
               <div className="min-w-0 flex-1">
                 <h4 className="text-[10px] font-black text-white uppercase tracking-wider flex items-center gap-1.5">
                   <span className={cn("w-1 h-2 rounded-full bg-current", selectedStrat.color.replace('text-', 'bg-'))} />
                   {selectedStrat.label} ANALYTICS
                 </h4>
-                <p className="text-[8px] text-text-secondary mt-0.5 leading-tight line-clamp-1 italic pr-2">
+                <p className="text-[8px] text-text-secondary mt-0.5 leading-tight line-clamp-1 italic">
                   {selectedStrat.desc}
                 </p>
               </div>
@@ -185,18 +185,18 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
            <div className="flex-1 flex flex-col justify-center gap-1.5">
               <div className="grid grid-cols-2 gap-1.5">
                  <div className="bg-background-elevated/50 border border-white/5 rounded-lg p-1.5 flex flex-col gap-0.5">
-                    <span className="text-[6px] font-black text-text-muted uppercase tracking-[0.1em]">Active Unrealized</span>
+                    <span className="text-[6px] font-black text-text-muted uppercase tracking-[0.1em] truncate">Unrealized</span>
                     <div className={cn(
-                      "text-xs font-black font-mono tracking-tighter",
+                      "text-xs font-black font-mono tracking-tighter truncate",
                       metrics.unrealized >= 0 ? "text-accent-green" : "text-accent-red"
                     )}>
                       ${metrics.unrealized.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                  </div>
                  <div className="bg-background-elevated/50 border border-white/5 rounded-lg p-1.5 flex flex-col gap-0.5 text-right">
-                    <span className="text-[6px] font-black text-text-muted uppercase tracking-[0.1em]">Total Realized</span>
+                    <span className="text-[6px] font-black text-text-muted uppercase tracking-[0.1em] truncate">Realized</span>
                     <div className={cn(
-                      "text-xs font-black font-mono tracking-tighter text-white"
+                      "text-xs font-black font-mono tracking-tighter text-white truncate"
                     )}>
                       ${metrics.realized.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
