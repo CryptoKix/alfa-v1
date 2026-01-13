@@ -54,13 +54,13 @@ export const Header = () => {
         <div className="flex items-center gap-4">
           {/* Status Indicators */}
           <div className="flex items-center gap-3 mr-2">
-            <div className="flex items-center gap-2 px-2 py-1.5 bg-white/5 rounded-lg border border-white/10">
+            <div className="flex items-center gap-2 px-2 h-8 bg-white/5 rounded-lg border border-white/10">
                <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", priceColor, pricePulse && "animate-pulse")} />
                <span className={cn("text-[8px] font-mono font-bold uppercase transition-colors duration-500", priceTextClass)}>
                  {priceStatusText}
                </span>
             </div>
-            <div className="flex items-center gap-2 px-2 py-1.5 bg-white/5 rounded-lg border border-white/10">
+            <div className="flex items-center gap-2 px-2 h-8 bg-white/5 rounded-lg border border-white/10">
                <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", webColor, webConnected && "animate-pulse")} />
                <span className={cn("text-[8px] font-mono font-bold uppercase transition-colors duration-500", webTextClass)}>
                  {webStatusText}
@@ -73,7 +73,7 @@ export const Header = () => {
           {/* Send Button */}
           <button 
             onClick={() => setIsSendModalOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-accent-purple/10 border border-accent-purple/20 rounded-lg text-accent-purple hover:bg-accent-purple/20 transition-all group"
+            className="flex items-center gap-2 px-3 h-8 bg-accent-purple/10 border border-accent-purple/20 rounded-lg text-accent-purple hover:bg-accent-purple/20 transition-all group"
           >
             <Send size={14} className="group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform" />
             <span className="text-[10px] font-black uppercase tracking-widest">Send</span>
