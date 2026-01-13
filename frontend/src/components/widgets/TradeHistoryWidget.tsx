@@ -50,9 +50,10 @@ export const TradeHistoryWidget = () => {
         </div>
 
         {/* Table Header */}
-        <div className="grid grid-cols-[100px_100px_1fr_70px] gap-4 px-3 pb-2 mr-[6px] text-[9px] font-black text-text-muted uppercase tracking-[0.2em] shrink-0">
+        <div className="grid grid-cols-[100px_100px_80px_1fr_60px] gap-4 px-3 pb-2 mr-[6px] text-[9px] font-black text-text-muted uppercase tracking-[0.2em] shrink-0">
           <div>Timestamp</div>
           <div>Asset Pair</div>
+          <div>Price</div>
           <div>Execution Detail</div>
           <div className="text-right">Status</div>
         </div>
@@ -66,9 +67,14 @@ export const TradeHistoryWidget = () => {
             ) : (
               history.map((trade) => {
                 const isSuccess = trade.status === 'success'
+                const isOutputStable = ['USDC', 'USDT', 'USD'].includes(trade.output)
+                const targetAmount = isOutputStable ? trade.amount_in : trade.amount_out
+                const impliedPrice = trade.usd_value > 0 && targetAmount > 0 
+                  ? trade.usd_value / targetAmount 
+                  : 0
                 
                 return (
-                  <div key={trade.id} className="grid grid-cols-[100px_100px_1fr_70px] gap-4 items-end p-2.5 rounded-xl bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group text-xs font-mono whitespace-nowrap overflow-hidden">
+                  <div key={trade.id} className="grid grid-cols-[100px_100px_80px_1fr_60px] gap-4 items-end p-2.5 rounded-xl bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group text-xs font-mono whitespace-nowrap overflow-hidden">
                     <div className={cn(
                       "font-black shrink-0 text-[11px] leading-none transition-colors duration-500",
                       isSuccess ? "text-accent-green" : "text-text-muted"
@@ -80,6 +86,10 @@ export const TradeHistoryWidget = () => {
                       <span className="text-accent-pink inline-block leading-none">{trade.input}</span>
                       <span className="text-text-muted opacity-30 inline-block leading-none">/</span>
                       <span className="text-accent-cyan inline-block leading-none">{trade.output}</span>
+                    </div>
+
+                    <div className="text-[11px] font-black text-white/60 leading-none shrink-0">
+                      {impliedPrice > 0 ? `@ ${impliedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '@ ---'}
                     </div>
 
                     <div className="flex items-end gap-2 min-w-0 overflow-hidden text-[11px] leading-none">
