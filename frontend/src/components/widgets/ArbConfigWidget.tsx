@@ -101,21 +101,37 @@ export const ArbConfigWidget = () => {
 
   const handleInitialize = async () => {
     setStatus('loading')
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10s timeout
+
     try {
-      const res = await fetch('/api/arb/start', { method: 'POST' })
+      const res = await fetch('/api/arb/start', { 
+        method: 'POST',
+        signal: controller.signal 
+      })
+      clearTimeout(timeoutId)
+
       if (res.ok) {
         setStatus('success')
         setIsMonitoring(true)
         dispatch(addNotification({ title: 'Arb Engine', message: 'Engine initialized and scanning pools', type: 'success' }))
         setTimeout(() => setStatus('idle'), 3000)
       } else {
-        setStatus('idle')
-        const data = await res.json()
+        const data = await res.json().catch(() => ({ error: 'Unknown server error' }))
         dispatch(addNotification({ title: 'Arb Error', message: data.error || 'Failed to start engine', type: 'error' }))
+        setStatus('idle')
       }
-    } catch (e) {
+    } catch (e: any) {
+      console.error('Initialize Error:', e)
+      const msg = e.name === 'AbortError' ? 'Request timed out' : 'Network error'
+      dispatch(addNotification({ title: 'Arb Error', message: msg, type: 'error' }))
       setStatus('idle')
-      dispatch(addNotification({ title: 'Arb Error', message: 'Network error', type: 'error' }))
+    } finally {
+      // status is already handled in success/error paths, 
+      // but let's ensure it's not stuck in loading if something weird happens
+      setTimeout(() => {
+        setStatus(prev => prev === 'loading' ? 'idle' : prev)
+      }, 5000)
     }
   }
 
