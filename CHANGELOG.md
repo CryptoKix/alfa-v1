@@ -12,6 +12,12 @@
 - **Arb Visualization:** Created the `ArbConfigWidget` featuring a 3-column layout: Configuration, Real-time Analysis (Heatmap placeholder), and Opportunity Log.
 - **Cross-DEX Spreads:** Added logic to detect and broadcast price discrepancies > 0.01% via Socket.IO.
 
+- **Live Price Matrix:** Implemented a real-time, cross-DEX heatmap comparing prices across Raydium, Orca, Meteora, and Phoenix.
+- **Atomic Swap Simulator:** Built a 'Dry Run' modal that calculates gross spread vs. estimated network fees to provide a net ROI projection.
+- **Dynamic Pair Management:** Added a database-backed pair manager allowing users to add custom mint addresses for live arb monitoring.
+- **Tactical Alerts:** Integrated audio synthesis and global system notifications for spread opportunities exceeding user-defined thresholds.
+- **UI Harmonization:** Fully re-themed the Arbitrage Monitor from yellow to the brand-standard Cyan/Purple Obsidian aesthetic.
+- **Navigation Update:** Added '.sol' branding to the navigation logo.
 ### Feature: Strategy Terminal UI v2
 - **Command Deck Layout:** Restored the 3x2 grid layout for strategy selection alongside a dynamic **Strategy Console** analytics panel.
 - **Button Flair Upgrades:**

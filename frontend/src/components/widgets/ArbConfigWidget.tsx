@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Activity, Target, Zap, Clock, Settings2, BarChart3, Plus, Trash2 } from 'lucide-react'
+import { Activity, Target, Zap, Clock, Settings2, BarChart3, Plus, Trash2, ShieldCheck } from 'lucide-react'
 import { useAppDispatch } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { arbSocket } from '@/services/socket'
 import { addNotification } from '@/features/notifications/notificationsSlice'
+import { ArbSimulatorModal } from '../modals/ArbSimulatorModal'
 
 export const ArbConfigWidget = () => {
   const dispatch = useAppDispatch()
@@ -13,14 +14,40 @@ export const ArbConfigWidget = () => {
   const [isMonitoring, setIsMonitoring] = useState(true)
   const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle')
 
+  // Simulation State
+  const [selectedOpp, setSelectedOpp] = useState<any>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
   // Pair Management State
   const [pairs, setPairs] = useState<any[]>([])
   const [isAddingPair, setIsAddingPair] = useState(false)
-  const [newInputMint, setNewInputMint] = useState('So11111111111111111111111111111111111111112')
-  const [newOutputMint, setNewOutputMint] = useState('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
-  const [newAmount, setNewAmount] = useState('10')
+  const [newInputMint, setNewInputMint] = useState('')
+  const [newOutputMint, setNewOutputMint] = useState('')
+  const [newAmount, setNewAmount] = useState('')
 
   const venues = ["Raydium", "Orca", "Meteora", "Phoenix"]
+
+  // Audio Synth for Tactical Alerts
+  const playAlertSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const oscillator = audioCtx.createOscillator()
+      const gainNode = audioCtx.createGain()
+
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime) // A5
+      oscillator.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.1)
+      
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3)
+
+      oscillator.connect(gainNode)
+      gainNode.connect(audioCtx.destination)
+
+      oscillator.start()
+      oscillator.stop(audioCtx.currentTime + 0.3)
+    } catch (e) {}
+  }
 
   useEffect(() => {
     fetchStatus()
@@ -31,8 +58,17 @@ export const ArbConfigWidget = () => {
     if (!arbSocket) return
 
     const handleArb = (data: any) => {
-      if (data.spread_pct >= parseFloat(minProfit)) {
+      const threshold = parseFloat(minProfit)
+      if (data.spread_pct >= threshold) {
         setOpportunities(prev => [data, ...prev].slice(0, 50))
+        
+        // Trigger Tactical Alerts
+        playAlertSound()
+        dispatch(addNotification({
+          title: 'Arb Opportunity',
+          message: `${data.input_symbol}/${data.output_symbol}: ${data.spread_pct.toFixed(3)}% gap between ${data.best_venue} and ${data.worst_venue}`,
+          type: 'success'
+        }))
       }
     }
 
@@ -144,11 +180,11 @@ export const ArbConfigWidget = () => {
       
       {/* COLUMN 1: Config */}
       <div className="lg:w-[380px] bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 shrink-0 h-full">
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-yellow to-accent-cyan opacity-50 z-20" />
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple via-accent-cyan to-accent-pink opacity-50 z-20" />
         
         <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-accent-yellow/10 rounded-lg text-accent-yellow">
+            <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple">
               <Settings2 size={18} />
             </div>
             <div>
@@ -157,42 +193,41 @@ export const ArbConfigWidget = () => {
           </div>
           <button 
             onClick={() => setIsAddingPair(!isAddingPair)}
-            className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-accent-yellow transition-colors border border-white/5"
+            className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-accent-cyan transition-colors border border-white/5"
           >
             <Plus size={16} />
           </button>
         </div>
 
         <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
-          <div className="flex-1 overflow-auto custom-scrollbar p-2 space-y-2">
-            {isAddingPair && (
-              <div className="p-3 bg-accent-yellow/5 border border-accent-yellow/20 rounded-xl mb-2 space-y-2 animate-in slide-in-from-top-2">
-                <div className="space-y-1">
-                  <label className="text-[8px] uppercase text-accent-yellow font-bold">Input Mint</label>
-                  <input value={newInputMint} onChange={(e) => setNewInputMint(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none focus:border-accent-yellow/50" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[8px] uppercase text-accent-yellow font-bold">Output Mint</label>
-                  <input value={newOutputMint} onChange={(e) => setNewOutputMint(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none focus:border-accent-yellow/50" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[8px] uppercase text-accent-yellow font-bold">Test Amount</label>
-                  <input value={newAmount} onChange={(e) => setNewAmount(e.target.value)} type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none focus:border-accent-yellow/50" />
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={handleAddPair} className="flex-1 py-2 bg-accent-yellow text-black rounded-lg font-black uppercase text-[10px] hover:bg-white transition-all">Add Pair</button>
-                  <button onClick={() => setIsAddingPair(false)} className="px-3 py-2 bg-white/5 text-text-muted rounded-lg font-black uppercase text-[10px] hover:bg-white/10 transition-all">Cancel</button>
-                </div>
+          <div className="flex-1 overflow-auto custom-scrollbar p-2 space-y-3">
+            {/* Permanent Add Pair Form */}
+            <div className="p-3 bg-accent-purple/5 border border-accent-purple/20 rounded-xl space-y-3">
+              <div className="text-[9px] font-black text-accent-cyan uppercase tracking-wider border-b border-white/5 pb-1.5">Add Target Pair</div>
+              <div className="space-y-1.5">
+                <label className="text-[8px] uppercase text-text-muted font-bold px-1">Input Mint (Base)</label>
+                <input value={newInputMint} onChange={(e) => setNewInputMint(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none focus:border-accent-cyan/50 h-8" />
               </div>
-            )}
+              <div className="space-y-1.5">
+                <label className="text-[8px] uppercase text-text-muted font-bold px-1">Output Mint (Target)</label>
+                <input value={newOutputMint} onChange={(e) => setNewOutputMint(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none focus:border-accent-cyan/50 h-8" />
+              </div>
+              <div className="grid grid-cols-[1fr_100px] gap-2 items-end">
+                <div className="space-y-1.5">
+                  <label className="text-[8px] uppercase text-text-muted font-bold px-1">Test Amount</label>
+                  <input value={newAmount} onChange={(e) => setNewAmount(e.target.value)} type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none focus:border-accent-cyan/50 h-8" />
+                </div>
+                <button onClick={handleAddPair} className="bg-accent-purple text-white rounded-lg font-black uppercase text-[10px] hover:bg-white hover:text-black transition-all h-8">Add Pair</button>
+              </div>
+            </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 border-t border-white/5 pt-3">
               <label className="text-[9px] uppercase text-text-muted font-bold block px-1">Min Profit Threshold (%)</label>
               <input 
                 type="number" 
                 value={minProfit} 
                 onChange={(e) => setMinProfit(e.target.value)} 
-                className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-yellow/50 outline-none h-9" 
+                className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-cyan/50 outline-none h-9" 
               />
             </div>
 
@@ -224,8 +259,8 @@ export const ArbConfigWidget = () => {
           className={cn(
             "w-full py-4 rounded-2xl text-black font-black text-sm uppercase tracking-[0.2em] transition-all transform active:scale-95 flex items-center justify-center gap-2 shrink-0",
             isMonitoring 
-              ? "bg-white/5 text-accent-yellow border border-accent-yellow/30 shadow-none hover:bg-white/10" 
-              : "bg-accent-yellow shadow-[0_0_30px_rgba(251,191,36,0.2)] hover:bg-white",
+              ? "bg-white/5 text-accent-cyan border border-accent-cyan/30 shadow-none hover:bg-white/10" 
+              : "bg-accent-cyan shadow-[0_0_30px_rgba(0,255,255,0.2)] hover:bg-white",
             status === 'loading' && "opacity-50 cursor-not-allowed"
           )}
         >
@@ -236,7 +271,7 @@ export const ArbConfigWidget = () => {
 
       {/* COLUMN 2: Visualization */}
       <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan to-accent-yellow opacity-50" />
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-20" />
         
         <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
@@ -335,7 +370,7 @@ export const ArbConfigWidget = () => {
 
       {/* COLUMN 3: Opportunities */}
       <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-yellow to-accent-pink opacity-50 z-20" />
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple via-accent-cyan to-accent-pink opacity-50 z-20" />
         
         <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
@@ -359,7 +394,7 @@ export const ArbConfigWidget = () => {
               opportunities.map((opp, i) => (
                 <div key={i} className="p-3 rounded-xl border border-white/5 bg-white/[0.02] transition-all relative overflow-hidden group">
                   <div className="flex items-start gap-3">
-                    <div className="p-1.5 rounded-lg shrink-0 text-accent-yellow bg-accent-yellow/10">
+                    <div className="p-1.5 rounded-lg shrink-0 text-accent-cyan bg-accent-cyan/10">
                       <Zap size={14} />
                     </div>
                     
@@ -377,8 +412,16 @@ export const ArbConfigWidget = () => {
                         <div className="text-[10px] text-text-secondary leading-none">
                           {opp.best_venue} → {opp.worst_venue}
                         </div>
-                        <div className="text-[11px] font-black text-accent-green leading-none">
-                          +{opp.spread_pct.toFixed(3)}%
+                        <div className="flex items-center gap-2">
+                          <div className="text-[11px] font-black text-accent-green leading-none">
+                            +{opp.spread_pct.toFixed(3)}%
+                          </div>
+                          <button 
+                            onClick={() => { setSelectedOpp(opp); setIsModalOpen(true); }}
+                            className="px-2 py-1 bg-accent-purple/10 border border-accent-purple/30 rounded-md text-[8px] font-black text-accent-purple hover:bg-accent-purple hover:text-white transition-all uppercase tracking-tighter"
+                          >
+                            Dry Run
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -389,6 +432,12 @@ export const ArbConfigWidget = () => {
           </div>
         </div>
       </div>
+
+      <ArbSimulatorModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        opportunity={selectedOpp} 
+      />
     </div>
   )
 }

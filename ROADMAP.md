@@ -22,6 +22,11 @@
 - Standardize all "Top Borders" to the new slim 2px design.
 - Implement responsive breakpoints for tablet and mobile views.
 
+### 5. Arbitrage Monitor (Phase 2)
+- **Dynamic Pair Manager:** Implement an interface to add custom mint addresses for cross-DEX spread monitoring in real-time.
+- **Spread Alerts:** Create a threshold system (e.g., 0.5%) with visual and auditory "Tactical Alerts" for profitable gaps.
+- **Atomic Swap Dry-Run:** Build a simulator to calculate net profit (post-fee) for specific cross-venue routes.
+
 ---
 
 ## [Current] Phase 2: Core Infrastructure (Jan 2026)

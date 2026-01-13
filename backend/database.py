@@ -138,6 +138,19 @@ class TactixDB:
                 )
             ''')
             
+            # 9. Arb Pairs Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS arb_pairs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    input_mint TEXT,
+                    output_mint TEXT,
+                    input_symbol TEXT,
+                    output_symbol TEXT,
+                    amount REAL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
             conn.commit()
 
     def save_user_wallet(self, address, alias, is_default=0):
@@ -336,3 +349,22 @@ class TactixDB:
         """Update the alias of a target wallet."""
         with self._get_connection() as conn:
             conn.execute("UPDATE targets SET alias = ? WHERE address = ?", (new_alias, address))
+    def save_arb_pair(self, input_mint, output_mint, input_symbol, output_symbol, amount):
+        """Save a new arb pair monitoring target."""
+        with self._get_connection() as conn:
+            conn.execute(
+                "INSERT INTO arb_pairs (input_mint, output_mint, input_symbol, output_symbol, amount) VALUES (?, ?, ?, ?, ?)",
+                (input_mint, output_mint, input_symbol, output_symbol, amount)
+            )
+
+    def get_arb_pairs(self):
+        """Fetch all monitored arb pairs."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("SELECT * FROM arb_pairs")
+            return [dict(row) for row in cursor.fetchall()]
+
+    def delete_arb_pair(self, pair_id):
+        """Remove an arb pair from monitoring."""
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM arb_pairs WHERE id = ?", (pair_id,))

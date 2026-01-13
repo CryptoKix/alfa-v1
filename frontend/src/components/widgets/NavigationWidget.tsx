@@ -21,7 +21,7 @@ export const NavigationWidget = () => {
       <div className="h-16 flex items-center justify-center border-b border-white/5 mb-2 shrink-0">
         <div className="hidden md:flex items-baseline gap-2">
           <h1 className="text-2xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-accent-cyan to-accent-purple">
-            TACTIX
+            TACTIX.sol
           </h1>
           <span className="text-[8px] font-bold text-accent-cyan uppercase tracking-widest opacity-80">
             v1.0.1 Alpha

@@ -40,7 +40,7 @@ def not_found(e):
 
 # Initialize copy trader engine
 copy_trader = CopyTraderEngine(helius, db, socketio, execute_trade_logic)
-arb_engine = ArbEngine(helius, socketio)
+arb_engine = ArbEngine(helius, db, socketio)
 set_arb_engine(arb_engine)
 set_copy_trader(copy_trader)
 

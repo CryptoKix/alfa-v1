@@ -29,6 +29,10 @@ def register_websocket_handlers():
     def handle_arb_connect():
         print(f"[{datetime.now()}] DEBUG: Arb namespace connected: {request.sid}")
 
+    @socketio.on('ping_arb', namespace='/arb')
+    def handle_arb_ping():
+        print(f"[{datetime.now()}] DEBUG: Received Arb Ping from {request.sid}")
+
     @socketio.on('request_balance', namespace='/portfolio')
     def handle_bal_req():
         print(f"[{datetime.now()}] DEBUG: Received request_balance from {request.sid}")

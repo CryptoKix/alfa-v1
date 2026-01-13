@@ -21,6 +21,13 @@ export const initSockets = () => {
   botsSocket = io('/bots', { transports: ['websocket', 'polling'] })
   copytradeSocket = io('/copytrade', { transports: ['websocket', 'polling'] })
   arbSocket = io('/arb', { transports: ['websocket', 'polling'] })
+  
+  console.log('[Socket] Initializing Arb Socket on namespace /arb')
+
+  arbSocket.on('connect', () => {
+    console.log('[Socket] Arb Connected | SID:', arbSocket.id)
+    setInterval(() => arbSocket.emit('ping_arb'), 5000)
+  })
 
   // Initial Fetch for Bots
   const fetchInitialBots = async () => {
@@ -151,5 +158,5 @@ export const initSockets = () => {
     store.dispatch(updatePrice(data))
   })
 
-  return { portfolioSocket, priceSocket, historySocket, botsSocket, copytradeSocket }
+  return { portfolioSocket, priceSocket, historySocket, botsSocket, copytradeSocket, arbSocket }
 }
