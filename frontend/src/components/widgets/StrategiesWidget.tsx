@@ -102,28 +102,24 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                 {/* Unified Neon Glow (TWAP Purple Style) */}
                 <div 
                   className={cn(
-                    "absolute -inset-1 transition-all duration-500 blur-xl opacity-0 pointer-events-none",
+                    "absolute -inset-1 transition-all duration-500 blur-xl opacity-0 pointer-events-none rounded-2xl",
                     isSelected ? "opacity-30" : "group-hover/btn:opacity-50"
                   )}
                   style={{ backgroundColor: 'var(--color-accent-purple)' }}
                 />
 
-                {/* The "Swanky" Beveled Frame */}
+                {/* Sleek Rounded Frame */}
                 <div className={cn(
-                  "absolute inset-0 border transition-all duration-500",
+                  "absolute inset-0 border transition-all duration-500 rounded-2xl",
                   isSelected 
-                    ? "bg-background-elevated border-accent-purple" 
+                    ? "bg-background-elevated border-accent-purple shadow-[inset_0_0_15px_rgba(var(--color-accent-purple-rgb),0.1)]" 
                     : "bg-white/[0.03] border-white/10 group-hover/btn:border-accent-purple/50",
-                  "clip-path-polygon-[0%_0%,100%_0%,100%_75%,85%_100%,0%_100%]"
-                )} 
-                style={{
-                  clipPath: 'polygon(0 0, 100% 0, 100% 75%, 85% 100%, 0 100%)'
-                }} />
+                )} />
 
                 {/* Internal Glow / Light Leak */}
                 <div 
                   className={cn(
-                    "absolute top-0 left-0 w-full h-0.5 transition-all duration-500",
+                    "absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-0.5 transition-all duration-500 rounded-full",
                     isSelected ? "opacity-100" : "opacity-0 group-hover/btn:opacity-100"
                   )}
                   style={{ 
@@ -135,7 +131,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                 {/* Content Container */}
                 <div className="relative h-full w-full flex flex-col items-center justify-center gap-0.5">
                   {isActive && (
-                    <div className="absolute top-1 left-1.5 flex items-center gap-1">
+                    <div className="absolute top-1.5 right-2 flex items-center gap-1">
                       <div className="w-1 h-1 rounded-full bg-accent-green animate-ping absolute" />
                       <div className="w-1 h-1 rounded-full bg-accent-green relative" />
                     </div>
