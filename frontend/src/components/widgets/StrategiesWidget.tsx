@@ -84,7 +84,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                 onClick={() => onSelect?.(strat.id)}
                 className={cn(
                   "group/btn relative h-[42px] transition-all duration-500 overflow-hidden",
-                  "transform hover:scale-[1.03] active:scale-95",
+                  "transform hover:scale-[1.05] active:scale-95",
                   isSelected ? "z-20" : "z-10"
                 )}
               >
@@ -93,7 +93,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                   "absolute inset-0 border transition-all duration-500",
                   isSelected 
                     ? `bg-background-elevated border-accent-${glowColor} shadow-[inset_0_0_15px_rgba(var(--color-accent-${glowColor}-rgb),0.15)]` 
-                    : "bg-white/[0.03] border-white/10 group-hover/btn:border-white/30",
+                    : `bg-white/[0.03] border-white/10 group-hover/btn:border-accent-${glowColor}/50 group-hover/btn:shadow-[0_0_20px_var(--color-accent-${glowColor})]`,
                   "clip-path-polygon-[0%_0%,100%_0%,100%_75%,85%_100%,0%_100%]"
                 )} 
                 style={{
@@ -102,8 +102,10 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
 
                 {/* Internal Glow / Light Leak */}
                 <div className={cn(
-                  "absolute top-0 left-0 w-full h-0.5 transition-opacity duration-500",
-                  isSelected ? `bg-accent-${glowColor} opacity-100 shadow-[0_0_10px_rgba(var(--color-accent-${glowColor}-rgb),0.6)]` : "bg-white/20 opacity-0 group-hover/btn:opacity-50"
+                  "absolute top-0 left-0 w-full h-0.5 transition-all duration-500",
+                  isSelected 
+                    ? `bg-accent-${glowColor} opacity-100 shadow-[0_0_10px_rgba(var(--color-accent-${glowColor}-rgb),0.6)]` 
+                    : `bg-accent-${glowColor}/0 opacity-0 group-hover/btn:bg-accent-${glowColor} group-hover/btn:opacity-100 group-hover/btn:shadow-[0_0_10px_var(--color-accent-${glowColor})]`
                 )} />
 
                 {/* Content Container */}
