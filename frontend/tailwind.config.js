@@ -16,6 +16,7 @@ export default {
           purple: '#9945FF',
           green: '#00ff9d',
           red: '#ff2a6d',
+          yellow: '#fbbf24',
         },
         border: '#2a2a3a',
         text: {

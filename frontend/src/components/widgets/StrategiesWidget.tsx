@@ -39,7 +39,7 @@ const STRATEGIES = [
     id: 'arb', 
     label: 'ARB', 
     icon: TrendingUp,
-    color: 'text-yellow-400',
+    color: 'text-accent-yellow',
     desc: 'Arbitrage Engine. Detects and executes price differences between different DEXs or pools.',
     features: ['Multi-DEX Scan', 'Atomic Swaps', 'Risk Free']
   },
