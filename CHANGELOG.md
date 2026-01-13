@@ -163,6 +163,10 @@
 
 - **Branding:** Added 'v1.0.1 Alpha' versioning tag to the main TACTIX logo in the navigation sidebar.
 - **Header Optimization:** Removed truncated wallet address from the user profile badge to prioritize alias visibility and minimize clutter.
+- **Strategy Management:** Implemented full CRUD lifecycle for whale targets. Users can now add new wallets via an inline form and delete existing targets with hover-actions.
+- **Layout Alignment:** Perfectly synchronized the strategy selection grid with the Tactical Console using dynamic height stretching (`items-stretch`) and row-spanning logic.
+- **Border Consistency:** Removed asymmetrical decorative accents and bars from active buttons to ensure a solid, uniform border around all selected elements.
+- **Tactical Console:** Upgraded border brightness to `white/15` for better contrast and visibility.
 ## [2026-01-11] - Dashboard Refinement & Wallet Integration
 
 ### Bug Fixes & Stability

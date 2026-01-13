@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Users, Activity, Zap, Clock } from 'lucide-react'
+import { Users, Activity, Zap, Clock, Plus, Trash2 } from 'lucide-react'
 import { useAppSelector, useAppDispatch } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { setTargets, setSignals } from '@/features/copytrade/copytradeSlice'
@@ -18,6 +18,11 @@ export const CopyTradeConfigWidget = () => {
   const [majorScale, setMajorScale] = useState('0.5')
   const [majorMax, setMajorMax] = useState('5.0')
   const [autoExecute, setAutoExecute] = useState(false)
+
+  // Add Target State
+  const [isAdding, setIsAdding] = useState(false)
+  const [newAddress, setNewAddress] = useState('')
+  const [newAlias, setNewAlias] = useState('')
 
   const formatTime = (ts: number) => {
     return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
@@ -60,6 +65,37 @@ export const CopyTradeConfigWidget = () => {
     } catch (e) {}
   }
 
+  const handleAddTarget = async () => {
+    if (!newAddress || !newAlias) return
+    try {
+      const res = await fetch('/api/copytrade/targets/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: newAddress, alias: newAlias })
+      })
+      if (res.ok) {
+        setNewAddress('')
+        setNewAlias('')
+        setIsAdding(false)
+        dispatch(addNotification({ title: 'Whale Added', message: `Now tracking ${newAlias}`, type: 'success' }))
+        fetchTargets()
+      }
+    } catch (e) {}
+  }
+
+  const handleDeleteTarget = async (address: string) => {
+    if (!confirm('Stop tracking this whale?')) return
+    try {
+      await fetch('/api/copytrade/targets/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address })
+      })
+      if (selectedAddress === address) setSelectedAddress(null)
+      fetchTargets()
+    } catch (e) {}
+  }
+
   const handleUpdateConfig = async () => {
     if (!selectedAddress) return
     try {
@@ -98,7 +134,50 @@ export const CopyTradeConfigWidget = () => {
               <h2 className="text-xs font-bold text-white uppercase tracking-tight">TARGETS</h2>
             </div>
           </div>
+          <button 
+            onClick={() => setIsAdding(!isAdding)}
+            className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-accent-cyan transition-colors border border-white/5"
+          >
+            <Plus size={16} />
+          </button>
         </div>
+
+        {isAdding && (
+          <div className="p-3 bg-accent-cyan/5 border border-accent-cyan/20 rounded-xl mb-2 space-y-2 animate-in slide-in-from-top-2">
+            <div className="space-y-1">
+              <label className="text-[8px] uppercase text-accent-cyan font-bold">Wallet Address</label>
+              <input 
+                value={newAddress}
+                onChange={(e) => setNewAddress(e.target.value)}
+                placeholder="Paste Solana address..."
+                className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-accent-cyan/50"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[8px] uppercase text-accent-cyan font-bold">Whale Alias</label>
+              <input 
+                value={newAlias}
+                onChange={(e) => setNewAlias(e.target.value)}
+                placeholder="e.g. Pump Fun Whale"
+                className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-accent-cyan/50"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={handleAddTarget}
+                className="flex-1 py-2 bg-accent-cyan text-black rounded-lg font-black uppercase text-[10px] hover:bg-white transition-all"
+              >
+                Add Whale
+              </button>
+              <button 
+                onClick={() => setIsAdding(false)}
+                className="px-3 py-2 bg-white/5 text-text-muted rounded-lg font-black uppercase text-[10px] hover:bg-white/10 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-auto custom-scrollbar space-y-2 pr-1">
           {targets?.map(t => (
@@ -109,7 +188,7 @@ export const CopyTradeConfigWidget = () => {
                 "w-full p-3 rounded-xl text-left border transition-all relative overflow-hidden group",
                 selectedAddress === t.address 
                   ? "bg-accent-cyan/10 border-accent-cyan/30 ring-1 ring-accent-cyan/20" 
-                  : "bg-white/[0.02] border-white/5 hover:bg-white/5 hover:border-white/10"
+                  : "bg-white/[0.02] border-white/15 hover:bg-white/5 hover:border-white/25"
               )}
             >
               <div className="flex items-center justify-between mb-1">
@@ -119,17 +198,19 @@ export const CopyTradeConfigWidget = () => {
                 )}>
                   {t.alias}
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                    {t.config?.auto_execute && (
                      <div className="w-1.5 h-1.5 rounded-full bg-accent-cyan animate-pulse" />
                    )}
+                   <button 
+                     onClick={(e) => { e.stopPropagation(); handleDeleteTarget(t.address); }}
+                     className="p-1 text-text-muted hover:text-accent-red transition-colors opacity-0 group-hover:opacity-100"
+                   >
+                     <Trash2 size={12} />
+                   </button>
                 </div>
               </div>
               <div className="text-[8px] text-text-muted font-mono truncate">{t.address}</div>
-              
-              {selectedAddress === t.address && (
-                <div className="absolute right-0 top-0 bottom-0 w-1 bg-accent-cyan shadow-[0_0_10px_rgba(34,211,238,0.5)]" />
-              )}
             </button>
           ))}
         </div>

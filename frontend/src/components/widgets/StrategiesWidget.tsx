@@ -17,7 +17,7 @@ const STRATEGIES = [
     icon: Zap,
     color: 'text-accent-purple',
     desc: 'Time-Weighted Average Price execution. Executes trades linearly over time to achieve average entry.',
-    features: ['Linear Execution', 'Custom Intervals', 'Duration Control']
+    features: []
   },
   { 
     id: 'grid', 
@@ -85,9 +85,9 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
         </div>
       </div>
 
-      <div className="flex-1 flex gap-4 min-h-0">
+      <div className="flex-1 flex gap-4 min-h-0 items-stretch">
         {/* Left Side: 3x2 Grid (Tactical HUD Style) */}
-        <div className="grid grid-cols-3 gap-3 flex-[4.5]">
+        <div className="grid grid-cols-3 grid-rows-2 gap-3 flex-[4.5]">
           {STRATEGIES.map((strat) => {
             const isActive = bots?.some((b: any) => b?.type?.toLowerCase() === strat.id && b.status === 'active')
             const isSelected = selectedId === strat.id
@@ -97,8 +97,8 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                 key={strat.id}
                 onClick={() => onSelect?.(strat.id)}
                 className={cn(
-                  "group/btn relative h-[58px] transition-all duration-500",
-                  "transform hover:scale-[1.05] active:scale-95",
+                  "group/btn relative transition-all duration-500 h-full",
+                  "transform hover:scale-[1.02] active:scale-95",
                   isSelected ? "z-20" : "z-10"
                 )}
               >
@@ -116,7 +116,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                   "absolute inset-0 border transition-all duration-500 rounded-xl flex flex-col items-center justify-center gap-1",
                   isSelected 
                     ? "bg-background-elevated border-accent-cyan shadow-[inset_0_0_20px_rgba(0,255,255,0.1)]" 
-                    : "bg-black/40 border-white/5 group-hover/btn:border-white/20",
+                    : "bg-black/40 border-white/15 group-hover/btn:border-white/25",
                 )}>
                   {isActive && (
                     <div className="absolute top-1.5 right-2 flex items-center gap-1">
@@ -139,16 +139,6 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                   )}>
                     {strat.label}
                   </div>
-
-                  {/* Corner Accents (Selected Only) */}
-                  {isSelected && (
-                    <>
-                      <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-white/50 rounded-tl-xl z-30" />
-                      <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-white/50 rounded-tr-xl z-30" />
-                      <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-white/50 rounded-bl-xl z-30" />
-                      <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-white/50 rounded-br-xl z-30" />
-                    </>
-                  )}
                 </div>
               </button>
             )
@@ -156,7 +146,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
         </div>
 
         {/* Right Side: Strategy Console & PnL Visualization (Narrower) */}
-        <div className="flex-[3] bg-black/40 rounded-2xl border border-white/5 p-3 flex flex-col relative group overflow-hidden shadow-inner">
+        <div className="flex-[3] bg-black/40 rounded-2xl border border-white/15 p-3 flex flex-col relative group overflow-hidden shadow-inner">
            <div className="flex items-center justify-between mb-2 shrink-0">
               <div className="flex items-center gap-2">
                 <div className={cn("w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_8px_currentColor]", selectedId ? "text-accent-cyan" : "text-white")} />
@@ -173,7 +163,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
            {/* PnL Visualization Panel */}
            <div className="flex-1 flex flex-col justify-center gap-2">
               <div className="grid grid-cols-2 gap-2">
-                 <div className="bg-background-elevated/50 border border-white/5 rounded-xl p-2.5 flex flex-col gap-1 relative overflow-hidden group/pnl">
+                 <div className="bg-background-elevated/50 border border-white/15 rounded-xl p-2.5 flex flex-col gap-1 relative overflow-hidden group/pnl">
                     <div className="absolute top-0 left-0 w-1 h-full bg-accent-cyan opacity-20" />
                     <span className="text-[7px] font-black text-text-muted uppercase tracking-[0.2em]">Unrealized PnL</span>
                     <div className={cn(
@@ -183,7 +173,7 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
                       {metrics.unrealized > 0 ? '+' : metrics.unrealized < 0 ? '-' : ''}${Math.abs(metrics.unrealized).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                  </div>
-                 <div className="bg-background-elevated/50 border border-white/5 rounded-xl p-2.5 flex flex-col gap-1 text-right relative overflow-hidden group/pnl">
+                 <div className="bg-background-elevated/50 border border-white/15 rounded-xl p-2.5 flex flex-col gap-1 text-right relative overflow-hidden group/pnl">
                     <div className="absolute top-0 right-0 w-1 h-full bg-accent-purple opacity-20" />
                     <span className="text-[7px] font-black text-text-muted uppercase tracking-[0.2em]">Realized Total</span>
                     <div className={cn(
