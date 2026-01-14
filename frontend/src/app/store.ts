@@ -3,6 +3,7 @@ import portfolioReducer from '../features/portfolio/portfolioSlice'
 import pricesReducer from '../features/prices/pricesSlice'
 import botsReducer from '../features/bots/botsSlice'
 import copytradeReducer from '../features/copytrade/copytradeSlice'
+import arbReducer from '../features/arb/arbSlice'
 import notificationsReducer from '../features/notifications/notificationsSlice'
 
 export const store = configureStore({
@@ -11,6 +12,7 @@ export const store = configureStore({
     prices: pricesReducer,
     bots: botsReducer,
     copytrade: copytradeReducer,
+    arb: arbReducer,
     notifications: notificationsReducer,
   },
 })

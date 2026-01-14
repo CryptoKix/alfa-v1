@@ -5,6 +5,7 @@ import { updatePortfolio, updateHistory, setWebConnection } from '../features/po
 import { updatePrice, setPriceConnection } from '../features/prices/pricesSlice'
 import { updateBots } from '../features/bots/botsSlice'
 import { setTargets, addSignal, setSignals } from '../features/copytrade/copytradeSlice'
+import { addOpportunity, updateMatrix } from '../features/arb/arbSlice'
 import { addNotification } from '../features/notifications/notificationsSlice'
 
 export let portfolioSocket: any
@@ -27,6 +28,17 @@ export const initSockets = () => {
   arbSocket.on('connect', () => {
     console.log('[Socket] Arb Connected | SID:', arbSocket.id)
     setInterval(() => arbSocket.emit('ping_arb'), 5000)
+  })
+
+  arbSocket.on('arb_opportunity', (data: any) => {
+    store.dispatch(addOpportunity(data))
+  })
+
+  arbSocket.on('price_matrix_update', (data: any) => {
+    store.dispatch(updateMatrix({ 
+      pair: `${data.input_symbol}/${data.output_symbol}`, 
+      venues: data.venues 
+    }))
   })
 
   // Initial Fetch for Bots

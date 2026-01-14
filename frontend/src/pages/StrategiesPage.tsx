@@ -3,7 +3,7 @@ import { StrategiesWidget } from '@/components/widgets/StrategiesWidget'
 import { GridConfigWidget } from '@/components/widgets/GridConfigWidget'
 import { TWAPConfigWidget } from '@/components/widgets/TWAPConfigWidget'
 import { CopyTradeConfigWidget } from '@/components/widgets/CopyTradeConfigWidget'
-import { ArbConfigWidget } from '@/components/widgets/ArbConfigWidget'
+import { ArbSettingsWidget, ArbAnalysisWidget, ArbOpportunitiesWidget } from '@/components/widgets/ArbConfigWidget'
 import { ActiveBotsModal } from '@/components/modals/ActiveBotsModal'
 import { useAppSelector } from '@/app/hooks'
 
@@ -47,6 +47,7 @@ export default function StrategiesPage() {
             onSelect={(id: string) => setSelectedStrategy(id)} 
             selectedId={selectedStrategy} 
             onViewBots={() => setIsBotsModalOpen(true)}
+            rightElement={selectedStrategy === 'arb' ? <ArbAnalysisWidget /> : null}
           />
         </div>
 
@@ -55,7 +56,12 @@ export default function StrategiesPage() {
           {selectedStrategy === 'grid' && <GridConfigWidget />}
           {selectedStrategy === 'twap' && <TWAPConfigWidget />}
           {selectedStrategy === 'copy' && <CopyTradeConfigWidget />}
-          {selectedStrategy === 'arb' && <ArbConfigWidget />}
+          {selectedStrategy === 'arb' && (
+            <div className="flex gap-2 h-full min-h-0">
+              <ArbSettingsWidget />
+              <ArbOpportunitiesWidget />
+            </div>
+          )}
           
           {['vwap', 'dca'].includes(selectedStrategy) && (
             <div className="h-full flex flex-col items-center justify-center bg-background-card border border-white/5 rounded-2xl relative overflow-hidden">

@@ -53,7 +53,7 @@ const STRATEGIES = [
   },
 ]
 
-export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
+export const StrategiesWidget = ({ onSelect, selectedId, onViewBots, rightElement }: any) => {
   const { bots } = useAppSelector(state => state.bots)
   const selectedStrat = STRATEGIES.find(s => s.id === selectedId) || STRATEGIES[2] // Default to GRID
 
@@ -145,58 +145,64 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
           })}
         </div>
 
-        {/* Right Side: Strategy Console & PnL Visualization (Narrower) */}
-        <div className="flex-[3] bg-black/40 rounded-2xl border border-white/15 p-3 flex flex-col relative group overflow-hidden shadow-inner">
-           <div className="flex items-center justify-between mb-2 shrink-0">
-              <div className="flex items-center gap-2">
-                <div className={cn("w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_8px_currentColor]", selectedId ? "text-accent-cyan" : "text-white")} />
-                <span className="text-[10px] font-black text-white uppercase tracking-wider">Tactical Console</span>
-              </div>
-              <button 
-                onClick={onViewBots}
-                className="px-3 py-1.5 bg-accent-cyan text-black hover:bg-white border border-accent-cyan rounded-lg text-[8px] font-black uppercase tracking-wider transition-all shadow-[0_0_8px_rgba(0,255,255,0.2)] transform active:scale-95 shrink-0"
-              >
-                View Bots
-              </button>
-           </div>
-
-           {/* PnL Visualization Panel */}
-           <div className="flex-1 flex flex-col justify-center gap-2">
-              <div className="grid grid-cols-2 gap-2">
-                 <div className="bg-background-elevated/50 border border-white/15 rounded-xl p-2.5 flex flex-col gap-1 relative overflow-hidden group/pnl">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-accent-cyan opacity-20" />
-                    <span className="text-[7px] font-black text-text-muted uppercase tracking-[0.2em]">Unrealized PnL</span>
-                    <div className={cn(
-                      "text-sm font-black font-mono tracking-tight transition-all duration-500",
-                      metrics.unrealized > 0 ? "text-accent-green" : metrics.unrealized < 0 ? "text-accent-red" : "text-white"
-                    )}>
-                      {metrics.unrealized > 0 ? '+' : metrics.unrealized < 0 ? '-' : ''}${Math.abs(metrics.unrealized).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                 </div>
-                 <div className="bg-background-elevated/50 border border-white/15 rounded-xl p-2.5 flex flex-col gap-1 text-right relative overflow-hidden group/pnl">
-                    <div className="absolute top-0 right-0 w-1 h-full bg-accent-purple opacity-20" />
-                    <span className="text-[7px] font-black text-text-muted uppercase tracking-[0.2em]">Realized Total</span>
-                    <div className={cn(
-                      "text-sm font-black font-mono tracking-tight transition-all duration-500",
-                      metrics.realized > 0 ? "text-accent-green" : metrics.realized < 0 ? "text-accent-red" : "text-white"
-                    )}>
-                      {metrics.realized > 0 ? '+' : metrics.realized < 0 ? '-' : ''}${Math.abs(metrics.realized).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                 </div>
-              </div>
-
-              {/* Strategy Features (If any) */}
-              {selectedStrat.features.length > 0 && (
-                <div className="flex gap-1 overflow-hidden">
-                  {selectedStrat.features.map((f, i) => (
-                    <div key={i} className="flex items-center gap-1 px-1 py-0.5 bg-white/5 rounded border border-white/5 shrink-0">
-                      <span className="text-[5px] font-bold text-text-muted uppercase whitespace-nowrap">{f}</span>
-                    </div>
-                  ))}
+        {/* Right Side: Strategy Console or Custom Element */}
+        {rightElement ? (
+          <div className="flex-[3] min-w-0">
+            {rightElement}
+          </div>
+        ) : (
+          <div className="flex-[3] bg-black/40 rounded-2xl border border-white/15 p-3 flex flex-col relative group overflow-hidden shadow-inner">
+             <div className="flex items-center justify-between mb-2 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className={cn("w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_8px_currentColor]", selectedId ? "text-accent-cyan" : "text-white")} />
+                  <span className="text-[10px] font-black text-white uppercase tracking-wider">Tactical Console</span>
                 </div>
-              )}
-           </div>
-        </div>
+                <button 
+                  onClick={onViewBots}
+                  className="px-3 py-1.5 bg-accent-cyan text-black hover:bg-white border border-accent-cyan rounded-lg text-[8px] font-black uppercase tracking-wider transition-all shadow-[0_0_8px_rgba(0,255,255,0.2)] transform active:scale-95 shrink-0"
+                >
+                  View Bots
+                </button>
+             </div>
+
+             {/* PnL Visualization Panel */}
+             <div className="flex-1 flex flex-col justify-center gap-2">
+                <div className="grid grid-cols-2 gap-2">
+                   <div className="bg-background-elevated/50 border border-white/15 rounded-xl p-2.5 flex flex-col gap-1 relative overflow-hidden group/pnl">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-accent-cyan opacity-20" />
+                      <span className="text-[7px] font-black text-text-muted uppercase tracking-[0.2em]">Unrealized PnL</span>
+                      <div className={cn(
+                        "text-sm font-black font-mono tracking-tight transition-all duration-500",
+                        metrics.unrealized > 0 ? "text-accent-green" : metrics.unrealized < 0 ? "text-accent-red" : "text-white"
+                      )}>
+                        {metrics.unrealized > 0 ? '+' : metrics.unrealized < 0 ? '-' : ''}${Math.abs(metrics.unrealized).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                   </div>
+                   <div className="bg-background-elevated/50 border border-white/15 rounded-xl p-2.5 flex flex-col gap-1 text-right relative overflow-hidden group/pnl">
+                      <div className="absolute top-0 right-0 w-1 h-full bg-accent-purple opacity-20" />
+                      <span className="text-[7px] font-black text-text-muted uppercase tracking-[0.2em]">Realized Total</span>
+                      <div className={cn(
+                        "text-sm font-black font-mono tracking-tight transition-all duration-500",
+                        metrics.realized > 0 ? "text-accent-green" : metrics.realized < 0 ? "text-accent-red" : "text-white"
+                      )}>
+                        {metrics.realized > 0 ? '+' : metrics.realized < 0 ? '-' : ''}${Math.abs(metrics.realized).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                   </div>
+                </div>
+
+                {/* Strategy Features (If any) */}
+                {selectedStrat.features.length > 0 && (
+                  <div className="flex gap-1 overflow-hidden">
+                    {selectedStrat.features.map((f, i) => (
+                      <div key={i} className="flex items-center gap-1 px-1 py-0.5 bg-white/5 rounded border border-white/5 shrink-0">
+                        <span className="text-[5px] font-bold text-text-muted uppercase whitespace-nowrap">{f}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+             </div>
+          </div>
+        )}
       </div>
     </div>
   )
