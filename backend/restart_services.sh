@@ -3,7 +3,11 @@
 # TACTIX Service Manager
 # Used by Gemini to ensure backend changes take effect immediately.
 
-echo "🔄 Restarting TACTIX Services..."
+# Get the directory where the script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
+echo "🔄 Restarting TACTIX Services in $SCRIPT_DIR..."
 
 # 1. Kill existing instances (Aggressive)
 # Kill standard and unbuffered variants

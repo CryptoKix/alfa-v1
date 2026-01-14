@@ -18,7 +18,7 @@ api_bp = Blueprint('api', __name__)
 @api_bp.route('/api/tokens')
 def api_tokens():
     known = get_known_tokens()
-    return jsonify([{"mint": m, "symbol": i["symbol"]} for m, i in known.items()])
+    return jsonify([{"mint": m, "symbol": i["symbol"], "logoURI": i.get("logo_uri"), "decimals": i.get("decimals", 9)} for m, i in known.items()])
 
 
 @api_bp.route('/api/health')
@@ -238,7 +238,6 @@ def internal_webhook():
     if mint and price:
         extensions.last_price_update = time.time()
         with price_cache_lock:
-            price_cache[mint] = (price, time.time())
             price_cache[mint] = (price, time.time())
 
         socketio.emit('price_update', {'mint': mint, 'price': price}, namespace='/prices')
