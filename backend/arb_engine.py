@@ -7,6 +7,7 @@ import requests
 from config import JUPITER_QUOTE_API, JUPITER_API_KEY, JUPITER_SWAP_API, WALLET_ADDRESS
 from concurrent.futures import ThreadPoolExecutor
 from services.jito import send_jito_bundle, build_tip_transaction
+from services.tokens import get_token_symbol
 
 # Force logging to console
 logger = logging.getLogger("arb_engine")
@@ -40,24 +41,39 @@ class ArbEngine:
     def refresh_pairs(self):
         """Load pairs from database or use defaults if empty."""
         try:
+            # Tell frontend to clear matrix to avoid stale/stuck rows
+            self.socketio.emit('matrix_clear', {}, namespace='/arb')
+            
             db_pairs = self.db.get_arb_pairs()
             if not db_pairs:
-                # Default pairs
-                self.monitored_pairs = [
-                    {"input": "So11111111111111111111111111111111111111112", "output": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "amount": 10 * 10**9, "input_symbol": "SOL", "output_symbol": "USDC"},
-                    {"input": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "output": "So11111111111111111111111111111111111111112", "amount": 1000 * 10**6, "input_symbol": "USDC", "output_symbol": "SOL"},
+                # Default pairs - save to DB so they have IDs and can be managed
+                defaults = [
+                    {"input": "So11111111111111111111111111111111111111112", "output": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "amount": 10 * 10**9, "in_sym": "SOL", "out_sym": "USDC"},
+                    {"input": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "output": "So11111111111111111111111111111111111111112", "amount": 1000 * 10**6, "in_sym": "USDC", "out_sym": "SOL"},
                 ]
-            else:
-                self.monitored_pairs = [
-                    {
-                        "id": p["id"],
-                        "input": p["input_mint"],
-                        "output": p["output_mint"],
-                        "input_symbol": p["input_symbol"],
-                        "output_symbol": p["output_symbol"],
-                        "amount": p["amount"]
-                    } for p in db_pairs
-                ]
+                for d in defaults:
+                    self.db.save_arb_pair(d["input"], d["output"], d["in_sym"], d["out_sym"], d["amount"])
+                db_pairs = self.db.get_arb_pairs()
+
+            self.monitored_pairs = []
+            for p in db_pairs:
+                in_sym = p["input_symbol"]
+                out_sym = p["output_symbol"]
+                
+                # If symbol looks like a truncated mint (e.g. "Abc1..."), try to re-resolve it
+                if in_sym.endswith("...") and len(in_sym) <= 7:
+                    in_sym = get_token_symbol(p["input_mint"])
+                if out_sym.endswith("...") and len(out_sym) <= 7:
+                    out_sym = get_token_symbol(p["output_mint"])
+                    
+                self.monitored_pairs.append({
+                    "id": p["id"],
+                    "input": p["input_mint"],
+                    "output": p["output_mint"],
+                    "input_symbol": in_sym,
+                    "output_symbol": out_sym,
+                    "amount": p["amount"]
+                })
         except Exception as e:
             logger.error(f"Error refreshing arb pairs: {e}")
 
@@ -117,13 +133,15 @@ class ArbEngine:
         
         for q in valid_quotes:
             out_amount = int(q["outAmount"])
-            if pair["input_symbol"] == "SOL":
-                price = out_amount / (pair["amount"] / 1e9) / 1e6 # USDC per SOL
-            elif pair["output_symbol"] == "SOL":
-                price = (pair["amount"] / 1e6) / (out_amount / 1e9) # USDC per SOL
-            else:
-                price = out_amount / pair["amount"]
             
+            # Robust price calculation using decimals
+            in_decimals = 9 if pair["input_symbol"] == "SOL" else (6 if pair["input_symbol"] in ["USDC", "USDT"] else 6)
+            out_decimals = 9 if pair["output_symbol"] == "SOL" else (6 if pair["output_symbol"] in ["USDC", "USDT"] else 6)
+            
+            # Try to get real decimals from DB if possible
+            # (In a real scenario, we'd have a more robust way to get decimals for any token)
+            
+            price = (out_amount / (10**out_decimals)) / (amount / (10**in_decimals))
             matrix_data["venues"][q["venue"]] = price
             
         if matrix_data["venues"]:

@@ -1,11 +1,20 @@
-import { useState, useMemo } from 'react'
-import { Settings2, Play, Plus, Minus, Layers, Target, ChevronDown, Activity } from 'lucide-react'
-import { useAppSelector } from '@/app/hooks'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { Settings2, Play, Plus, Minus, Layers, Target, ChevronDown, Activity, X } from 'lucide-react'
+import { useAppSelector, useAppDispatch } from '@/app/hooks'
 import { cn } from '@/lib/utils'
+import { setMonitorBotId } from '@/features/bots/botsSlice'
 
 export const GridConfigWidget = () => {
+  const dispatch = useAppDispatch()
   const { holdings, history } = useAppSelector(state => state.portfolio)
+  const { bots, monitorBotId } = useAppSelector(state => state.bots)
   const prices = useAppSelector(state => state.prices.prices)
+
+  // Find the bot being monitored
+  const activeBot = useMemo(() => 
+    bots.find(b => b.id === monitorBotId),
+    [bots, monitorBotId]
+  )
 
   // Asset Selection
   const tokens = useMemo(() => {
@@ -50,6 +59,7 @@ export const GridConfigWidget = () => {
   const [upperPrice, setUpperPrice] = useState('')
   const [gridCount, setGridCount] = useState('10')
   const [investment, setInvestment] = useState('')
+  const [alias, setAlias] = useState('')
   const [trailingEnabled, setTrailingEnabled] = useState(false)
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
@@ -58,6 +68,18 @@ export const GridConfigWidget = () => {
   const toToken = useMemo(() => tokens.find(t => t.mint === outputMint) || tokens[0], [tokens, outputMint])
 
   const currentPrice = useMemo(() => prices[outputMint] || toToken?.price || 0, [prices, outputMint, toToken])
+  const [priceColor, setPriceColor] = useState('text-accent-cyan')
+  const prevPriceRef = useRef<number>(currentPrice)
+
+  useEffect(() => {
+    if (currentPrice > prevPriceRef.current) {
+      setPriceColor('text-accent-cyan')
+    } else if (currentPrice < prevPriceRef.current) {
+      setPriceColor('text-accent-pink')
+    }
+    prevPriceRef.current = currentPrice
+  }, [currentPrice])
+
   const steps = parseInt(gridCount) || 0
   const totalInv = parseFloat(investment) || 0
   
@@ -98,6 +120,7 @@ export const GridConfigWidget = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           strategy: 'GRID',
+          alias: alias || undefined,
           inputMint,
           outputMint,
           totalInvestment: totalInv,
@@ -112,6 +135,7 @@ export const GridConfigWidget = () => {
       if (data.success) {
         setStatus('success')
         setInvestment('')
+        setAlias('')
         setTimeout(() => setStatus('idle'), 3000)
       } else {
         setStatus('error')
@@ -147,7 +171,9 @@ export const GridConfigWidget = () => {
             </div>
           </div>
           <div className="text-right">
-            <div className="text-xs font-mono font-bold text-accent-green">${currentPrice !== undefined && currentPrice !== null ? currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '0.00'}</div>
+            <div className={cn("text-xs font-mono font-bold transition-colors duration-300", priceColor)}>
+              ${currentPrice !== undefined && currentPrice !== null ? currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+            </div>
           </div>
         </div>
 
@@ -203,6 +229,20 @@ export const GridConfigWidget = () => {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+
+          {/* Strategy Alias */}
+          <div className="space-y-1.5">
+            <label className="text-[9px] uppercase tracking-widest text-text-muted font-bold px-1 text-accent-cyan">Strategy Alias</label>
+            <div className="bg-background-elevated border border-white/10 rounded-xl p-2.5 flex items-center gap-2 focus-within:border-accent-cyan transition-colors h-12">
+              <input 
+                type="text" 
+                value={alias}
+                onChange={(e) => setAlias(e.target.value)}
+                placeholder="e.g. SOL Trend Rider"
+                className="bg-transparent text-sm font-bold text-white w-full focus:outline-none placeholder:text-white/10"
+              />
             </div>
           </div>
 
@@ -325,80 +365,156 @@ export const GridConfigWidget = () => {
         
         <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
+            <div className={cn(
+              "p-1.5 rounded-lg",
+              activeBot ? "bg-accent-cyan/20 text-accent-cyan animate-pulse" : "bg-accent-cyan/10 text-accent-cyan"
+            )}>
               <Layers size={18} />
             </div>
             <div>
-              <h2 className="text-xs font-bold text-white uppercase tracking-tight">PREVIEW</h2>
+              <h2 className="text-xs font-bold text-white uppercase tracking-tight flex items-center gap-2">
+                {activeBot ? (
+                  <>
+                    <span className="text-accent-cyan">MONITORING</span>
+                    <span className="text-white/40">/</span>
+                    <span>{activeBot.alias || activeBot.id}</span>
+                    <div className="ml-2 flex items-center gap-1.5 px-2 py-0.5 bg-accent-cyan/10 border border-accent-cyan/30 rounded-full">
+                      <div className="w-1 h-1 rounded-full bg-accent-cyan animate-ping" />
+                      <span className="text-[7px] font-black text-accent-cyan uppercase tracking-widest">Live Stream</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span>PREVIEW</span>
+                    {alias && (
+                      <>
+                        <span className="text-white/40">/</span>
+                        <span className="text-accent-cyan">{alias}</span>
+                      </>
+                    )}
+                  </>
+                )}
+              </h2>
             </div>
           </div>
-          <div className="text-right">
+          <div className="flex items-center gap-3">
+            {activeBot && (
+              <button 
+                onClick={() => dispatch(setMonitorBotId(null))}
+                className="p-1 hover:bg-white/5 rounded text-text-muted hover:text-accent-pink transition-all"
+                title="Exit Monitor Mode"
+              >
+                <X size={14} />
+              </button>
+            )}
             <div className="text-xs font-mono font-bold text-accent-cyan">{spacingPct.toFixed(2)}%</div>
           </div>
         </div>
 
         {/* Allocation Summary */}
         <div className="grid grid-cols-2 gap-2 shrink-0">
-          <div className="bg-background-elevated/50 border border-white/5 rounded-xl p-2 flex flex-col gap-0.5">
+          <div className="bg-background-elevated/50 border border-white/5 rounded-xl p-2 flex flex-col gap-0.5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 px-1.5 py-0.5 bg-accent-pink/10 text-accent-pink text-[8px] font-black border-b border-l border-accent-pink/20 rounded-bl-lg">
+              {activeBot ? activeBot.grid_levels?.filter(l => l.has_position).length : sellLevels.length} STEPS
+            </div>
             <span className="text-[8px] uppercase tracking-widest text-text-muted font-bold text-accent-pink">Sell Side</span>
             <div className="text-base font-black font-mono text-white tracking-tight">
-              ${totalSellValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              ${activeBot ? ((activeBot.grid_levels?.filter(l => l.has_position).length || 0) * (activeBot.amount_per_level || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : totalSellValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
-          <div className="bg-background-elevated/50 border border-white/5 rounded-xl p-2 flex flex-col gap-0.5">
+          <div className="bg-background-elevated/50 border border-white/5 rounded-xl p-2 flex flex-col gap-0.5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 px-1.5 py-0.5 bg-accent-green/10 text-accent-green text-[8px] font-black border-b border-l border-accent-green/20 rounded-bl-lg">
+              {activeBot ? activeBot.grid_levels?.filter(l => !l.has_position).length : buyLevels.length} STEPS
+            </div>
             <span className="text-[8px] uppercase tracking-widest text-text-muted font-bold text-accent-green">Buy Side</span>
             <div className="text-base font-black font-mono text-white tracking-tight">
-              ${totalBuyValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              ${activeBot ? ((activeBot.grid_levels?.filter(l => !l.has_position).length || 0) * (activeBot.amount_per_level || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : totalBuyValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
         </div>
 
-        <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
+        <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0 relative">
           <div className="flex-1 overflow-auto custom-scrollbar p-3">
-            {gridLevels.length > 0 ? (
-              <div className="space-y-1.5">
-                {gridLevels.slice().reverse().map((level) => {
-                  const isBelowCurrent = currentPrice > level.price
-                  return (
-                    <div key={level.index} className="flex items-center justify-between p-2 bg-background-elevated/30 border border-white/5 rounded-lg group hover:bg-white/5 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-1 h-6 rounded-full",
-                          isBelowCurrent ? "bg-accent-green" : "bg-accent-pink"
-                        )} />
-                        <div>
-                          <div className="text-[8px] text-text-muted font-bold uppercase leading-none mb-0.5">LVL {level.index + 1}</div>
-                          <div className="text-xs font-mono font-bold text-white">${level.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-                        </div>
-                      </div>
-                      <div className="text-right flex flex-col items-end">
-                        <div className={cn(
-                          "text-[8px] font-black uppercase tracking-widest px-1 py-0.5 rounded border leading-none",
-                          isBelowCurrent ? "text-accent-green border-accent-green/20 bg-accent-green/10" : "text-accent-pink border-accent-pink/20 bg-accent-pink/10"
-                        )}>
-                          {isBelowCurrent ? "Buy" : "Sell"}
-                        </div>
-                      </div>
+            {(() => {
+              const currentLevels = (activeBot ? activeBot.grid_levels : gridLevels) || []
+              if (currentLevels.length === 0) {
+                return (
+                  <div className="h-full flex flex-col items-center justify-center text-text-muted gap-3 opacity-50">
+                    <Target size={32} strokeWidth={1} />
+                    <div className="text-center">
+                      <div className="font-bold text-[10px] uppercase tracking-widest mb-1">Waiting for Config</div>
+                      <div className="text-[9px]">Define price range to visualize</div>
                     </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-text-muted gap-3 opacity-50">
-                <Target size={32} strokeWidth={1} />
-                <div className="text-center">
-                  <div className="font-bold text-[10px] uppercase tracking-widest mb-1">Waiting for Config</div>
-                  <div className="text-[9px]">Define price range to visualize</div>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="space-y-1.5">
+                  {[...currentLevels].reverse().map((level: any, idx) => {
+                    const isBelowCurrent = activeBot ? !level.has_position : (currentPrice > level.price)
+                    const displayPrice = level.price
+                    
+                    return (
+                      <div key={idx} className={cn(
+                        "flex items-center justify-between p-2 rounded-lg transition-all duration-500 font-mono border",
+                        isBelowCurrent 
+                          ? "bg-accent-cyan/[0.03] border-accent-cyan/10" 
+                          : "bg-accent-pink/[0.03] border-accent-pink/10",
+                        "group hover:bg-white/5"
+                      )}>
+                        <div className="flex items-center gap-4">
+                          <div className={cn(
+                            "w-1 h-8 rounded-full transition-all duration-1000 shrink-0",
+                            isBelowCurrent 
+                              ? "bg-accent-cyan shadow-[0_0_8px_rgba(0,255,255,0.5)]" 
+                              : "bg-accent-pink shadow-[0_0_8px_rgba(255,0,128,0.5)]"
+                          )} />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[8px] font-black uppercase leading-none mb-1.5 flex items-center gap-2">
+                              <span className="text-white/80 tracking-[0.2em] w-20 shrink-0">INTERVAL {currentLevels.length - idx}</span>
+                            </div>
+                            <div className="grid grid-cols-[1fr_auto_1fr] items-center text-[10px] leading-none">
+                              <div className="flex items-center justify-end gap-2 pr-4">
+                                <span className={cn("font-bold text-[10px] uppercase tracking-tighter whitespace-nowrap", isBelowCurrent ? "text-accent-cyan" : "text-white/20")}>Buy Floor:</span>
+                                <span className="text-white/40 font-bold">${(idx < currentLevels.length - 1 ? (currentLevels as any)[currentLevels.length - 2 - idx].price : displayPrice - (displayPrice * 0.01)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              </div>
+                              <span className="text-white/10">|</span>
+                              <div className="flex items-center justify-start gap-2 pl-4">
+                                <span className={cn("font-bold text-[10px] uppercase tracking-tighter whitespace-nowrap", !isBelowCurrent ? "text-accent-pink" : "text-white/20")}>Sell Ceiling:</span>
+                                <span className="text-white font-black">${displayPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right flex flex-col items-end">
+                          <div className={cn(
+                            "text-[8px] font-black uppercase tracking-widest px-1 py-0.5 rounded border leading-none",
+                            isBelowCurrent 
+                              ? "text-accent-cyan border-accent-cyan/20 bg-accent-cyan/10" 
+                              : "text-accent-pink border-accent-pink/20 bg-accent-pink/10"
+                          )}>
+                            {activeBot ? (level.has_position ? "Sell Target" : "Buy Trigger") : (isBelowCurrent ? "Buy" : "Sell")}
+                          </div>
+                          {activeBot && level.has_position && level.token_amount && (
+                            <div className="text-[7px] font-bold text-text-muted mt-1 uppercase">
+                              {Number(level.token_amount).toFixed(4)} {activeBot.output_symbol}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
-              </div>
-            )}
+              )
+            })()}
           </div>
 
           {/* Visualization Header */}
           <div className="bg-background-elevated/50 p-3 border-t border-white/5 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-accent-green" />
+                <div className="w-1.5 h-1.5 rounded-full bg-accent-cyan" />
                 <span className="text-[9px] text-text-muted font-bold uppercase">Buy</span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -407,7 +523,7 @@ export const GridConfigWidget = () => {
               </div>
             </div>
             <div className="text-[9px] text-text-secondary italic">
-              {steps} levels | ${amountPerLevel.toLocaleString(undefined, { maximumFractionDigits: 2 })} / lvl
+              {steps} levels | ${amountPerLevel.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / lvl
             </div>
           </div>
         </div>
@@ -429,55 +545,74 @@ export const GridConfigWidget = () => {
         </div>
 
         <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
-          <div className="flex-1 overflow-auto custom-scrollbar p-3">
+          <div className="grid grid-cols-[100px_80px_1fr_80px_50px] gap-2 px-4 pt-3 pb-2 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 bg-white/[0.02]">
+            <div>Time</div>
+            <div>Type</div>
+            <div>Details</div>
+            <div>Price</div>
+            <div className="text-right">Status</div>
+          </div>
+
+          <div className="flex-1 overflow-auto custom-scrollbar p-2">
             {gridTrades.length > 0 ? (
               <div className="space-y-1">
-                {gridTrades.map(trade => (
-                  <div key={trade.id} className="grid grid-cols-[95px_90px_1fr_70px_45px] gap-2 items-end p-2 bg-background-elevated/30 border border-white/5 rounded-lg hover:bg-white/5 transition-all group font-mono whitespace-nowrap overflow-hidden">
-                    <div className={cn(
-                      "text-[11px] font-black uppercase tracking-tight shrink-0 leading-none transition-colors duration-500",
-                      trade.status === 'success' ? "text-accent-green" : "text-text-muted"
-                    )}>
-                      {(() => {
-                        if (!trade.timestamp) return '-'
-                        const isoStr = trade.timestamp.replace(' ', 'T') + (trade.timestamp.includes('Z') ? '' : 'Z')
-                        const date = new Date(isoStr)
-                        if (isNaN(date.getTime())) return '-'
-                        const d = date.getDate().toString().padStart(2, '0')
-                        const m = (date.getMonth() + 1).toString().padStart(2, '0')
-                        const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-                        return `${m}/${d} ${time}`
-                      })()}
-                    </div>
-                    
-                    <div className="flex items-end gap-1 font-black text-[11px] uppercase tracking-tighter shrink-0 leading-none">
-                      <span className="text-accent-pink inline-block leading-none">{trade.input}</span>
-                      <span className="text-text-muted opacity-30 inline-block leading-none">/</span>
-                      <span className="text-accent-cyan inline-block leading-none">{trade.output}</span>
-                    </div>
+                {gridTrades.map(trade => {
+                  const isSuccess = trade.status === 'success'
+                  const isOutputStable = ['USDC', 'USDT', 'USD'].includes(trade.output)
+                  const targetAmount = isOutputStable ? trade.amount_in : trade.amount_out
+                  const impliedPrice = trade.usd_value > 0 && targetAmount > 0 
+                    ? trade.usd_value / targetAmount 
+                    : 0
+                  
+                  const source = (trade.source || '').toLowerCase()
+                  const txType = source.includes('buy') ? 'BUY' : source.includes('sell') ? 'SELL' : source.includes('rebalance') ? 'REBAL' : 'EXEC'
+                  const typeColor = txType === 'BUY' ? "text-accent-cyan" : txType === 'SELL' ? "text-accent-pink" : "text-accent-purple"
 
-                    <div className="text-[11px] text-white/90 flex items-end gap-1.5 min-w-0 overflow-hidden leading-none">
-                      <span className="font-bold shrink-0 leading-none">{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })} {trade.input}</span>
-                      <span className="text-text-muted text-[9px] shrink-0 leading-none">→</span>
-                      <span className="text-accent-cyan font-black truncate leading-none">{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })} {trade.output}</span>
-                    </div>
-
-                    <div className="text-[10px] font-black text-white/60 leading-none shrink-0">
-                      {trade.usd_value && (trade.amount_in || trade.amount_out) ? (
-                        `${((trade.usd_value / (['USDC', 'USDT'].includes(trade.output) ? trade.amount_in : trade.amount_out)) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      ) : '---'}
-                    </div>
-
-                    <div className="text-right shrink-0 leading-none">
-                      <span className={cn(
-                        "uppercase font-black text-[9px] tracking-widest px-1.5 py-0.5 rounded border leading-none inline-block",
-                        trade.status === 'success' ? "text-accent-green border-accent-green/20 bg-accent-green/5" : "text-accent-red border-accent-red/20 bg-accent-red/5"
+                  return (
+                    <div key={trade.id} className="grid grid-cols-[100px_80px_1fr_80px_50px] gap-2 items-end p-2 rounded-lg bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group font-mono whitespace-nowrap overflow-hidden">
+                      <div className={cn(
+                        "text-[10px] font-black uppercase tracking-tight shrink-0 leading-none transition-colors duration-500",
+                        isSuccess ? "text-white/80" : "text-text-muted"
                       )}>
-                        {trade.status === 'success' ? 'OK' : 'ERR'}
-                      </span>
+                        {(() => {
+                          if (!trade.timestamp) return '-'
+                          const isoStr = trade.timestamp.replace(' ', 'T') + (trade.timestamp.includes('Z') ? '' : 'Z')
+                          const date = new Date(isoStr)
+                          if (isNaN(date.getTime())) return '-'
+                          const d = date.getDate().toString().padStart(2, '0')
+                          const m = (date.getMonth() + 1).toString().padStart(2, '0')
+                          const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+                          return `${m}/${d} ${time}`
+                        })()}
+                      </div>
+                      
+                      <div className={cn("font-black uppercase tracking-tight shrink-0 text-[10px] leading-none", typeColor)}>
+                        {txType}
+                      </div>
+
+                      <div className={cn("flex items-end gap-1.5 min-w-0 overflow-hidden text-[10px] font-black uppercase tracking-tight leading-none", typeColor)}>
+                        <span className="shrink-0">{trade.input}</span>
+                        <span className="shrink-0">{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                        <span className="opacity-30 text-[8px] shrink-0 mx-0.5">→</span>
+                        <span className="shrink-0">{trade.output}</span>
+                        <span className="truncate">{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      </div>
+
+                      <div className="text-[10px] font-black uppercase tracking-tight text-white/60 leading-none shrink-0">
+                        {impliedPrice > 0 ? `${impliedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '---'}
+                      </div>
+
+                      <div className="text-right shrink-0 leading-none">
+                        <span className={cn(
+                          "uppercase font-black text-[10px] tracking-tight px-1.5 py-0.5 rounded border leading-none inline-block",
+                          isSuccess ? "text-accent-green border-accent-green/20 bg-accent-green/5" : "text-accent-red border-accent-red/20 bg-accent-red/5"
+                        )}>
+                          {isSuccess ? 'OK' : 'ERR'}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-text-muted gap-3 opacity-50">

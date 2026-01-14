@@ -349,55 +349,74 @@ export const TWAPConfigWidget = () => {
         </div>
 
         <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
-          <div className="flex-1 overflow-auto custom-scrollbar p-3">
+          <div className="grid grid-cols-[100px_80px_1fr_80px_50px] gap-2 px-4 pt-3 pb-2 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 bg-white/[0.02]">
+            <div>Time</div>
+            <div>Type</div>
+            <div>Details</div>
+            <div>Price</div>
+            <div className="text-right">Status</div>
+          </div>
+
+          <div className="flex-1 overflow-auto custom-scrollbar p-2">
             {twapTrades.length > 0 ? (
-              <div className="space-y-2">
-                {twapTrades.map(trade => (
-                  <div key={trade.id} className="p-2.5 bg-background-elevated/30 border border-white/5 rounded-lg hover:bg-white/5 transition-colors flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
-                          <span className={cn(
-                            "text-[7px] font-black px-1 py-0.5 rounded border leading-none uppercase tracking-tighter",
-                            trade.output === 'SOL' ? "text-accent-cyan border-accent-cyan/20 bg-accent-cyan/10" : "text-accent-pink border-accent-pink/20 bg-accent-pink/10"
-                          )}>
-                            {trade.output === 'SOL' ? 'BUY' : 'SELL'}
-                          </span>
-                          <div className="text-[10px] font-mono text-white flex items-center gap-1">
-                            <span className="text-accent-cyan">{trade.output}</span>
-                            <span className="text-text-muted">/</span>
-                            <span className="text-accent-pink">{trade.input}</span>
-                          </div>
-                        </div>
-                        <div className="text-[8px] text-text-muted uppercase tracking-widest mt-1">
-                          {(() => {
-                            if (!trade.timestamp) return '-'
-                            const isoStr = trade.timestamp.replace(' ', 'T') + (trade.timestamp.includes('Z') ? '' : 'Z')
-                            const date = new Date(isoStr)
-                            return isNaN(date.getTime()) ? '-' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-                          })()}
-                        </div>
+              <div className="space-y-1">
+                {twapTrades.map(trade => {
+                  const isSuccess = trade.status === 'success'
+                  const isOutputStable = ['USDC', 'USDT', 'USD'].includes(trade.output)
+                  const targetAmount = isOutputStable ? trade.amount_in : trade.amount_out
+                  const impliedPrice = trade.usd_value > 0 && targetAmount > 0 
+                    ? trade.usd_value / targetAmount 
+                    : 0
+                  
+                  const source = (trade.source || '').toLowerCase()
+                  const txType = source.includes('buy') ? 'BUY' : source.includes('sell') ? 'SELL' : 'EXEC'
+                  const typeColor = txType === 'BUY' ? "text-accent-cyan" : txType === 'SELL' ? "text-accent-pink" : "text-accent-purple"
+
+                  return (
+                    <div key={trade.id} className="grid grid-cols-[100px_80px_1fr_80px_50px] gap-2 items-end p-2 rounded-lg bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group font-mono whitespace-nowrap overflow-hidden text-[10px]">
+                      <div className={cn(
+                        "font-black shrink-0 leading-none transition-colors duration-500 uppercase tracking-tight",
+                        isSuccess ? "text-white/80" : "text-text-muted"
+                      )}>
+                        {(() => {
+                          if (!trade.timestamp) return '-'
+                          const isoStr = trade.timestamp.replace(' ', 'T') + (trade.timestamp.includes('Z') ? '' : 'Z')
+                          const date = new Date(isoStr)
+                          if (isNaN(date.getTime())) return '-'
+                          const d = date.getDate().toString().padStart(2, '0')
+                          const m = (date.getMonth() + 1).toString().padStart(2, '0')
+                          const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+                          return `${m}/${d} ${time}`
+                        })()}
                       </div>
-                      <div className="text-right">
-                        <div className="text-[10px] font-mono font-bold text-white">
-                          ${trade.usd_value?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </div>
-                        <div className={cn("text-[8px] font-bold uppercase", trade.status === 'success' ? 'text-accent-green' : 'text-accent-red')}>{trade.status}</div>
+                      
+                      <div className={cn("font-black uppercase tracking-tight shrink-0 text-[10px] leading-none", typeColor)}>
+                        {txType}
+                      </div>
+
+                      <div className={cn("flex items-end gap-1.5 min-w-0 overflow-hidden text-[10px] font-black uppercase tracking-tight leading-none", typeColor)}>
+                        <span className="shrink-0">{trade.input}</span>
+                        <span className="shrink-0">{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                        <span className="opacity-30 text-[8px] shrink-0 mx-0.5">→</span>
+                        <span className="shrink-0">{trade.output}</span>
+                        <span className="truncate">{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      </div>
+
+                      <div className="text-white/60 font-black uppercase tracking-tight leading-none shrink-0">
+                        {impliedPrice > 0 ? `${impliedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '---'}
+                      </div>
+
+                      <div className="text-right shrink-0 leading-none">
+                        <span className={cn(
+                          "uppercase font-black text-[10px] tracking-tight px-1.5 py-0.5 rounded border leading-none inline-block",
+                          isSuccess ? "text-accent-green border-accent-green/20 bg-accent-green/5" : "text-accent-red border-accent-red/20 bg-accent-red/5"
+                        )}>
+                          {isSuccess ? 'OK' : 'ERR'}
+                        </span>
                       </div>
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-white/5">
-                      <div>
-                        <div className="text-[7px] text-text-muted uppercase font-bold">Amount Traded</div>
-                        <div className="text-[9px] font-mono text-white/80">{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 6 })} {trade.output}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-[7px] text-text-muted uppercase font-bold">Signature</div>
-                        <div className="text-[9px] font-mono text-accent-cyan/60 truncate">{trade.signature?.slice(0, 8)}...</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-text-muted gap-3 opacity-50">

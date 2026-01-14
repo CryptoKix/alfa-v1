@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Trash2, Activity, Pause, RefreshCw, ChevronDown, Plus } from 'lucide-react'
-import { Bot } from '@/features/bots/botsSlice'
+import { X, Trash2, Activity, Pause, RefreshCw, ChevronDown, Plus, Edit2, Check, Eye } from 'lucide-react'
+import { Bot, setMonitorBotId } from '@/features/bots/botsSlice'
 import { cn } from '@/lib/utils'
+import { useAppDispatch } from '@/app/hooks'
 
 interface ActiveBotsModalProps {
   isOpen: boolean
@@ -15,7 +16,10 @@ interface ActiveBotsModalProps {
 }
 
 export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, onPause, onCreateNew }: ActiveBotsModalProps) => {
+  const dispatch = useAppDispatch()
   const [expandedBotId, setExpandedBotId] = useState<string | null>(null)
+  const [editingBotId, setEditingBotId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState('')
   
   if (!isOpen) return null
   
@@ -29,6 +33,36 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
     const type = botType?.toLowerCase()
     if (type !== 'grid' && type !== 'twap') return
     setExpandedBotId(prev => prev === id ? null : id)
+  }
+
+  const handleMonitor = (botId: string) => {
+    dispatch(setMonitorBotId(botId))
+    onClose()
+  }
+
+  const handleUpdateConfig = async (id: string, updates: any) => {
+    try {
+      await fetch('/api/dca/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, updates })
+      })
+    } catch (e) {
+      console.error("Failed to update bot config", e)
+    }
+  }
+
+  const handleRename = async (id: string) => {
+    try {
+      await fetch('/api/dca/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, alias: editValue })
+      })
+      setEditingBotId(null)
+    } catch (e) {
+      console.error("Failed to rename bot", e)
+    }
   }
 
   const modalContent = (
@@ -87,10 +121,10 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
                return (
                <div 
                   key={bot.id} 
-                  onClick={() => toggleExpand(bot.id, bot.type)}
+                  onClick={() => isGrid ? handleMonitor(bot.id) : toggleExpand(bot.id, bot.type)}
                   className={cn(
                     "bg-background-elevated/20 border border-white/5 rounded-2xl p-5 flex flex-col gap-4 group transition-all duration-500",
-                    isGrid ? "cursor-pointer hover:bg-background-elevated/40 hover:border-white/20 shadow-lg" : "",
+                    isGrid ? "cursor-pointer hover:bg-background-elevated/40 hover:border-white/20 shadow-lg hover:shadow-accent-cyan/5" : "",
                     isExpanded ? "border-accent-purple/30 bg-background-elevated/50" : ""
                   )}
                >
@@ -104,7 +138,37 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
                         </div>
                         <div>
                            <div className="text-lg font-black text-white flex items-center gap-3 tracking-tight">
-                             {bot.input_symbol} <span className="text-text-muted opacity-50">→</span> {bot.output_symbol}
+                             {editingBotId === bot.id ? (
+                               <div className="flex items-center gap-2 bg-black/40 border border-accent-cyan/30 rounded-lg px-2 py-1">
+                                 <input 
+                                   autoFocus
+                                   value={editValue}
+                                   onChange={e => setEditValue(e.target.value)}
+                                   onKeyDown={e => e.key === 'Enter' && handleRename(bot.id)}
+                                   className="bg-transparent outline-none text-sm font-bold text-white w-48"
+                                 />
+                                 <button onClick={() => handleRename(bot.id)} className="text-accent-green hover:scale-110 transition-transform">
+                                   <Check size={16} />
+                                 </button>
+                                 <button onClick={() => setEditingBotId(null)} className="text-accent-pink hover:scale-110 transition-transform">
+                                   <X size={16} />
+                                 </button>
+                               </div>
+                             ) : (
+                               <div className="flex items-center gap-2 group/alias">
+                                 {bot.alias ? bot.alias : (
+                                   <>
+                                     {bot.input_symbol} <span className="text-text-muted opacity-50">→</span> {bot.output_symbol}
+                                   </>
+                                 )}
+                                 <button 
+                                   onClick={(e) => { e.stopPropagation(); setEditingBotId(bot.id); setEditValue(bot.alias || '') }}
+                                   className="opacity-0 group-hover/alias:opacity-100 p-1 hover:bg-white/5 rounded transition-all text-text-muted hover:text-accent-cyan"
+                                 >
+                                   <Edit2 size={12} />
+                                 </button>
+                               </div>
+                             )}
                              <span className={cn(
                                "text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest border",
                                bot.status === 'active' ? "bg-accent-green/10 text-accent-green border-accent-green/20" : "bg-white/5 text-text-muted border-white/10"
@@ -125,6 +189,12 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
                            <div className="text-[10px] font-mono text-text-muted mt-1 uppercase tracking-widest flex items-center gap-2">
                              <span className="opacity-50 tracking-normal text-[8px]">ID:</span>
                              <span className="font-bold">{bot.id}</span>
+                             {bot.alias && (
+                               <>
+                                 <span className="opacity-50 tracking-normal text-[8px] ml-2">PAIR:</span>
+                                 <span className="font-bold">{bot.input_symbol}/{bot.output_symbol}</span>
+                               </>
+                             )}
                            </div>
                         </div>
                      </div>
@@ -232,6 +302,30 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
 
                   {bot.status !== 'completed' && (
                     <div className="flex justify-end pt-2 gap-3" onClick={(e) => e.stopPropagation()}>
+                       {isGrid && (
+                         <>
+                           <button 
+                              onClick={() => handleUpdateConfig(bot.id, { trailing_enabled: !bot.trailing_enabled })}
+                              className={cn(
+                                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border",
+                                bot.trailing_enabled 
+                                  ? "bg-accent-cyan/20 border-accent-cyan/40 text-accent-cyan" 
+                                  : "bg-white/5 border-white/10 text-text-muted hover:text-white"
+                              )}
+                              title={bot.trailing_enabled ? 'Disable Trailing' : 'Enable Trailing'}
+                           >
+                              <Activity size={12} className={cn(bot.trailing_enabled && "animate-pulse")} />
+                              Trailing {bot.trailing_enabled ? 'ON' : 'OFF'}
+                           </button>
+                           <button 
+                              onClick={() => handleMonitor(bot.id)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-cyan/10 hover:bg-accent-cyan/20 border border-accent-cyan/20 rounded-lg text-accent-cyan text-[10px] font-bold uppercase tracking-wider transition-colors"
+                           >
+                              <Eye size={12} />
+                              Monitor Engine
+                           </button>
+                         </>
+                       )}
                        <button 
                           onClick={() => onPause(bot.id, bot.status)}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-text-muted hover:text-white text-[10px] font-bold uppercase tracking-wider transition-colors"

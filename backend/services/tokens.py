@@ -95,4 +95,22 @@ def get_token_accounts():
 
 def get_token_symbol(mint):
     """Get symbol for a token mint address."""
-    return get_known_tokens().get(mint, {}).get("symbol", f"{mint[:4]}...")
+    known = get_known_tokens()
+    if mint in known:
+        return known[mint]["symbol"]
+    
+    # Try one-off discovery for unknown tokens
+    try:
+        asset = helius.das.get_asset(mint)
+        info = asset.get('token_info', {})
+        symbol = info.get('symbol')
+        if symbol:
+            decimals = info.get('decimals', 9)
+            content = asset.get('content', {})
+            logo_uri = content.get('links', {}).get('image') or f"https://static.jup.ag/tokens/gen/{mint}.png"
+            db.save_token(mint, symbol, decimals, logo_uri)
+            return symbol
+    except Exception:
+        pass
+
+    return f"{mint[:4]}..."

@@ -13,6 +13,22 @@ from services.bots import process_grid_logic, update_bot_performance
 api_bp = Blueprint('api', __name__)
 
 
+@api_bp.route('/api/system/restart', methods=['POST'])
+def api_system_restart():
+    import subprocess
+    import os
+    
+    # Get the path to the restart script (same directory as app.py)
+    script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'restart_services.sh')
+    
+    try:
+        # Start the script in a detached process so it can kill this process and restart it
+        subprocess.Popen(['/bin/bash', script_path], start_new_session=True)
+        return jsonify({"success": True, "message": "System restart initiated"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # --- Token & Health APIs ---
 
 @api_bp.route('/api/tokens')
@@ -52,6 +68,7 @@ def api_dca_add():
     bot_type = data.get('strategy', 'DCA')
 
     config = {
+        "alias": data.get('alias'),
         "interval": int(data.get('interval', 60)),
         "max_runs": int(data.get('maxRuns', 0)) or None,
         "amount": float(data.get('amount', 0)),
@@ -160,15 +177,49 @@ def api_dca_delete():
 
 @api_bp.route('/api/dca/pause', methods=['POST'])
 def api_dca_pause():
+# ... (omitted lines)
+    socketio.emit('bots_update', {'bots': get_formatted_bots(), 'timestamp': time.time()}, namespace='/bots')
+    return jsonify({"success": True})
+
+
+@api_bp.route('/api/dca/rename', methods=['POST'])
+def api_dca_rename():
     from services.bots import get_formatted_bots
     bot_id = request.json.get('id')
-    status = request.json.get('status') # 'active' or 'paused'
+    new_alias = request.json.get('alias')
     
-    if status not in ['active', 'paused']:
-        return jsonify({"error": "Invalid status"}), 400
-
     with db._get_connection() as conn:
-        conn.execute("UPDATE bots SET status = ? WHERE id = ?", (status, bot_id))
+        conn.row_factory = __import__('sqlite3').Row
+        cursor = conn.execute("SELECT config_json FROM bots WHERE id = ?", (bot_id,))
+        row = cursor.fetchone()
+        if row:
+            config = json.loads(row['config_json'])
+            config['alias'] = new_alias
+            conn.execute("UPDATE bots SET config_json = ? WHERE id = ?", (json.dumps(config), bot_id))
+            conn.commit()
+    
+    socketio.emit('bots_update', {'bots': get_formatted_bots(), 'timestamp': time.time()}, namespace='/bots')
+    return jsonify({"success": True})
+
+
+@api_bp.route('/api/dca/update', methods=['POST'])
+def api_dca_update():
+    from services.bots import get_formatted_bots
+    bot_id = request.json.get('id')
+    updates = request.json.get('updates', {})
+    
+    with db._get_connection() as conn:
+        conn.row_factory = __import__('sqlite3').Row
+        cursor = conn.execute("SELECT config_json FROM bots WHERE id = ?", (bot_id,))
+        row = cursor.fetchone()
+        if row:
+            config = json.loads(row['config_json'])
+            # Apply updates
+            for key, value in updates.items():
+                config[key] = value
+            
+            conn.execute("UPDATE bots SET config_json = ? WHERE id = ?", (json.dumps(config), bot_id))
+            conn.commit()
     
     socketio.emit('bots_update', {'bots': get_formatted_bots(), 'timestamp': time.time()}, namespace='/bots')
     return jsonify({"success": True})

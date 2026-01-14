@@ -4,8 +4,11 @@ import { useAppSelector } from '@/app/hooks'
 import { WalletModal } from '@/components/modals/WalletModal'
 import { SendModal } from '@/components/modals/SendModal'
 import { cn } from '@/lib/utils'
+import { useLocation } from 'react-router-dom'
+import { StrategyTabs } from './StrategyTabs'
 
 export const Header = () => {
+  const location = useLocation()
   const { walletAlias, connected: webConnected } = useAppSelector(state => state.portfolio)
   const { lastUpdate, connected: priceConnected } = useAppSelector(state => state.prices)
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false)
@@ -41,35 +44,68 @@ export const Header = () => {
   const webColor = webConnected ? 'bg-accent-cyan' : 'bg-red-500'
   const webTextClass = webConnected ? 'text-accent-cyan' : 'text-red-500'
 
+  const handleRestart = async () => {
+    if (!confirm("Initiate emergency system restart? All active strategy threads will be re-synchronized.")) return;
+    try {
+      await fetch('/api/system/restart', { method: 'POST' });
+      alert("Restart signal broadcasted. System will go offline briefly.");
+    } catch (e) {
+      console.error("Restart failed", e);
+    }
+  }
+
+  const getPageTitle = () => {
+    switch (location.pathname) {
+      case '/': return 'Dashboard / Overview'
+      case '/trade': return 'Terminal / Trade'
+      case '/strategies': return 'Engine / Strategies'
+      case '/copytrade': return 'Intelligence / Copy Trade'
+      default: return 'Tactix / System'
+    }
+  }
+
   return (
     <>
       <header className="h-16 flex items-center justify-between px-6 bg-background-card/50 backdrop-blur sticky top-0 z-10">
         {/* Breadcrumb / Page Title Placeholder */}
-        <div className="flex items-center gap-4">
-          <span className="text-text-secondary text-sm font-mono">Dashboard / Overview</span>
+        <div className="flex items-center gap-4 min-w-[200px]">
+          <span className="text-text-secondary text-[10px] font-mono uppercase tracking-widest">{getPageTitle()}</span>
         </div>
 
-        <div className="flex items-center gap-4">
+        {/* Dynamic Center Content (Tabs for Strategies) */}
+        <div className="flex-1 flex justify-center">
+          {location.pathname === '/strategies' && <StrategyTabs />}
+        </div>
+
+        <div className="flex items-center gap-4 min-w-[200px] justify-end">
           {/* Status Indicators */}
           <div className="flex items-center gap-2 mr-2">
-            <div className={cn(
-              "flex items-center justify-center gap-2 w-20 h-8 rounded-xl border transition-all duration-500 bg-background-elevated/50",
-              priceConnected && lastUpdate > 0 && timeDiff < 5000 ? "border-accent-green/20 shadow-[0_0_10px_rgba(0,255,157,0.05)]" : "border-white/5"
-            )}>
+            <button 
+              onClick={handleRestart}
+              title="System Health: Click to Restart Services"
+              className={cn(
+                "flex items-center justify-center gap-2 w-20 h-8 rounded-xl border transition-all duration-500 bg-background-elevated/50 hover:bg-white/5 group cursor-pointer",
+                priceConnected && lastUpdate > 0 && timeDiff < 5000 ? "border-accent-green/20 shadow-[0_0_10px_rgba(0,255,157,0.05)]" : "border-white/10"
+              )}
+            >
                <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", priceColor, pricePulse && "animate-pulse shadow-[0_0_8px_currentColor]")} />
                <span className={cn("text-[9px] font-black uppercase tracking-widest transition-colors duration-500", priceTextClass)}>
                  {priceStatusText}
                </span>
-            </div>
-            <div className={cn(
-              "flex items-center justify-center gap-2 w-20 h-8 rounded-xl border transition-all duration-500 bg-background-elevated/50",
-              webConnected ? "border-accent-cyan/20 shadow-[0_0_10px_rgba(0,255,255,0.05)]" : "border-white/5"
-            )}>
+            </button>
+            <button 
+              onClick={handleRestart}
+              title="API Health: Click to Restart Services"
+              className={cn(
+                "flex items-center justify-center gap-2 w-20 h-8 rounded-xl border transition-all duration-500 bg-background-elevated/50 hover:bg-white/5 group cursor-pointer",
+                webConnected ? "border-accent-cyan/20 shadow-[0_0_10px_rgba(0,255,255,0.05)]" : "border-white/10"
+              )}
+            >
                <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", webColor, webConnected && "animate-pulse shadow-[0_0_8px_currentColor]")} />
                <span className={cn("text-[9px] font-black uppercase tracking-widest transition-colors duration-500", webTextClass)}>
                  {webStatusText}
                </span>
-            </div>
+            </button>
           </div>
 
           <div className="w-px h-6 bg-white/5" />

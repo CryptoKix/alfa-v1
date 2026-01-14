@@ -1,5 +1,40 @@
 # Tactix-Gem Project Changelog
 
+## [2026-01-14] - Telemetry HUD, Tabular Navigation & Engine Monitoring
+
+### Feature: Live Engine Monitoring (GRID)
+- **Live Stream Integration:** Replaced static GRID previews with a real-time engine stream for active bots.
+- **Interval Telemetry:** Each grid level now explicitly displays its **Buy Floor** and **Sell Ceiling** triggers with high-fidelity color coding.
+- **Position Tracking:** Added "Holding Slot" and "Waiting Slot" status badges with real-time token inventory amounts per level.
+- **Telemetry Row:** Implemented a new dashboard-style gauge row for strategies:
+    - **Realized Profit:** Dynamic semi-circular gauge tracking total banked USD.
+    - **Fleet Status:** Real-time counters for **Running** and **Completed** bot counts.
+- **Monitoring HUD:** Integrated a pulsing "Live Stream" indicator and bot alias context into the preview header.
+
+### Feature: Strategy Management & UX
+- **Strategy Alias:** Added the ability to assign custom names (e.g., "SOL Trend Rider") to grid strategies during deployment.
+- **Fleet Renaming:** Implemented inline renaming functionality within the Master Engine Controller modal.
+- **Tabular Navigation:** Moved strategy selection from the page body into the main header, utilizing high-fidelity "Mellow Pink" tactile tabs.
+- **Contextual HUD:** Header now displays dynamic breadcrumbs (e.g., `Engine / Strategies`) and context-aware strategy tabs.
+
+### Feature: Infrastructure & Health
+- **Emergency Restart HUD:** Linked the **Web** and **Price** status indicators to an emergency system restart API.
+- **System API:** Added `/api/system/restart` to trigger the TACTIX Service Manager directly from the frontend.
+- **Stability Fixes:** Hardened the Arb Engine with a `matrix_clear` event to prevent stale/stuck rows during service transitions.
+- **Symbol Discovery v3:** Upgraded token resolution to proactively fetch metadata via Helius DAS for unknown mint addresses.
+
+### Feature: Execution Log Standardisation
+- **Unified Layout:** Standardized all execution widgets (Grid, TWAP, DCA) to match the dashboard's high-density 5-column grid.
+- **Color-Coded Details:** Integrated trade details (e.g., `USDC 125 → SOL 0.86`) with transaction type colors (Cyan/Pink).
+- **Forensic Timestamps:** Switched execution logs to include absolute date prefixes (`MM/DD`) in high-fidelity white.
+- **Typography Unison:** Forced strict `font-mono`, `text-[10px]`, and `font-black` across all execution columns for surgical readability.
+
+### UI/UX Refinements
+- **Real-time Price Ticks:** Market prices now dynamically colorize (Cyan for UP, Pink for DOWN) based on the latest tick momentum.
+- **Precision Hardening:** Locked all price and total value displays across the GRID module to strictly 2 decimal places.
+- **Visual Polish:** Upgraded button backgrounds, borders, and neon glow effects across the strategy terminal and header.
+- **Notification Silence:** Disabled automatic loading of historical toasts on startup to prevent UI clutter.
+
 ## [2026-01-13] - Architecture Restoration, UI Flair & Log Density
 
 ### Github Repository Initialized

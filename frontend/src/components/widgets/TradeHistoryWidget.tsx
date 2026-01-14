@@ -50,7 +50,7 @@ export const TradeHistoryWidget = () => {
         </div>
 
         {/* Table Header */}
-        <div className="grid grid-cols-[100px_100px_1fr_80px_60px] gap-4 px-3 pb-2 mr-[6px] text-[9px] font-black text-text-muted uppercase tracking-[0.2em] shrink-0">
+        <div className="grid grid-cols-[100px_100px_1fr_80px_60px] gap-4 px-2.5 pb-2 mr-[6px] text-[9px] font-black text-text-muted uppercase tracking-[0.2em] shrink-0">
           <div>Timestamp</div>
           <div>Asset Pair</div>
           <div>Execution Detail</div>
@@ -77,7 +77,7 @@ export const TradeHistoryWidget = () => {
                   <div key={trade.id} className="grid grid-cols-[100px_100px_1fr_80px_60px] gap-4 items-end p-2.5 rounded-xl bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group text-xs font-mono whitespace-nowrap overflow-hidden">
                     <div className={cn(
                       "font-black shrink-0 text-[11px] leading-none transition-colors duration-500",
-                      isSuccess ? "text-accent-green" : "text-text-muted"
+                      isSuccess ? "text-white/80" : "text-text-muted"
                     )}>
                       {formatTimestamp(trade.timestamp)}
                     </div>

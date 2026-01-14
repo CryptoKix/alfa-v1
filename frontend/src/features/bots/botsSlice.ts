@@ -8,6 +8,7 @@ export interface GridLevel {
 
 export interface Bot {
   id: string
+  alias?: string
   type: string
   status: string
   input_mint: string
@@ -27,17 +28,23 @@ export interface Bot {
   phase?: string
   avg_buy_price?: number
   total_bought?: number
+  amount_per_level?: number
+  trailing_enabled?: boolean
   grid_levels?: GridLevel[]
 }
 
 export interface BotsState {
   bots: Bot[]
   loading: boolean
+  selectedStrategy: string
+  monitorBotId: string | null
 }
 
 const initialState: BotsState = {
   bots: [],
   loading: false,
+  selectedStrategy: 'grid',
+  monitorBotId: null
 }
 
 export const botsSlice = createSlice({
@@ -50,9 +57,15 @@ export const botsSlice = createSlice({
     },
     setBotsLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload
+    },
+    setSelectedStrategy: (state, action: PayloadAction<string>) => {
+      state.selectedStrategy = action.payload
+    },
+    setMonitorBotId: (state, action: PayloadAction<string | null>) => {
+      state.monitorBotId = action.payload
     }
   },
 })
 
-export const { updateBots, setBotsLoading } = botsSlice.actions
+export const { updateBots, setBotsLoading, setSelectedStrategy, setMonitorBotId } = botsSlice.actions
 export default botsSlice.reducer

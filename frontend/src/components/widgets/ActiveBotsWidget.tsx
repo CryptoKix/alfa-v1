@@ -65,13 +65,13 @@ export const ActiveBotsWidget = ({ onViewAll }: { onViewAll?: () => void }) => {
       </div>
 
       {/* Table Header */}
-      <div className="grid grid-cols-[30px_60px_1fr_120px_80px_80px_80px] gap-2 px-2 pb-2 mr-[6px] text-[9px] font-bold text-text-muted uppercase tracking-wider shrink-0 mt-2">
+      <div className="grid grid-cols-[30px_60px_1fr_120px_80px_60px_80px] gap-2 px-2 pb-2 mr-[6px] text-[9px] font-bold text-text-muted uppercase tracking-wider shrink-0 mt-2">
         <div className="pl-1">St</div>
         <div>Type</div>
-        <div>Pair</div>
+        <div>Strategy / Pair</div>
         <div>Range</div>
         <div className="text-right">PnL</div>
-        <div className="text-right">Trades</div>
+        <div className="text-right">Run</div>
         <div className="text-right">Actions</div>
       </div>
 
@@ -100,7 +100,7 @@ export const ActiveBotsWidget = ({ onViewAll }: { onViewAll?: () => void }) => {
                     isGrid ? "hover:border-white/20 cursor-pointer" : ""
                 )}
             >
-                <div className="grid grid-cols-[30px_60px_1fr_120px_80px_80px_80px] gap-2 items-center">
+                <div className="grid grid-cols-[30px_60px_1fr_120px_80px_60px_80px] gap-2 items-center">
                     {/* Status Icon */}
                     <div className="flex justify-start pl-1">
                         <div className={cn(
@@ -117,9 +117,20 @@ export const ActiveBotsWidget = ({ onViewAll }: { onViewAll?: () => void }) => {
                         )}
                     </div>
 
-                    {/* Pair */}
-                    <div className="text-white font-bold truncate">
-                        {bot.input_symbol} <span className="text-text-muted">→</span> {bot.output_symbol}
+                    {/* Alias / Pair */}
+                    <div className="flex flex-col min-w-0">
+                        {bot.alias ? (
+                            <div className="text-white font-black uppercase text-[10px] truncate leading-tight tracking-wider">{bot.alias}</div>
+                        ) : (
+                            <div className="text-white font-bold truncate leading-tight">
+                                {bot.input_symbol} <span className="text-text-muted">→</span> {bot.output_symbol}
+                            </div>
+                        )}
+                        {bot.alias && (
+                            <div className="text-[8px] text-text-muted font-bold uppercase truncate tracking-tighter">
+                                {bot.input_symbol}/{bot.output_symbol}
+                            </div>
+                        )}
                     </div>
 
                     {/* Range / Amount */}

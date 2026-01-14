@@ -5,7 +5,7 @@ import { updatePortfolio, updateHistory, setWebConnection } from '../features/po
 import { updatePrice, setPriceConnection } from '../features/prices/pricesSlice'
 import { updateBots } from '../features/bots/botsSlice'
 import { setTargets, addSignal, setSignals } from '../features/copytrade/copytradeSlice'
-import { addOpportunity, updateMatrix } from '../features/arb/arbSlice'
+import { addOpportunity, updateMatrix, clearMatrix } from '../features/arb/arbSlice'
 import { addNotification } from '../features/notifications/notificationsSlice'
 
 export let portfolioSocket: any
@@ -40,6 +40,10 @@ export const initSockets = () => {
       venues: data.venues,
       id: data.id
     }))
+  })
+
+  arbSocket.on('matrix_clear', () => {
+    store.dispatch(clearMatrix())
   })
 
   // Initial Fetch for Bots
@@ -106,22 +110,6 @@ export const initSockets = () => {
   copytradeSocket.on('signals_update', (data: any) => {
     store.dispatch(setTargets(data.targets))
     store.dispatch(setSignals(data.signals))
-    
-    // Populate last 10 signals into notifications
-    const recentSignals = (data.signals || []).slice(0, 10).reverse()
-    recentSignals.forEach((s: any) => {
-      const alias = s.alias || s.wallet?.slice(0, 8) || 'Whale'
-      const recvAsset = s.received?.symbol || 'Asset'
-      const recvAmount = s.received?.amount !== undefined ? s.received.amount.toFixed(2) : '0.00'
-      const sentAsset = s.sent?.symbol || 'Asset'
-      const sentAmount = s.sent?.amount !== undefined ? s.sent.amount.toFixed(2) : '0.00'
-      
-      store.dispatch(addNotification({
-        title: `${alias} Detected`,
-        message: `Whale swap: ${sentAmount} ${sentAsset} → ${recvAmount} ${recvAsset}`,
-        type: 'signal'
-      }))
-    })
   })
 
   copytradeSocket.on('signal_detected', (data: any) => {

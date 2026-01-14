@@ -47,6 +47,9 @@ const arbSlice = createSlice({
         id: action.payload.id
       }
     },
+    clearMatrix: (state) => {
+      state.matrix = {}
+    },
     setArbConfig: (state, action: PayloadAction<Partial<ArbState>>) => {
       return { ...state, ...action.payload }
     },
@@ -56,5 +59,5 @@ const arbSlice = createSlice({
   }
 })
 
-export const { addOpportunity, updateMatrix, setArbConfig, clearOpportunities } = arbSlice.actions
+export const { addOpportunity, updateMatrix, clearMatrix, setArbConfig, clearOpportunities } = arbSlice.actions
 export default arbSlice.reducer
