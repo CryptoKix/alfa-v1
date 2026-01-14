@@ -150,8 +150,38 @@ class TactixDB:
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+
+            # 10. Address Book Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS address_book (
+                    address TEXT PRIMARY KEY,
+                    alias TEXT,
+                    notes TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
             
             conn.commit()
+
+    def save_address(self, address, alias, notes=None):
+        """Save or update an address in the address book."""
+        with self._get_connection() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO address_book (address, alias, notes) VALUES (?, ?, ?)",
+                (address, alias, notes)
+            )
+
+    def get_address_book(self):
+        """Fetch all saved addresses."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("SELECT * FROM address_book ORDER BY alias ASC")
+            return [dict(row) for row in cursor.fetchall()]
+
+    def delete_address(self, address):
+        """Remove an address from the address book."""
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM address_book WHERE address = ?", (address,))
 
     def save_user_wallet(self, address, alias, is_default=0):
         """Save or update a user's own wallet."""
@@ -262,6 +292,14 @@ class TactixDB:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(query)
             return [dict(row) for row in cursor.fetchall()]
+
+    def get_bot(self, bot_id):
+        """Fetch a single bot by ID."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("SELECT * FROM bots WHERE id = ?", (bot_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
 
     def get_history(self, limit=50, wallet_address=None):
         """Fetch recent trade history."""

@@ -7,152 +7,161 @@ from flask import current_app
 
 from extensions import db, socketio
 from services.trading import execute_trade_logic
+from services.notifications import notify_bot_completion
 
 bot_processing_lock = threading.Lock()
+# In-memory guard to prevent concurrent trades for the same bot
+in_flight_bots = set()
 
 def get_formatted_bots():
     formatted = []
-    for b in db.get_all_bots():
+    for b in db.get_all_bots(include_deleted=False):
         bot_dict = dict(b)
+        db_status = bot_dict.get('status')
+        
         if 'config_json' in bot_dict and bot_dict['config_json']:
             try: bot_dict.update(json.loads(bot_dict.pop('config_json', '{}')))
             except: pass
         if 'state_json' in bot_dict and bot_dict['state_json']:
             try: bot_dict.update(json.loads(bot_dict.pop('state_json', '{}')))
             except: pass
+            
+        bot_dict['status'] = db_status
         formatted.append(bot_dict)
     return formatted
 
 def process_grid_logic(bot, current_price):
-    acquired = bot_processing_lock.acquire(timeout=2)
-    if not acquired:
-        print(f"DEBUG: Grid lock acquisition timed out for bot {bot['id']}")
+    acquired = bot_processing_lock.acquire(timeout=1)
+    if not acquired: return
+    
+    bot_id = bot['id']
+    if bot_id in in_flight_bots:
+        bot_processing_lock.release()
         return
+        
     try:
-        config = json.loads(bot['config_json'])
-        state = json.loads(bot['state_json'])
+        in_flight_bots.add(bot_id)
+    finally:
+        bot_processing_lock.release()
+
+    try:
+        fresh_bot = db.get_bot(bot_id)
+        if not fresh_bot or fresh_bot['status'] != 'active':
+            return
+
+        config = json.loads(fresh_bot['config_json'])
+        state = json.loads(fresh_bot['state_json'])
         levels = state.get('grid_levels', [])
         changed = False
         
-        bot_alias = config.get('alias') or bot['id']
-        # print(f"DEBUG: Processing Grid Logic for {bot_alias} | Price: {current_price}")
+        bot_alias = config.get('alias') or bot_id
+        hysteresis = current_price * 0.0001 
 
         for i in range(1, len(levels)):
-            level = levels[i] # Current level (Sell Target)
-            prev_level = levels[i-1] # Previous level (Buy Trigger)
+            level = levels[i] 
+            prev_level = levels[i-1] 
             
-            # 1. SELL LOGIC: Price hit the upper bound of the interval
-            if current_price >= level['price'] and level.get('has_position'):
+            # 1. SELL LOGIC
+            if current_price >= (level['price'] + hysteresis) and level.get('has_position'):
+                level['has_position'] = False 
+                
                 print(f"🚀 GRID SELL TRIGGER: {bot_alias} | Level {i+1} @ {level['price']} (Price: {current_price})")
                 try:
                     token_amount = level.get('token_amount', 0)
                     if token_amount <= 0:
-                        # Fallback calculation if token_amount was lost
                         token_amount = config['amount_per_level'] / prev_level['price']
                     
-                    res = execute_trade_logic(bot['output_mint'], bot['input_mint'], token_amount, f"Grid Sell @ {level['price']:.2f}", priority_fee=0)
+                    cost_basis = level.get('cost_usd', config['amount_per_level'])
+                    est_profit = (token_amount * current_price) - cost_basis
+
+                    res = execute_trade_logic(
+                        fresh_bot['output_mint'], 
+                        fresh_bot['input_mint'], 
+                        token_amount, 
+                        f"Grid Sell @ {level['price']:.2f}", 
+                        priority_fee=0,
+                        profit=est_profit
+                    )
                     
-                    # Calculate profit based on actual USD value returned from trade
                     realized_val = res.get('usd_value', token_amount * current_price)
-                    profit = realized_val - config['amount_per_level']
+                    profit = realized_val - cost_basis
                     
-                    state['profit_realized'] = state.get('profit_realized', 0) + profit
+                    state['grid_yield'] = state.get('grid_yield', 0) + profit
+                    state['profit_realized'] = state.get('grid_yield', 0)
                     state['run_count'] = state.get('run_count', 0) + 1
-                    level['has_position'] = False
                     level['token_amount'] = 0
+                    level['cost_usd'] = 0
                     changed = True
                     print(f"✅ GRID SELL SUCCESS: {bot_alias} | Profit: ${profit:.4f}")
-                except Exception as e:
-                    print(f"❌ GRID SELL ERROR: {bot_alias} | {e}")
-                    current_app.logger.error(f"Grid Sell Error: {e}")
+                    break 
 
-            # 2. BUY LOGIC: Price hit the lower bound of the interval
-            elif current_price <= prev_level['price'] and not level.get('has_position'):
+                except Exception as e:
+                    level['has_position'] = True
+                    print(f"❌ GRID SELL ERROR: {bot_alias} | {e}")
+
+            # 2. BUY LOGIC
+            elif current_price <= (prev_level['price'] - hysteresis) and not level.get('has_position'):
+                level['has_position'] = True 
+                
                 print(f"🚀 GRID BUY TRIGGER: {bot_alias} | Level {i} @ {prev_level['price']} (Price: {current_price})")
                 try:
-                    res = execute_trade_logic(bot['input_mint'], bot['output_mint'], config['amount_per_level'], f"Grid Buy @ {prev_level['price']:.2f}", priority_fee=0)
+                    res = execute_trade_logic(fresh_bot['input_mint'], fresh_bot['output_mint'], config['amount_per_level'], f"Grid Buy @ {prev_level['price']:.2f}", priority_fee=0)
                     
-                    # Update level with actual bought amount
                     level['token_amount'] = res.get('amount_out', config['amount_per_level'] / current_price)
-                    level['has_position'] = True
+                    level['cost_usd'] = res.get('usd_value', config['amount_per_level'])
                     state['run_count'] = state.get('run_count', 0) + 1
                     changed = True
                     print(f"✅ GRID BUY SUCCESS: {bot_alias} | Amount: {level['token_amount']:.4f}")
+                    break
+
                 except Exception as e:
+                    level['has_position'] = False
                     print(f"❌ GRID BUY ERROR: {bot_alias} | {e}")
-                    current_app.logger.error(f"Grid Buy Error: {e}")
 
         if changed:
-            # Handle Trailing
             if config.get('trailing_enabled') and current_price >= config.get('upper_bound', 0):
-                lb, ub, steps = config.get('lower_bound', 0), config.get('upper_bound', 0), config.get('steps', 10)
-                step_size = (ub - lb) / (steps - 1) if steps > 1 else 0
-                if step_size > 0:
-                    config['lower_bound'] += step_size
-                    config['upper_bound'] += step_size
-                    for lvl in state.get('grid_levels', []):
-                        lvl['price'] += step_size
-                    print(f"🔄 GRID TRAILING: {bot_alias} shifted range up to {config['lower_bound']:.2f} - {config['upper_bound']:.2f}")
-                    socketio.emit('notification', {'title': 'Grid Trailing Active', 'message': f"Bot {bot_alias} shifted range up.", 'type': 'info'}, namespace='/bots')
+                step_size = (config['upper_bound'] - config['lower_bound']) / (config['steps'] - 1)
+                config['lower_bound'] += step_size
+                config['upper_bound'] += step_size
+                for lvl in state.get('grid_levels', []): lvl['price'] += step_size
+                socketio.emit('notification', {'title': 'Grid Trailing Active', 'message': f"Bot {bot_alias} shifted up.", 'type': 'info'}, namespace='/bots')
             
-            # Check Completion
             all_sold = all(not l.get('has_position') for l in state.get('grid_levels', []))
             if all_sold and current_price >= config.get('upper_bound', 0) and not config.get('trailing_enabled'):
                 state['status'] = 'completed'
-                print(f"🏁 GRID COMPLETED: {bot_alias}")
-                socketio.emit('notification', {'title': 'Strategy Completed', 'message': f"Grid Bot {bot_alias} terminated.", 'type': 'success'}, namespace='/bots')
+                notify_bot_completion("GRID", bot_alias, state.get('profit_realized', 0))
             
-            db.save_bot(bot['id'], bot['type'], bot['input_mint'], bot['output_mint'], bot['input_symbol'], bot['output_symbol'], config, state)
+            db.save_bot(fresh_bot['id'], fresh_bot['type'], fresh_bot['input_mint'], fresh_bot['output_mint'], fresh_bot['input_symbol'], fresh_bot['output_symbol'], config, state)
             socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+
     except Exception as e:
         print(f"❌ GRID LOGIC CRITICAL ERROR: {e}")
-        current_app.logger.error(f"Error: {e}")
     finally:
-        bot_processing_lock.release()
+        in_flight_bots.discard(bot_id)
 
 def process_twap_logic(bot, current_price):
-    """Process logic for active TWAP/DCA bots, including Snipe Profit."""
     try:
         config = json.loads(bot['config_json'])
         state = json.loads(bot['state_json'])
-        
-        # 1. Monitoring Phase (Buy logic completed, waiting for Snipe)
         if state.get('phase') == 'monitoring_profit':
             avg_price = state.get('avg_buy_price', 0)
             take_profit_pct = config.get('take_profit')
-            
             if avg_price > 0 and take_profit_pct and take_profit_pct > 0:
                 target_price = avg_price * (1 + (take_profit_pct / 100))
-                
-                # Check trigger
                 if current_price >= target_price:
-                    current_app.logger.info(f"TWAP SNIPE TRIGGERED: {bot['output_symbol']} @ {current_price} (Target: {target_price})")
                     total_tokens = state.get('total_bought', 0)
-                    
                     if total_tokens > 0:
                         try:
-                            # Sell ALL
                             res = execute_trade_logic(bot['output_mint'], bot['input_mint'], total_tokens, "TWAP Snipe Exit", priority_fee=0.005)
-                            
-                            # Update State
                             state['status'] = 'completed'
                             state['phase'] = 'completed'
                             state['profit_realized'] = res.get('usd_value', 0) - state.get('total_cost', 0)
-                            
-                            socketio.emit('notification', {
-                                'title': 'Snipe Profit Hit', 
-                                'message': f"Sold {total_tokens:.4f} {bot['output_symbol']} @ ${current_price:.2f}. Profit secured.", 
-                                'type': 'success'
-                            }, namespace='/bots')
-                            
+                            socketio.emit('notification', {'title': 'Snipe Profit Hit', 'message': f"Sold {total_tokens:.4f} {bot['output_symbol']} @ ${current_price:.2f}", 'type': 'success'}, namespace='/bots')
+                            notify_bot_completion("TWAP", bot['output_symbol'], state['profit_realized'])
                             db.save_bot(bot['id'], bot['type'], bot['input_mint'], bot['output_mint'], bot['input_symbol'], bot['output_symbol'], config, state)
                             socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
-                            
-                        except Exception as e:
-                            current_app.logger.error(f"Snipe Sell Error: {e}")
+                        except Exception as e: print(f"Snipe Sell Error: {e}")
             return
-
-        # 2. Standard Execution Loop
         now = time.time()
         if now >= state.get('next_run', 0):
             try:
@@ -160,60 +169,45 @@ def process_twap_logic(bot, current_price):
                 state['run_count'] += 1
                 state['total_cost'] += res.get('usd_value', 0)
                 state['total_bought'] += res.get('amount_out', 0)
-                
-                # Update Average Price
-                if state['total_bought'] > 0:
-                    state['avg_buy_price'] = state['total_cost'] / state['total_bought']
-
-                # Check for completion
+                if state['total_bought'] > 0: state['avg_buy_price'] = state['total_cost'] / state['total_bought']
                 if config.get('max_runs') and state['run_count'] >= config['max_runs']:
-                    # If Snipe Profit is set, switch to Monitoring Mode
-                    if config.get('take_profit') and config['take_profit'] > 0:
-                        state['phase'] = 'monitoring_profit'
-                        socketio.emit('notification', {
-                            'title': 'TWAP Accumulation Done', 
-                            'message': f"Entering Snipe Mode. Target: +{config['take_profit']}%", 
-                            'type': 'info'
-                        }, namespace='/bots')
+                    if config.get('take_profit') and config['take_profit'] > 0: state['phase'] = 'monitoring_profit'
                     else:
                         state['status'] = 'completed'
-                        socketio.emit('notification', {'title': 'Strategy Completed', 'message': f"{bot['type']} finished.", 'type': 'success'}, namespace='/bots')
-                else:
-                    state['next_run'] = now + (config['interval'] * 60)
-                
+                        notify_bot_completion(bot['type'], bot['output_symbol'], state.get('profit_realized', 0))
+                else: state['next_run'] = now + (config['interval'] * 60)
                 db.save_bot(bot['id'], bot['type'], bot['input_mint'], bot['output_mint'], bot['input_symbol'], bot['output_symbol'], config, state)
                 socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
-            except Exception as e:
-                current_app.logger.error(f"Execution Error: {e}")
-                state['next_run'] = now + 60 # Retry in 1 minute
-
-    except Exception as e: current_app.logger.error(f"TWAP Logic Error: {e}")
+            except Exception as e: state['next_run'] = now + 60
+    except Exception as e: pass
 
 def update_bot_performance(bot, current_price):
     try:
         config, state = json.loads(bot['config_json']), json.loads(bot['state_json'])
-        total_bought, total_cost = state.get('total_bought', 0), state.get('total_cost', 0)
-        
-        # Calculate unrealized PnL
-        current_val = total_bought * current_price
-        state['profit_realized'] = current_val - total_cost
-        
+        if bot['type'] == 'GRID':
+            grid_yield = state.get('grid_yield', 0)
+            unrealized_appreciation = 0
+            levels = state.get('grid_levels', [])
+            for lvl in levels:
+                if lvl.get('has_position') and lvl.get('token_amount') and lvl.get('cost_usd'):
+                    unrealized_appreciation += (lvl['token_amount'] * current_price - lvl['cost_usd'])
+            state['profit_realized'] = grid_yield + unrealized_appreciation
+        else:
+            total_bought, total_cost = state.get('total_bought', 0), state.get('total_cost', 0)
+            state['profit_realized'] = (total_bought * current_price) - total_cost
         db.save_bot(bot['id'], bot['type'], bot['input_mint'], bot['output_mint'], bot['input_symbol'], bot['output_symbol'], config, state)
-    except Exception as e: current_app.logger.error(f"Error: {e}")
+    except Exception as e: pass
 
 def dca_scheduler(app):
     while True:
         try:
             with app.app_context():
                 from extensions import price_cache 
-                
                 for bot in db.get_all_bots():
                     if bot['status'] == 'active' and bot['type'] in ['DCA', 'TWAP', 'VWAP']:
                         current_price = 0
                         if bot['output_mint'] in price_cache:
                             current_price = price_cache[bot['output_mint']][0]
-                        
                         process_twap_logic(bot, current_price)
-                        
-        except Exception as e: app.logger.error(f"Scheduler Error: {e}")
+        except Exception as e: pass
         time.sleep(10)

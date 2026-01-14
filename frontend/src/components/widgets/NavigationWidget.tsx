@@ -8,6 +8,7 @@ const navItems = [
   { icon: Bot, label: 'Strategies', path: '/strategies' },
   { icon: Users, label: 'Copy Trade', path: '/copytrade' },
   { icon: Crosshair, label: 'Sniper', path: '/sniper', disabled: true },
+  { image: '/cherry.jpg', label: 'Cherry', path: '/cherry', disabled: true },
 ]
 
 export const NavigationWidget = () => {
@@ -43,10 +44,23 @@ export const NavigationWidget = () => {
               item.disabled && "opacity-50 cursor-not-allowed"
             )}
           >
-            <item.icon size={20} className={cn(
-              "transition-transform duration-300",
-              activePath === item.path ? "scale-110" : "group-hover:scale-110"
-            )} />
+            <div className="w-6 flex items-center justify-center shrink-0">
+              {item.icon ? (
+                <item.icon size={20} className={cn(
+                  "transition-transform duration-300",
+                  activePath === item.path ? "scale-110" : "group-hover:scale-110"
+                )} />
+              ) : (
+                <img 
+                  src={item.image} 
+                  className={cn(
+                    "w-6 h-6 rounded-sm object-cover transition-transform duration-300",
+                    activePath === item.path ? "scale-110 shadow-glow-pink" : "group-hover:scale-110"
+                  )} 
+                  alt="" 
+                />
+              )}
+            </div>
             <span className="hidden md:block font-bold text-xs tracking-wide uppercase">{item.label}</span>
           </Link>
         ))}

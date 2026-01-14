@@ -5,10 +5,12 @@ import { CopyTradeConfigWidget } from '@/components/widgets/CopyTradeConfigWidge
 import { ArbSettingsWidget, ArbAnalysisWidget, ArbOpportunitiesWidget } from '@/components/widgets/ArbConfigWidget'
 import { ActiveBotsModal } from '@/components/modals/ActiveBotsModal'
 import { StrategyGauges } from '@/components/widgets/StrategyGauges'
-import { useAppSelector } from '@/app/hooks'
+import { useAppSelector, useAppDispatch } from '@/app/hooks'
+import { setMonitorBotId } from '@/features/bots/botsSlice'
 
 export default function StrategiesPage() {
-  const { bots, selectedStrategy } = useAppSelector(state => state.bots)
+  const dispatch = useAppDispatch()
+  const { bots, selectedStrategy, monitorBotId } = useAppSelector(state => state.bots)
   const [isBotsModalOpen, setIsBotsModalOpen] = useState(false)
 
   const handlePauseBot = async (id: string, currentStatus: string) => {
@@ -32,6 +34,9 @@ export default function StrategiesPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id })
         })
+        if (monitorBotId === id) {
+          dispatch(setMonitorBotId(null))
+        }
     } catch (e) {
         console.error("Failed to delete bot", e)
     }

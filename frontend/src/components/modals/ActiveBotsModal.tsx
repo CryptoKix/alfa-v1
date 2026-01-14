@@ -198,13 +198,28 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
                            </div>
                         </div>
                      </div>
-                     <div className="text-right">
-                        <div className="text-xl font-black font-mono text-accent-cyan tracking-tighter flex items-center justify-end gap-1">
-                           <span className="text-[10px] opacity-50">$</span>
-                           {Number(bot.profit_realized || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                     <div className="flex items-center gap-6">
+                        <div className="text-right">
+                           <div className="text-lg font-black font-mono text-accent-cyan tracking-tighter flex items-center justify-end gap-1">
+                              <span className="text-[10px] opacity-50">$</span>
+                              {Number(bot.grid_yield || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                           </div>
+                           <div className="text-[8px] text-accent-cyan font-black uppercase tracking-[0.2em] mt-0.5 opacity-80">
+                             Actual Bot Yield
+                           </div>
                         </div>
-                        <div className="text-[9px] text-text-muted font-black uppercase tracking-[0.2em] mt-0.5">
-                          {bot.status === 'completed' ? 'Realized PnL' : bot.status === 'active' ? 'Unrealized PnL' : 'Tactical Yield'}
+                        <div className="w-px h-8 bg-white/5" />
+                        <div className="text-right">
+                           <div className={cn(
+                             "text-xl font-black font-mono tracking-tighter flex items-center justify-end gap-1",
+                             Number(bot.profit_realized || 0) >= 0 ? "text-white" : "text-accent-red"
+                           )}>
+                              <span className="text-[10px] opacity-50">$</span>
+                              {Number(bot.profit_realized || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                           </div>
+                           <div className="text-[9px] text-text-muted font-black uppercase tracking-[0.2em] mt-0.5">
+                             Overall PnL
+                           </div>
                         </div>
                      </div>
                   </div>
@@ -338,7 +353,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-red/10 hover:bg-accent-red/20 border border-accent-red/20 rounded-lg text-accent-red text-[10px] font-bold uppercase tracking-wider transition-colors"
                        >
                           <Trash2 size={12} />
-                          Terminate
+                          Stop Engine
                        </button>
                     </div>
                   )}

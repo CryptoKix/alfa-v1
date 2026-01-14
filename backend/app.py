@@ -15,8 +15,8 @@ from routes.copytrade import set_copy_trader
 from services.portfolio import balance_poller, broadcast_balance
 from arb_engine import ArbEngine
 from services.bots import dca_scheduler
-from services.trading import execute_trade_logic
 from copy_trader import CopyTraderEngine
+from services.notifications import send_discord_notification
 
 # Create Flask application
 app = create_app()
@@ -32,25 +32,23 @@ register_websocket_handlers()
 # SPA Fallback
 @app.errorhandler(404)
 def not_found(e):
-    # If the path starts with /api/, it's a genuine 404 for an API call
     if request.path.startswith('/api/'):
         return jsonify({"error": "Not Found"}), 404
-    # Otherwise, serve the SPA entry point
     return render_template('index.html')
 
-# Initialize copy trader engine
-copy_trader = CopyTraderEngine(helius, db, socketio, execute_trade_logic)
+# Initialize engines
+copy_trader = CopyTraderEngine(helius, db, socketio, None)
 arb_engine = ArbEngine(helius, db, socketio)
 set_arb_engine(arb_engine)
 set_copy_trader(copy_trader)
 
 if __name__ == '__main__':
-    # Start background tasks
-    import threading
     threading.Thread(target=dca_scheduler, args=(app,), daemon=True).start()
     threading.Thread(target=balance_poller, args=(app,), daemon=True).start()
     copy_trader.start()
     arb_engine.start()
+
+    send_discord_notification("🛰️ SYSTEM ONLINE", "TacTix.sol System Core has initialized.", color=0x00FFFF)
 
     socketio.run(
         app,

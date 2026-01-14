@@ -6,7 +6,7 @@ import time
 from flask import current_app
 
 from solders.transaction import VersionedTransaction, Transaction
-from solders.message import to_bytes_versioned, Message
+from solders.message import to_bytes_versioned, Message, MessageV0
 from solana.rpc.types import TxOpts
 from solders.pubkey import Pubkey
 from solders.system_program import TransferParams, transfer
@@ -16,6 +16,7 @@ from config import KEYPAIR, WALLET_ADDRESS, JUPITER_API_KEY, JUPITER_QUOTE_API, 
 from extensions import db, solana_client, socketio, price_cache, price_cache_lock
 from services.tokens import get_known_tokens, get_token_symbol
 from services.portfolio import broadcast_balance
+from services.notifications import notify_trade
 
 def execute_transfer(recipient_address, amount, mint="So11111111111111111111111111111111111111112"):
     """Execute a SOL or Token transfer to an external wallet."""
@@ -82,10 +83,14 @@ def execute_transfer(recipient_address, amount, mint="So111111111111111111111111
             )
         )
 
-    # Build and sign transaction
-    msg = Message.new_with_blockhash(instructions, sender, recent_blockhash)
-    txn = Transaction.new_unsigned(msg)
-    txn.sign([KEYPAIR], recent_blockhash)
+    # Build and sign transaction using MessageV0
+    msg = MessageV0.try_compile(
+        payer=sender,
+        instructions=instructions,
+        address_lookup_table_accounts=[],
+        recent_blockhash=recent_blockhash
+    )
+    txn = VersionedTransaction(msg, [KEYPAIR])
 
     sig_res = solana_client.send_raw_transaction(
         bytes(txn),
@@ -109,6 +114,7 @@ def execute_transfer(recipient_address, amount, mint="So111111111111111111111111
 
     socketio.emit('history_update', {'history': db.get_history(50, wallet_address=WALLET_ADDRESS)}, namespace='/history')
     broadcast_balance()
+
     return sig
 
 def execute_trade_logic(input_mint, output_mint, amount, source="Manual", slippage_bps=50, priority_fee=0.001):

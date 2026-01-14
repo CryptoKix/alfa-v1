@@ -22,6 +22,7 @@ export interface Bot {
   upper_bound?: number
   steps?: number
   profit_realized?: number
+  grid_yield?: number
   run_count?: number
   amount?: number
   max_runs?: number

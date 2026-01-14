@@ -18,6 +18,7 @@ KEYPAIR_PATH = os.path.join(BASE_DIR, 'keypair.json')
 HELIUS_API_KEY = os.getenv("HELIUS_API_KEY", "")
 JUPITER_API_KEY = os.getenv("JUPITER_API_KEY", "")
 SOLANA_TRACKER_API_KEY = os.getenv("SOLANA_TRACKER_API_KEY", "")
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 
 # RPC & API URLs
 SOLANA_RPC = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"

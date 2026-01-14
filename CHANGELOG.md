@@ -1,5 +1,26 @@
 # Tactix-Gem Project Changelog
 
+### Feature: Tactical Address Book
+- **Persistent Storage:** Implemented a new `address_book` database table to store Solana recipient addresses and aliases.
+- **Modal Integration:** Added a "Quick-Select" address book menu to the **Send Assets** modal.
+- **Auto-Discovery:** Implemented a "Save to Address Book" flow during asset transfers for seamless target management.
+
+### Feature: Logic & PnL Hardening (HFA)
+- **In-Flight Guard:** Implemented a thread-safe "busy" set to prevent a single bot from rapid-firing multiple trades on the same price tick.
+- **Atomic State Reload:** Bots now perform a fresh database fetch immediately after acquiring the logic lock to ensure 100% inventory accuracy.
+- **Price Hysteresis:** Added a 0.01% buffer to grid triggers to eliminate "jitter trades" on boundary oscillations.
+- **Split PnL View:** Refactored the telemetry HUD to distinguish between **Bot Yield** (logic profit) and **Overall PnL** (including asset appreciation).
+
+### Feature: Branding & UI Polish
+- **Cherry Identity:** Integrated the custom Cherry logo and added a dedicated navigation node below Sniper.
+- **Tactical Navigation:** Refined the header tabs with a high-fidelity "Mellow Pink" tactile aesthetic.
+- **Execution Unison:** Standardized all execution logs (Grid, TWAP, DCA) to share the same surgical monospace typography and column alignment.
+- **Interactive Health:** Linked the **Price** and **Web** status indicators to an emergency system restart trigger.
+
+### Discord Telemetry v2
+- **Global Trade Alerts:** Extended notifications to include manual trades and automated bot executions with specific source identifying (Manual, Copy, Grid).
+- **Decluttered Feed:** Removed transaction signatures from all Discord broadcasts for a cleaner monitoring experience.
+
 ## [2026-01-14] - Telemetry HUD, Tabular Navigation & Engine Monitoring
 
 ### Feature: Live Engine Monitoring (GRID)

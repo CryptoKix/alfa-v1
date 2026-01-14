@@ -10,9 +10,9 @@ export const GridConfigWidget = () => {
   const { bots, monitorBotId } = useAppSelector(state => state.bots)
   const prices = useAppSelector(state => state.prices.prices)
 
-  // Find the bot being monitored
+  // Find the bot being monitored - only if it is still active
   const activeBot = useMemo(() => 
-    bots.find(b => b.id === monitorBotId),
+    bots.find(b => b.id === monitorBotId && b.status === 'active'),
     [bots, monitorBotId]
   )
 

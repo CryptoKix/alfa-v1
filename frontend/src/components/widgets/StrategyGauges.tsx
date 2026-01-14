@@ -55,7 +55,7 @@ const Gauge = ({ label, value, percentage, icon: Icon, color, glowColor }: Gauge
         {/* Center Text for Value */}
         <div className="absolute bottom-1 flex flex-col items-center">
           <span className={cn("text-[11px] font-mono font-black tracking-tighter", color)}>
-            {typeof value === 'number' ? value : value}
+            {value}
           </span>
         </div>
       </div>
@@ -66,16 +66,24 @@ const Gauge = ({ label, value, percentage, icon: Icon, color, glowColor }: Gauge
 export const StrategyGauges = ({ onViewBots }: { onViewBots?: () => void }) => {
   const { bots } = useAppSelector(state => state.bots)
   
-  const totalRealized = useMemo(() => 
-    bots.reduce((acc, bot) => acc + (Number(bot.profit_realized) || 0), 0)
-  , [bots])
+  const { realized, unrealized } = useMemo(() => {
+    return bots.reduce((acc, bot) => {
+      const totalTacticalPnl = Number(bot.profit_realized) || 0
+      
+      if (bot.status === 'active' && bot.type === 'GRID') {
+        const botYield = Number(bot.grid_yield) || 0
+        acc.realized += botYield
+        acc.unrealized += (totalTacticalPnl - botYield)
+      } else {
+        // For completed bots or other types, everything is considered realized once closed
+        acc.realized += totalTacticalPnl
+      }
+      return acc
+    }, { realized: 0, unrealized: 0 })
+  }, [bots])
 
   const runningCount = useMemo(() => bots.filter(b => b.status === 'active').length, [bots])
   const completedCount = useMemo(() => bots.filter(b => b.status === 'completed').length, [bots])
-
-  // Dynamic target for gauge visualization
-  const targetRealized = Math.max(100, Math.ceil(totalRealized / 1000) * 1000)
-  const realizedPercentage = (totalRealized / targetRealized) * 100
 
   // Fixed targets for count-based gauges
   const runningPercentage = (runningCount / 20) * 100
@@ -83,14 +91,54 @@ export const StrategyGauges = ({ onViewBots }: { onViewBots?: () => void }) => {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr_1fr] gap-2 shrink-0">
-      <Gauge 
-        label="Realized Profit"
-        value={`$${totalRealized.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-        percentage={realizedPercentage}
-        icon={TrendingUp}
-        color="text-accent-green"
-        glowColor="via-accent-green/20"
-      />
+      {/* Tactical PnL Engine Visual */}
+      <div className="bg-background-card border border-white/15 rounded-2xl p-4 shadow-xl relative overflow-hidden flex items-center justify-between group h-[100px]">
+        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-30" />
+        
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+             <TrendingUp size={12} className={(realized + unrealized) >= 0 ? "text-accent-cyan" : "text-accent-pink"} />
+             <span className={cn(
+               "text-[9px] font-black uppercase tracking-[0.2em]",
+               (realized + unrealized) >= 0 ? "text-accent-cyan" : "text-accent-pink"
+             )}>Overall</span>
+          </div>
+          <div className={cn(
+            "text-lg font-black font-mono tracking-tighter",
+            (realized + unrealized) >= 0 ? "text-accent-cyan" : "text-accent-pink"
+          )}>
+             ${(realized + unrealized).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+        </div>
+
+        <div className="flex gap-8 pr-2 h-full items-center">
+           <div className="flex flex-col items-start">
+              <span className={cn(
+                "text-[9px] font-black uppercase tracking-[0.2em]",
+                realized >= 0 ? "text-accent-cyan" : "text-accent-pink"
+              )}>Realized</span>
+              <div className={cn(
+                "text-lg font-black font-mono tracking-tighter",
+                realized >= 0 ? "text-accent-cyan" : "text-accent-pink"
+              )}>
+                 ${realized.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+           </div>
+           <div className="w-px h-10 bg-white/5" />
+           <div className="flex flex-col items-start">
+              <span className={cn(
+                "text-[9px] font-black uppercase tracking-[0.2em]",
+                unrealized >= 0 ? "text-accent-cyan" : "text-accent-pink"
+              )}>Unrealized</span>
+              <div className={cn(
+                "text-lg font-black font-mono tracking-tighter",
+                unrealized >= 0 ? "text-accent-cyan" : "text-accent-pink"
+              )}>
+                 ${unrealized.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+           </div>
+        </div>
+      </div>
       
       <button 
         onClick={onViewBots}
