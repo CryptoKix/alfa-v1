@@ -101,16 +101,14 @@ export const ArbAnalysisWidget = () => {
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan"><BarChart3 size={18} /></div>
           <h2 className="text-xs font-bold text-white uppercase tracking-tight">Venue Matrix</h2>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="text-[8px] font-mono text-accent-cyan uppercase tracking-widest opacity-60">Live 5s Polling</div>
           <button 
             onClick={() => setIsAddPairOpen(true)}
-            className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-accent-cyan border border-white/5 transition-colors active:scale-95"
+            className="p-1 bg-black/40 hover:bg-accent-cyan/20 rounded-md text-accent-cyan border border-accent-cyan/50 hover:border-accent-cyan transition-all active:scale-95 ml-2"
           >
-            <Plus size={16} />
+            <Plus size={14} strokeWidth={3} />
           </button>
         </div>
+        <div className="text-[8px] font-mono text-accent-cyan uppercase tracking-widest opacity-60 px-2">Live 5s Polling</div>
       </div>
 
       <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0 mt-2">
