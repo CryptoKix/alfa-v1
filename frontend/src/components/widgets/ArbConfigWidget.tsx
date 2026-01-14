@@ -163,7 +163,7 @@ export const ArbAnalysisWidget = () => {
                       onClick={() => id && handleDeletePair(id)}
                       className={cn(
                         "p-1.5 rounded-md transition-all",
-                        id ? "text-text-muted hover:text-accent-pink hover:bg-accent-pink/10 opacity-40 hover:opacity-100" : "text-white/5 cursor-not-allowed"
+                        id ? "text-accent-pink/30 hover:text-accent-pink hover:bg-accent-pink/10" : "text-white/5 cursor-not-allowed"
                       )}
                       title={id ? "Remove Pair" : "System Pair (Non-removable)"}
                     >
