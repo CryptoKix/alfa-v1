@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Activity, Target, Zap, Clock, Settings2, BarChart3, Trash2, ChevronDown } from 'lucide-react'
+import { Activity, Zap, Clock, Settings2, BarChart3, ChevronDown, Target } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { addNotification } from '@/features/notifications/notificationsSlice'
@@ -12,7 +12,7 @@ export const ArbSettingsWidget = () => {
   const { holdings } = useAppSelector(state => state.portfolio)
   const { minProfit, jitoTip, autoStrike, isMonitoring } = useAppSelector(state => state.arb)
   
-  const [pairs, setPairs] = useState<any[]>([])
+  const [dbTokens, setDbTokens] = useState<any[]>([])
   const [newInputMint, setNewInputMint] = useState('')
   const [newOutputMint, setNewOutputMint] = useState('')
   const [newAmount, setNewAmount] = useState('')
@@ -21,33 +21,38 @@ export const ArbSettingsWidget = () => {
   const [isInputTokenOpen, setIsInputTokenOpen] = useState(false)
   const [isOutputTokenOpen, setIsOutputTokenOpen] = useState(false)
 
+  // Fetch tokens from DB on mount
+  useEffect(() => {
+    const fetchTokens = async () => {
+      try {
+        const res = await fetch('/api/tokens')
+        const data = await res.json()
+        setDbTokens(data)
+      } catch (e) {
+        console.error("Failed to fetch tokens from DB", e)
+      }
+    }
+    fetchTokens()
+  }, [])
+
+  // Merge DB tokens with current holdings for a comprehensive list
   const tokens = useMemo(() => {
-    const defaults = [
-      { mint: 'So11111111111111111111111111111111111111112', symbol: 'SOL', logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png' },
-      { mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', symbol: 'USDC', logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png' },
-      { mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', symbol: 'JUP', logoURI: 'https://static.jup.ag/jup/icon.png' }
-    ]
-    const combined = [...holdings]
-    defaults.forEach(d => {
-      if (!combined.find(c => c.mint === d.mint)) {
-        combined.push({ ...d, balance: 0, price: 0, value: 0 } as any)
+    const combined = [...dbTokens]
+    holdings.forEach(h => {
+      if (!combined.find(c => c.mint === h.mint)) {
+        combined.push({ ...h, balance: h.balance } as any)
       }
     })
-    return combined
-  }, [holdings])
+    // Sort so tokens with balance are higher or SOL is first
+    return combined.sort((a, b) => {
+      if (a.symbol === 'SOL') return -1
+      if (b.symbol === 'SOL') return 1
+      return (b.balance || 0) - (a.balance || 0)
+    })
+  }, [dbTokens, holdings])
 
   const inputToken = tokens.find(t => t.mint === newInputMint)
   const outputToken = tokens.find(t => t.mint === newOutputMint)
-
-  useEffect(() => { fetchPairs() }, [])
-
-  const fetchPairs = async () => {
-    try {
-      const res = await fetch('/api/arb/pairs')
-      const data = await res.json()
-      setPairs(data)
-    } catch (e) {}
-  }
 
   const handleAddPair = async () => {
     try {
@@ -57,16 +62,8 @@ export const ArbSettingsWidget = () => {
         body: JSON.stringify({ inputMint: newInputMint, outputMint: newOutputMint, amount: parseFloat(newAmount) })
       })
       if (res.ok) {
-        ; fetchPairs()
-        dispatch(addNotification({ title: 'Pair Added', message: 'Target updated', type: 'success' }))
+        dispatch(addNotification({ title: 'Pair Added', message: 'Monitoring target updated', type: 'success' }))
       }
-    } catch (e) {}
-  }
-
-  const handleDeletePair = async (id: number) => {
-    try {
-      await fetch('/api/arb/pairs/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
-      fetchPairs()
     } catch (e) {}
   }
 
@@ -87,121 +84,99 @@ export const ArbSettingsWidget = () => {
 
   const TokenItem = ({ token, onClick }: { token: any, onClick: () => void }) => (
     <button onClick={onClick} className="w-full flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors group">
-      <div className="flex items-center gap-3">
-        <img src={token.logoURI} alt={token.symbol} className="w-5 h-5 rounded-full" onError={(e) => (e.currentTarget.src = 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png')} />
+      <div className="flex items-center gap-2">
+        <img src={token.logoURI || `https://static.jup.ag/tokens/gen/${token.mint}.png`} alt={token.symbol} className="w-5 h-5 rounded-full" onError={(e) => (e.currentTarget.src = 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png')} />
         <div className="text-[10px] font-bold text-white">{token.symbol}</div>
       </div>
-      <div className="text-[9px] font-mono text-text-muted">{token.balance?.toFixed(2)}</div>
+      <div className="text-[9px] font-mono text-text-muted">{token.balance?.toFixed(2) || '0.00'}</div>
     </button>
   )
 
   return (
-    <div className="lg:w-[400px] bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 h-full shrink-0">
+    <div className="lg:w-[400px] bg-background-card border border-white/5 rounded-2xl p-3 shadow-xl relative overflow-hidden flex flex-col gap-3 h-full shrink-0">
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple via-accent-cyan to-accent-pink opacity-50 z-20" />
       
-      <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+      <div className="flex items-center justify-between mb-0 border-b border-white/5 shrink-0 h-[45px] -mx-3 px-3 -mt-3">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple"><Settings2 size={18} /></div>
+          <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple"><Settings2 size={16} /></div>
           <h2 className="text-xs font-bold text-white uppercase tracking-tight">ARB CONFIG</h2>
         </div>
       </div>
 
       <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
         <div className="flex-1 overflow-auto custom-scrollbar p-2 space-y-3">
-          {true && (
-            <div className="p-4 bg-accent-purple/5 border border-accent-purple/20 rounded-xl space-y-4 animate-in slide-in-from-top-2">
-              <div className="space-y-1.5 relative">
-                <label className="text-[8px] uppercase text-text-muted font-bold px-1">Base Asset</label>
-                <button onClick={() => setIsInputTokenOpen(!isInputTokenOpen)} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 h-12 flex items-center justify-between text-white text-sm font-bold hover:bg-black/60 transition-all">
-                  {inputToken ? (
-                    <div className="flex items-center gap-2">
-                      <img src={inputToken.logoURI} className="w-5 h-5 rounded-full" />
-                      {inputToken.symbol}
-                    </div>
-                  ) : 'Select Asset'} 
-                  <ChevronDown size={16} className="text-text-muted" />
+          {/* Permanent Add Pair Form */}
+          <div className="p-3 bg-accent-purple/5 border border-accent-purple/20 rounded-xl space-y-3">
+            <div className="text-[9px] font-black text-accent-cyan uppercase tracking-wider border-b border-white/5 pb-1 flex items-center gap-2">
+              Add Target Pair
+            </div>
+            <div className="grid grid-cols-2 gap-2 relative">
+              <div className="space-y-1 relative">
+                <label className="text-[7px] uppercase text-text-muted font-bold px-1">Base</label>
+                <button onClick={() => setIsInputTokenOpen(!isInputTokenOpen)} className="w-full bg-black/40 border border-white/10 rounded-lg px-2 h-10 flex items-center justify-between text-white text-xs font-bold hover:bg-black/60 transition-all">
+                  <div className="flex items-center gap-1.5 truncate">
+                    {inputToken && <img src={inputToken.logoURI || `https://static.jup.ag/tokens/gen/${inputToken.mint}.png`} className="w-4 h-4 rounded-full shrink-0" />}
+                    <span className="truncate">{inputToken?.symbol || 'Base'}</span>
+                  </div>
+                  <ChevronDown size={12} className="text-text-muted shrink-0" />
                 </button>
                 {isInputTokenOpen && (
-                  <div className="absolute top-full left-0 right-0 z-50 bg-background-card border border-white/10 rounded-xl shadow-2xl p-1.5 max-h-48 overflow-auto mt-1 backdrop-blur-xl">
+                  <div className="absolute top-full left-0 right-0 z-50 bg-background-card border border-white/10 rounded-xl shadow-2xl p-1 max-h-48 overflow-auto mt-1 backdrop-blur-xl">
                     {tokens.map(t => <TokenItem key={t.mint} token={t} onClick={() => { setNewInputMint(t.mint); setIsInputTokenOpen(false) }} />)}
                   </div>
                 )}
               </div>
-              <div className="space-y-1.5 relative">
-                <label className="text-[8px] uppercase text-text-muted font-bold px-1">Target Asset</label>
-                <button onClick={() => setIsOutputTokenOpen(!isOutputTokenOpen)} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 h-12 flex items-center justify-between text-white text-sm font-bold hover:bg-black/60 transition-all">
-                  {outputToken ? (
-                    <div className="flex items-center gap-2">
-                      <img src={outputToken.logoURI} className="w-5 h-5 rounded-full" />
-                      {outputToken.symbol}
-                    </div>
-                  ) : 'Select Asset'} 
-                  <ChevronDown size={16} className="text-text-muted" />
+              <div className="space-y-1 relative">
+                <label className="text-[7px] uppercase text-text-muted font-bold px-1">Target</label>
+                <button onClick={() => setIsOutputTokenOpen(!isOutputTokenOpen)} className="w-full bg-black/40 border border-white/10 rounded-lg px-2 h-10 flex items-center justify-between text-white text-xs font-bold hover:bg-black/60 transition-all">
+                  <div className="flex items-center gap-1.5 truncate">
+                    {outputToken && <img src={outputToken.logoURI || `https://static.jup.ag/tokens/gen/${outputToken.mint}.png`} className="w-4 h-4 rounded-full shrink-0" />}
+                    <span className="truncate">{outputToken?.symbol || 'Target'}</span>
+                  </div>
+                  <ChevronDown size={12} className="text-text-muted shrink-0" />
                 </button>
                 {isOutputTokenOpen && (
-                  <div className="absolute top-full left-0 right-0 z-50 bg-background-card border border-white/10 rounded-xl shadow-2xl p-1.5 max-h-48 overflow-auto mt-1 backdrop-blur-xl">
+                  <div className="absolute top-full left-0 right-0 z-50 bg-background-card border border-white/10 rounded-xl shadow-2xl p-1 max-h-48 overflow-auto mt-1 backdrop-blur-xl">
                     {tokens.map(t => <TokenItem key={t.mint} token={t} onClick={() => { setNewOutputMint(t.mint); setIsOutputTokenOpen(false) }} />)}
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-[8px] uppercase text-text-muted font-bold px-1">Amount</label>
-                  <input value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="0.00" type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 h-12 text-sm font-mono font-bold text-white focus:border-accent-cyan/50 outline-none" />
-                </div>
-                <div className="flex items-end">
-                  <button onClick={handleAddPair} className="w-full bg-accent-cyan text-black rounded-xl font-black uppercase text-xs h-12 shadow-glow-cyan active:scale-95 transition-all">Add Pair</button>
-                </div>
+            </div>
+            <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+              <div className="space-y-1">
+                <label className="text-[7px] uppercase text-text-muted font-bold px-1">Test Amount</label>
+                <input value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="0.00" type="number" className="w-full bg-black/40 border border-white/10 rounded-lg px-2 h-10 text-xs font-mono font-bold text-white focus:border-accent-cyan/50 outline-none" />
               </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-[8px] uppercase text-text-muted font-bold px-1">Min Profit (%)</label>
-              <input type="number" value={minProfit} onChange={e => dispatch(setArbConfig({ minProfit: parseFloat(e.target.value) }))} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 h-11 text-sm font-mono font-bold text-white focus:border-accent-cyan/50 outline-none" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[8px] uppercase text-text-muted font-bold px-1">Jito Tip (SOL)</label>
-              <input type="number" value={jitoTip} onChange={e => dispatch(setArbConfig({ jitoTip: parseFloat(e.target.value) }))} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 h-11 text-sm font-mono font-bold text-white focus:border-accent-cyan/50 outline-none" />
+              <button onClick={handleAddPair} className="bg-accent-cyan text-black px-4 rounded-lg font-black uppercase text-[10px] h-10 shadow-glow-cyan active:scale-95 transition-all">Add Pair</button>
             </div>
           </div>
 
-                      <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/10">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-black text-white uppercase leading-none">Auto-Strike</span>
-                          <span className="text-[8px] text-text-muted mt-1 uppercase font-bold tracking-tighter">Execute Atomic Bundles</span>
-                        </div>
-                        <button onClick={() => dispatch(setArbConfig({ autoStrike: !autoStrike }))} className={cn("w-10 h-5 rounded-full p-0.5 transition-all", autoStrike ? "bg-accent-purple" : "bg-white/10")}>
-                          <div className={cn("w-4 h-4 rounded-full bg-white transition-all shadow-lg", autoStrike ? "translate-x-5" : "translate-x-0")} />
-                        </button>
-                      </div>
-          
-                      {/* Restored Monitored Pairs List */}
-                      <div className="space-y-2 pt-2 border-t border-white/5">
-                        <div className="text-[9px] text-text-muted font-black uppercase mb-1 px-1">Active Monitoring</div>
-                        <div className="grid grid-cols-1 gap-1.5">
-                          {pairs.map(p => (
-                            <div key={p.id} className="flex items-center justify-between p-2.5 bg-white/[0.02] border border-white/5 rounded-xl group hover:border-white/10 transition-all">
-                              <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-white">{p.input_symbol}/{p.output_symbol}</span>
-                                <span className="text-[7px] text-text-muted font-mono uppercase tracking-tighter">Scanning active</span>
-                              </div>
-                              <button onClick={() => handleDeletePair(p.id)} className="p-1.5 bg-accent-red/10 text-accent-red rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-accent-red hover:text-white">
-                                <Trash2 size={12} />
-                              </button>
-                            </div>
-                          ))}
-                          {pairs.length === 0 && (
-                            <div className="text-center py-2 text-[8px] text-text-muted italic uppercase">Default SOL/USDC active</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-      <button onClick={handleInitialize} disabled={status === 'loading'} className={cn("w-full py-3.5 rounded-2xl text-black font-black text-sm uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3", isMonitoring ? "bg-white/5 text-accent-cyan border border-accent-cyan/30" : "bg-accent-cyan shadow-glow-cyan shadow-[0_0_30px_rgba(0,255,255,0.2)] hover:bg-white active:scale-95")}>
-        {status === 'loading' ? <Activity size={20} className="animate-spin" /> : <Zap size={20} fill="currentColor" />}
-        {isMonitoring ? 'Sync Engine Settings' : 'Initialize Engine'}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="text-[7px] uppercase text-text-muted font-bold px-1">Min Profit (%)</label>
+              <input type="number" value={minProfit} onChange={e => dispatch(setArbConfig({ minProfit: parseFloat(e.target.value) }))} className="w-full bg-black/40 border border-white/10 rounded-lg px-2 h-9 text-xs font-mono font-bold text-white focus:border-accent-cyan/50 outline-none" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[7px] uppercase text-text-muted font-bold px-1">Jito Tip (SOL)</label>
+              <input type="number" value={jitoTip} onChange={e => dispatch(setArbConfig({ jitoTip: parseFloat(e.target.value) }))} className="w-full bg-black/40 border border-white/10 rounded-lg px-2 h-9 text-xs font-mono font-bold text-white focus:border-accent-cyan/50 outline-none" />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-2.5 bg-white/5 rounded-xl border border-white/10">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-white uppercase leading-none">Auto-Strike</span>
+              <span className="text-[7px] text-text-muted mt-0.5 uppercase font-bold tracking-tighter">Execute Atomic Bundles</span>
+            </div>
+            <button onClick={() => dispatch(setArbConfig({ autoStrike: !autoStrike }))} className={cn("w-8 h-4 rounded-full p-0.5 transition-all", autoStrike ? "bg-accent-purple" : "bg-white/10")}>
+              <div className={cn("w-3 h-3 rounded-full bg-white transition-all shadow-lg", autoStrike ? "translate-x-4" : "translate-x-0")} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <button onClick={handleInitialize} disabled={status === 'loading'} className={cn("w-full py-3 rounded-xl text-black font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 shrink-0", isMonitoring ? "bg-white/5 text-accent-cyan border border-accent-cyan/30" : "bg-accent-cyan shadow-glow-cyan hover:bg-white active:scale-95")}>
+        {status === 'loading' ? <Activity size={16} className="animate-spin" /> : <Zap size={16} fill="currentColor" />}
+        {isMonitoring ? 'Sync Settings' : 'Initialize Engine'}
       </button>
     </div>
   )
