@@ -167,36 +167,39 @@ export const ArbSettingsWidget = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
-            <div className="flex flex-col">
-              <span className="text-xs font-black text-white uppercase leading-none">Auto-Strike</span>
-              <span className="text-[8px] text-text-muted mt-1 uppercase font-bold tracking-tighter">Execute Atomic Bundles</span>
-            </div>
-            <button onClick={() => dispatch(setArbConfig({ autoStrike: !autoStrike }))} className={cn("w-10 h-5 rounded-full p-0.5 transition-all", autoStrike ? "bg-accent-purple" : "bg-white/10")}>
-              <div className={cn("w-4 h-4 rounded-full bg-white transition-all shadow-lg", autoStrike ? "translate-x-5" : "translate-x-0")} />
-            </button>
-          </div>
-
-          <div className="space-y-2 pt-2 border-t border-white/5">
-            <div className="text-[9px] text-text-muted font-black uppercase mb-1 px-1">Active Monitoring</div>
-            <div className="grid grid-cols-1 gap-1.5">
-              {pairs.map(p => (
-                <div key={p.id} className="flex items-center justify-between p-3 bg-white/[0.02] border border-white/5 rounded-xl group hover:border-white/10 transition-all">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-black text-white">{p.input_symbol}/{p.output_symbol}</span>
-                    <span className="text-[8px] text-text-muted font-mono uppercase tracking-tighter">Live scanning active</span>
+                      <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/10">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-black text-white uppercase leading-none">Auto-Strike</span>
+                          <span className="text-[8px] text-text-muted mt-1 uppercase font-bold tracking-tighter">Execute Atomic Bundles</span>
+                        </div>
+                        <button onClick={() => dispatch(setArbConfig({ autoStrike: !autoStrike }))} className={cn("w-10 h-5 rounded-full p-0.5 transition-all", autoStrike ? "bg-accent-purple" : "bg-white/10")}>
+                          <div className={cn("w-4 h-4 rounded-full bg-white transition-all shadow-lg", autoStrike ? "translate-x-5" : "translate-x-0")} />
+                        </button>
+                      </div>
+          
+                      {/* Restored Monitored Pairs List */}
+                      <div className="space-y-2 pt-2 border-t border-white/5">
+                        <div className="text-[9px] text-text-muted font-black uppercase mb-1 px-1">Active Monitoring</div>
+                        <div className="grid grid-cols-1 gap-1.5">
+                          {pairs.map(p => (
+                            <div key={p.id} className="flex items-center justify-between p-2.5 bg-white/[0.02] border border-white/5 rounded-xl group hover:border-white/10 transition-all">
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-white">{p.input_symbol}/{p.output_symbol}</span>
+                                <span className="text-[7px] text-text-muted font-mono uppercase tracking-tighter">Scanning active</span>
+                              </div>
+                              <button onClick={() => handleDeletePair(p.id)} className="p-1.5 bg-accent-red/10 text-accent-red rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-accent-red hover:text-white">
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          ))}
+                          {pairs.length === 0 && (
+                            <div className="text-center py-2 text-[8px] text-text-muted italic uppercase">Default SOL/USDC active</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <button onClick={() => handleDeletePair(p.id)} className="p-1.5 bg-accent-red/10 text-accent-red rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-accent-red hover:text-white">
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <button onClick={handleInitialize} disabled={status === 'loading'} className={cn("w-full py-4.5 rounded-2xl text-black font-black text-sm uppercase tracking-[0.25em] transition-all flex items-center justify-center gap-3", isMonitoring ? "bg-white/5 text-accent-cyan border border-accent-cyan/30" : "bg-accent-cyan shadow-glow-cyan shadow-[0_0_30px_rgba(0,255,255,0.2)] hover:bg-white active:scale-95")}>
+      <button onClick={handleInitialize} disabled={status === 'loading'} className={cn("w-full py-3.5 rounded-2xl text-black font-black text-sm uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3", isMonitoring ? "bg-white/5 text-accent-cyan border border-accent-cyan/30" : "bg-accent-cyan shadow-glow-cyan shadow-[0_0_30px_rgba(0,255,255,0.2)] hover:bg-white active:scale-95")}>
         {status === 'loading' ? <Activity size={20} className="animate-spin" /> : <Zap size={20} fill="currentColor" />}
         {isMonitoring ? 'Sync Engine Settings' : 'Initialize Engine'}
       </button>
