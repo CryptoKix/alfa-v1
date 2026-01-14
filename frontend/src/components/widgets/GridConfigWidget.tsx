@@ -10,10 +10,26 @@ export const GridConfigWidget = () => {
   // Asset Selection
   const tokens = useMemo(() => {
     const defaults = [
-      { mint: 'So11111111111111111111111111111111111111112', symbol: 'SOL' },
-      { mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', symbol: 'USDC' },
-      { mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', symbol: 'USDT' },
-      { mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', symbol: 'JUP' }
+      { 
+        mint: 'So11111111111111111111111111111111111111112', 
+        symbol: 'SOL', 
+        logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png' 
+      },
+      { 
+        mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 
+        symbol: 'USDC', 
+        logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png' 
+      },
+      { 
+        mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', 
+        symbol: 'USDT', 
+        logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB/logo.svg' 
+      },
+      { 
+        mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', 
+        symbol: 'JUP', 
+        logoURI: 'https://static.jup.ag/jup/icon.png' 
+      }
     ]
     const combined = [...holdings]
     defaults.forEach(d => {

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
-import { Activity, Target, Zap, Clock, Settings2, BarChart3, Plus, Trash2, ShieldCheck } from 'lucide-react'
-import { useAppDispatch } from '@/app/hooks'
+import { useState, useEffect, useMemo } from 'react'
+import { Activity, Target, Zap, Clock, Settings2, BarChart3, Plus, Trash2, ChevronDown } from 'lucide-react'
+import { useAppDispatch, useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { arbSocket } from '@/services/socket'
 import { addNotification } from '@/features/notifications/notificationsSlice'
@@ -8,6 +8,7 @@ import { ArbSimulatorModal } from '../modals/ArbSimulatorModal'
 
 export const ArbConfigWidget = () => {
   const dispatch = useAppDispatch()
+  const { holdings } = useAppSelector(state => state.portfolio)
   const [opportunities, setOpportunities] = useState<any[]>([])
   const [matrix, setMatrix] = useState<Record<string, Record<string, number>>>({})
   const [minProfit, setMinProfit] = useState('0.1')
@@ -27,7 +28,69 @@ export const ArbConfigWidget = () => {
   const [newOutputMint, setNewOutputMint] = useState('')
   const [newAmount, setNewAmount] = useState('')
 
+  const [isInputTokenOpen, setIsInputTokenOpen] = useState(false)
+  const [isOutputTokenOpen, setIsOutputTokenOpen] = useState(false)
+
+  // Available Tokens: Merge current holdings with defaults
+  const tokens = useMemo(() => {
+    const defaults = [
+      { 
+        mint: 'So11111111111111111111111111111111111111112', 
+        symbol: 'SOL', 
+        logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png' 
+      },
+      { 
+        mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 
+        symbol: 'USDC', 
+        logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png' 
+      },
+      { 
+        mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', 
+        symbol: 'USDT', 
+        logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB/logo.svg' 
+      },
+      { 
+        mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', 
+        symbol: 'JUP', 
+        logoURI: 'https://static.jup.ag/jup/icon.png' 
+      }
+    ]
+    
+    const combined = [...holdings]
+    defaults.forEach(d => {
+      if (!combined.find(c => c.mint === d.mint)) {
+        combined.push({ ...d, balance: 0, price: 0, value: 0 } as any)
+      }
+    })
+    return combined
+  }, [holdings])
+
+  const inputToken = tokens.find(t => t.mint === newInputMint)
+  const outputToken = tokens.find(t => t.mint === newOutputMint)
+
   const venues = ["Raydium", "Orca", "Meteora", "Phoenix"]
+
+  const TokenItem = ({ token, onClick }: { token: any, onClick: () => void }) => (
+    <button 
+      onClick={onClick}
+      className="w-full flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors group"
+    >
+      <div className="flex items-center gap-3">
+        <img 
+          src={token.logoURI || 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png'}
+          alt={token.symbol}
+          className="w-5 h-5 rounded-full"
+          onError={(e) => (e.currentTarget.src = 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png')}
+        />
+        <div className="text-left">
+          <div className="text-[10px] font-bold text-white group-hover:text-accent-cyan">{token.symbol}</div>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="text-[9px] font-mono text-white">{token.balance?.toLocaleString(undefined, { maximumFractionDigits: 4 })}</div>
+      </div>
+    </button>
+  )
 
   // Audio Synth for Tactical Alerts
   const playAlertSound = () => {
@@ -212,20 +275,91 @@ export const ArbConfigWidget = () => {
             {/* Permanent Add Pair Form */}
             <div className="p-3 bg-accent-purple/5 border border-accent-purple/20 rounded-xl space-y-3">
               <div className="text-[9px] font-black text-accent-cyan uppercase tracking-wider border-b border-white/5 pb-1.5">Add Target Pair</div>
-              <div className="space-y-1.5">
+              
+              {/* Input Token Selector */}
+              <div className="space-y-1.5 relative">
                 <label className="text-[8px] uppercase text-text-muted font-bold px-1">Input Mint (Base)</label>
-                <input value={newInputMint} onChange={(e) => setNewInputMint(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none focus:border-accent-cyan/50 h-8" />
+                <button 
+                  onClick={() => { setIsInputTokenOpen(!isInputTokenOpen); setIsOutputTokenOpen(false); }}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 flex items-center justify-between hover:bg-white/5 transition-colors h-10"
+                >
+                  <div className="flex items-center gap-2">
+                    {inputToken ? (
+                      <>
+                        <img src={inputToken.logoURI} alt="" className="w-4 h-4 rounded-full" onError={(e) => e.currentTarget.src = 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png'} />
+                        <span className="font-bold text-xs text-white">{inputToken.symbol}</span>
+                      </>
+                    ) : (
+                      <span className="text-text-muted text-xs">Select or Paste Mint</span>
+                    )}
+                  </div>
+                  <ChevronDown size={14} className="text-text-muted" />
+                </button>
+                {isInputTokenOpen && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setIsInputTokenOpen(false)} />
+                    <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-background-card/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-1.5 max-h-48 overflow-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-200">
+                      <div className="p-2 border-b border-white/5 mb-1">
+                        <input 
+                          autoFocus
+                          placeholder="Paste Mint Address..."
+                          className="w-full bg-black/40 border border-white/10 rounded-md p-1.5 text-[10px] text-white outline-none focus:border-accent-cyan/50"
+                          onChange={(e) => { setNewInputMint(e.target.value); if (e.target.value.length > 32) setIsInputTokenOpen(false); }}
+                        />
+                      </div>
+                      {tokens.map(t => (
+                        <TokenItem key={t.mint} token={t} onClick={() => { setNewInputMint(t.mint); setIsInputTokenOpen(false); }} />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
-              <div className="space-y-1.5">
+
+              {/* Output Token Selector */}
+              <div className="space-y-1.5 relative">
                 <label className="text-[8px] uppercase text-text-muted font-bold px-1">Output Mint (Target)</label>
-                <input value={newOutputMint} onChange={(e) => setNewOutputMint(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none focus:border-accent-cyan/50 h-8" />
+                <button 
+                  onClick={() => { setIsOutputTokenOpen(!isOutputTokenOpen); setIsInputTokenOpen(false); }}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 flex items-center justify-between hover:bg-white/5 transition-colors h-10"
+                >
+                  <div className="flex items-center gap-2">
+                    {outputToken ? (
+                      <>
+                        <img src={outputToken.logoURI} alt="" className="w-4 h-4 rounded-full" onError={(e) => e.currentTarget.src = 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png'} />
+                        <span className="font-bold text-xs text-white">{outputToken.symbol}</span>
+                      </>
+                    ) : (
+                      <span className="text-text-muted text-xs">Select or Paste Mint</span>
+                    )}
+                  </div>
+                  <ChevronDown size={14} className="text-text-muted" />
+                </button>
+                {isOutputTokenOpen && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setIsOutputTokenOpen(false)} />
+                    <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-background-card/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-1.5 max-h-48 overflow-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-200">
+                      <div className="p-2 border-b border-white/5 mb-1">
+                        <input 
+                          autoFocus
+                          placeholder="Paste Mint Address..."
+                          className="w-full bg-black/40 border border-white/10 rounded-md p-1.5 text-[10px] text-white outline-none focus:border-accent-cyan/50"
+                          onChange={(e) => { setNewOutputMint(e.target.value); if (e.target.value.length > 32) setIsOutputTokenOpen(false); }}
+                        />
+                      </div>
+                      {tokens.map(t => (
+                        <TokenItem key={t.mint} token={t} onClick={() => { setNewOutputMint(t.mint); setIsOutputTokenOpen(false); }} />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
+
               <div className="grid grid-cols-[1fr_100px] gap-2 items-end">
                 <div className="space-y-1.5">
                   <label className="text-[8px] uppercase text-text-muted font-bold px-1">Test Amount</label>
-                  <input value={newAmount} onChange={(e) => setNewAmount(e.target.value)} type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none focus:border-accent-cyan/50 h-8" />
+                  <input value={newAmount} onChange={(e) => setNewAmount(e.target.value)} type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none focus:border-accent-cyan/50 h-10" />
                 </div>
-                <button onClick={handleAddPair} className="bg-accent-purple text-white rounded-lg font-black uppercase text-[10px] hover:bg-white hover:text-black transition-all h-8">Add Pair</button>
+                <button onClick={handleAddPair} className="bg-accent-purple text-white rounded-lg font-black uppercase text-[10px] hover:bg-white hover:text-black transition-all h-10 shadow-glow-purple">Add Pair</button>
               </div>
             </div>
 
