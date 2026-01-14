@@ -59,8 +59,8 @@ export default function StrategiesPage() {
               </div>
             </div>
             
-            {/* Right: Full Height Venue Matrix */}
-            <div className="lg:w-[550px] shrink-0 h-full">
+            {/* Right Column: Full Height Venue Matrix */}
+            <div className="lg:w-[625px] shrink-0 h-full">
               <ArbAnalysisWidget />
             </div>
           </div>
