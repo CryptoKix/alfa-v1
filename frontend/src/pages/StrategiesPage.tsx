@@ -44,8 +44,8 @@ export default function StrategiesPage() {
       <div className="flex flex-col gap-2 h-full overflow-hidden">
         {selectedStrategy === 'arb' ? (
           <div className="flex gap-2 h-full overflow-hidden">
-            {/* Left Stack: Terminal + Settings + Opportunities */}
-            <div className="flex flex-col gap-2 w-[500px] shrink-0 h-full">
+            {/* Left Area: Terminal (Top) and Config/Opportunities (Bottom Side-by-Side) */}
+            <div className="flex-1 flex flex-col gap-2 h-full min-w-0">
               <div className="h-[200px] shrink-0">
                 <StrategiesWidget 
                   onSelect={(id: string) => setSelectedStrategy(id)} 
@@ -53,20 +53,20 @@ export default function StrategiesPage() {
                   onViewBots={() => setIsBotsModalOpen(true)}
                 />
               </div>
-              <div className="flex-1 flex flex-col gap-2 min-h-0">
+              <div className="flex-1 flex gap-2 min-h-0">
                 <ArbSettingsWidget />
                 <ArbOpportunitiesWidget />
               </div>
             </div>
             
-            {/* Right Stack: Full Height Venue Matrix */}
-            <div className="flex-1 h-full min-w-0">
+            {/* Right: Full Height Venue Matrix */}
+            <div className="lg:w-[550px] shrink-0 h-full">
               <ArbAnalysisWidget />
             </div>
           </div>
         ) : (
           <>
-            {/* Top Header Section: Terminal Grid + Intel/Matrix */}
+            {/* Standard Strategy Layout (Grid, TWAP, etc.) */}
             <div className="h-[200px] shrink-0">
               <StrategiesWidget 
                 onSelect={(id: string) => setSelectedStrategy(id)} 
@@ -76,7 +76,6 @@ export default function StrategiesPage() {
               />
             </div>
 
-            {/* Dynamic Config Area */}
             <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
               {selectedStrategy === 'grid' && <GridConfigWidget />}
               {selectedStrategy === 'twap' && <TWAPConfigWidget />}
