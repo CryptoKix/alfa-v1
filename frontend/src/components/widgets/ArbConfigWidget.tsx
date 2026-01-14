@@ -1,71 +1,17 @@
-import { useState, useEffect, useMemo } from 'react'
-import { Activity, Zap, Clock, Settings2, BarChart3, ChevronDown, Target } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Activity, Zap, Clock, Settings2, BarChart3, Plus, Target } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { addNotification } from '@/features/notifications/notificationsSlice'
 import { ArbSimulatorModal } from '../modals/ArbSimulatorModal'
+import { ArbAddPairModal } from '../modals/ArbAddPairModal'
 import { setArbConfig } from '@/features/arb/arbSlice'
 
 // --- 1. SETTINGS WIDGET ---
 export const ArbSettingsWidget = () => {
   const dispatch = useAppDispatch()
-  const { holdings } = useAppSelector(state => state.portfolio)
   const { minProfit, jitoTip, autoStrike, isMonitoring } = useAppSelector(state => state.arb)
-  
-  const [dbTokens, setDbTokens] = useState<any[]>([])
-  const [newInputMint, setNewInputMint] = useState('')
-  const [newOutputMint, setNewOutputMint] = useState('')
-  const [newAmount, setNewAmount] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle')
-
-  const [isInputTokenOpen, setIsInputTokenOpen] = useState(false)
-  const [isOutputTokenOpen, setIsOutputTokenOpen] = useState(false)
-
-  // Fetch tokens from DB on mount
-  useEffect(() => {
-    const fetchTokens = async () => {
-      try {
-        const res = await fetch('/api/tokens')
-        const data = await res.json()
-        setDbTokens(data)
-      } catch (e) {
-        console.error("Failed to fetch tokens from DB", e)
-      }
-    }
-    fetchTokens()
-  }, [])
-
-  // Merge DB tokens with current holdings for a comprehensive list
-  const tokens = useMemo(() => {
-    const combined = [...dbTokens]
-    holdings.forEach(h => {
-      if (!combined.find(c => c.mint === h.mint)) {
-        combined.push({ ...h, balance: h.balance } as any)
-      }
-    })
-    // Sort so tokens with balance are higher or SOL is first
-    return combined.sort((a, b) => {
-      if (a.symbol === 'SOL') return -1
-      if (b.symbol === 'SOL') return 1
-      return (b.balance || 0) - (a.balance || 0)
-    })
-  }, [dbTokens, holdings])
-
-  const inputToken = tokens.find(t => t.mint === newInputMint)
-  const outputToken = tokens.find(t => t.mint === newOutputMint)
-
-  const handleAddPair = async () => {
-    try {
-      const res = await fetch('/api/arb/pairs/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputMint: newInputMint, outputMint: newOutputMint, amount: parseFloat(newAmount) })
-      })
-      if (res.ok) {
-        dispatch(addNotification({ title: 'Pair Added', message: 'Monitoring target updated', type: 'success' }))
-      }
-    } catch (e) {}
-  }
 
   const handleInitialize = async () => {
     setStatus('loading')
@@ -82,101 +28,45 @@ export const ArbSettingsWidget = () => {
     } catch (e) { setStatus('idle') }
   }
 
-  const TokenItem = ({ token, onClick }: { token: any, onClick: () => void }) => (
-    <button onClick={onClick} className="w-full flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors group">
-      <div className="flex items-center gap-2">
-        <img src={token.logoURI || `https://static.jup.ag/tokens/gen/${token.mint}.png`} alt={token.symbol} className="w-5 h-5 rounded-full" onError={(e) => (e.currentTarget.src = 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png')} />
-        <div className="text-[10px] font-bold text-white">{token.symbol}</div>
-      </div>
-      <div className="text-[9px] font-mono text-text-muted">{token.balance?.toFixed(2) || '0.00'}</div>
-    </button>
-  )
-
   return (
-    <div className="lg:w-[400px] bg-background-card border border-white/5 rounded-2xl p-3 shadow-xl relative overflow-hidden flex flex-col gap-3 h-full shrink-0">
+    <div className="lg:w-[400px] bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 h-full shrink-0">
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple via-accent-cyan to-accent-pink opacity-50 z-20" />
       
-      <div className="flex items-center justify-between mb-0 border-b border-white/5 shrink-0 h-[45px] -mx-3 px-3 -mt-3">
+      <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple"><Settings2 size={16} /></div>
+          <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple"><Settings2 size={18} /></div>
           <h2 className="text-xs font-bold text-white uppercase tracking-tight">ARB CONFIG</h2>
         </div>
       </div>
 
-      <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
-        <div className="flex-1 overflow-auto custom-scrollbar p-2 space-y-3">
-          {/* Permanent Add Pair Form */}
-          <div className="p-3 bg-accent-purple/5 border border-accent-purple/20 rounded-xl space-y-3">
-            <div className="text-[9px] font-black text-accent-cyan uppercase tracking-wider border-b border-white/5 pb-1 flex items-center gap-2">
-              Add Target Pair
+      <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0 justify-center">
+        <div className="flex-1 overflow-auto custom-scrollbar p-4 flex flex-col justify-center space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[9px] uppercase text-text-muted font-bold px-1">Min Profit (%)</label>
+              <input type="number" value={minProfit} onChange={e => dispatch(setArbConfig({ minProfit: parseFloat(e.target.value) }))} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 h-12 text-sm font-mono font-bold text-white focus:border-accent-cyan/50 outline-none transition-colors" />
             </div>
-            <div className="grid grid-cols-2 gap-2 relative">
-              <div className="space-y-1 relative">
-                <label className="text-[7px] uppercase text-text-muted font-bold px-1">Base</label>
-                <button onClick={() => setIsInputTokenOpen(!isInputTokenOpen)} className="w-full bg-black/40 border border-white/10 rounded-lg px-2 h-10 flex items-center justify-between text-white text-xs font-bold hover:bg-black/60 transition-all">
-                  <div className="flex items-center gap-1.5 truncate">
-                    {inputToken && <img src={inputToken.logoURI || `https://static.jup.ag/tokens/gen/${inputToken.mint}.png`} className="w-4 h-4 rounded-full shrink-0" />}
-                    <span className="truncate">{inputToken?.symbol || 'Base'}</span>
-                  </div>
-                  <ChevronDown size={12} className="text-text-muted shrink-0" />
-                </button>
-                {isInputTokenOpen && (
-                  <div className="absolute top-full left-0 right-0 z-50 bg-background-card border border-white/10 rounded-xl shadow-2xl p-1 max-h-48 overflow-auto mt-1 backdrop-blur-xl">
-                    {tokens.map(t => <TokenItem key={t.mint} token={t} onClick={() => { setNewInputMint(t.mint); setIsInputTokenOpen(false) }} />)}
-                  </div>
-                )}
-              </div>
-              <div className="space-y-1 relative">
-                <label className="text-[7px] uppercase text-text-muted font-bold px-1">Target</label>
-                <button onClick={() => setIsOutputTokenOpen(!isOutputTokenOpen)} className="w-full bg-black/40 border border-white/10 rounded-lg px-2 h-10 flex items-center justify-between text-white text-xs font-bold hover:bg-black/60 transition-all">
-                  <div className="flex items-center gap-1.5 truncate">
-                    {outputToken && <img src={outputToken.logoURI || `https://static.jup.ag/tokens/gen/${outputToken.mint}.png`} className="w-4 h-4 rounded-full shrink-0" />}
-                    <span className="truncate">{outputToken?.symbol || 'Target'}</span>
-                  </div>
-                  <ChevronDown size={12} className="text-text-muted shrink-0" />
-                </button>
-                {isOutputTokenOpen && (
-                  <div className="absolute top-full left-0 right-0 z-50 bg-background-card border border-white/10 rounded-xl shadow-2xl p-1 max-h-48 overflow-auto mt-1 backdrop-blur-xl">
-                    {tokens.map(t => <TokenItem key={t.mint} token={t} onClick={() => { setNewOutputMint(t.mint); setIsOutputTokenOpen(false) }} />)}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
-              <div className="space-y-1">
-                <label className="text-[7px] uppercase text-text-muted font-bold px-1">Test Amount</label>
-                <input value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="0.00" type="number" className="w-full bg-black/40 border border-white/10 rounded-lg px-2 h-10 text-xs font-mono font-bold text-white focus:border-accent-cyan/50 outline-none" />
-              </div>
-              <button onClick={handleAddPair} className="bg-accent-cyan text-black px-4 rounded-lg font-black uppercase text-[10px] h-10 shadow-glow-cyan active:scale-95 transition-all">Add Pair</button>
+            <div className="space-y-2">
+              <label className="text-[9px] uppercase text-text-muted font-bold px-1">Jito Tip (SOL)</label>
+              <input type="number" value={jitoTip} onChange={e => dispatch(setArbConfig({ jitoTip: parseFloat(e.target.value) }))} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 h-12 text-sm font-mono font-bold text-white focus:border-accent-cyan/50 outline-none transition-colors" />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <label className="text-[7px] uppercase text-text-muted font-bold px-1">Min Profit (%)</label>
-              <input type="number" value={minProfit} onChange={e => dispatch(setArbConfig({ minProfit: parseFloat(e.target.value) }))} className="w-full bg-black/40 border border-white/10 rounded-lg px-2 h-9 text-xs font-mono font-bold text-white focus:border-accent-cyan/50 outline-none" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[7px] uppercase text-text-muted font-bold px-1">Jito Tip (SOL)</label>
-              <input type="number" value={jitoTip} onChange={e => dispatch(setArbConfig({ jitoTip: parseFloat(e.target.value) }))} className="w-full bg-black/40 border border-white/10 rounded-lg px-2 h-9 text-xs font-mono font-bold text-white focus:border-accent-cyan/50 outline-none" />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between p-2.5 bg-white/5 rounded-xl border border-white/10">
+          <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
             <div className="flex flex-col">
-              <span className="text-[10px] font-black text-white uppercase leading-none">Auto-Strike</span>
-              <span className="text-[7px] text-text-muted mt-0.5 uppercase font-bold tracking-tighter">Execute Atomic Bundles</span>
+              <span className="text-sm font-black text-white uppercase leading-none">Auto-Strike</span>
+              <span className="text-[9px] text-text-muted mt-1 uppercase font-bold tracking-tighter">Atomic Jito Bundles</span>
             </div>
-            <button onClick={() => dispatch(setArbConfig({ autoStrike: !autoStrike }))} className={cn("w-8 h-4 rounded-full p-0.5 transition-all", autoStrike ? "bg-accent-purple" : "bg-white/10")}>
-              <div className={cn("w-3 h-3 rounded-full bg-white transition-all shadow-lg", autoStrike ? "translate-x-4" : "translate-x-0")} />
+            <button onClick={() => dispatch(setArbConfig({ autoStrike: !autoStrike }))} className={cn("w-12 h-6 rounded-full p-0.5 transition-all duration-300", autoStrike ? "bg-accent-purple shadow-glow-purple" : "bg-white/10")}>
+              <div className={cn("w-5 h-5 rounded-full bg-white transition-all shadow-md", autoStrike ? "translate-x-6" : "translate-x-0")} />
             </button>
           </div>
         </div>
       </div>
 
-      <button onClick={handleInitialize} disabled={status === 'loading'} className={cn("w-full py-3 rounded-xl text-black font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 shrink-0", isMonitoring ? "bg-white/5 text-accent-cyan border border-accent-cyan/30" : "bg-accent-cyan shadow-glow-cyan hover:bg-white active:scale-95")}>
-        {status === 'loading' ? <Activity size={16} className="animate-spin" /> : <Zap size={16} fill="currentColor" />}
-        {isMonitoring ? 'Sync Settings' : 'Initialize Engine'}
+      <button onClick={handleInitialize} disabled={status === 'loading'} className={cn("w-full py-4.5 rounded-2xl text-black font-black text-sm uppercase tracking-[0.25em] transition-all flex items-center justify-center gap-3 shadow-lg", isMonitoring ? "bg-white/5 text-accent-cyan border border-accent-cyan/30 shadow-none hover:bg-white/10" : "bg-accent-cyan shadow-glow-cyan hover:bg-white active:scale-95")}>
+        {status === 'loading' ? <Activity size={20} className="animate-spin" /> : <Zap size={20} fill="currentColor" />}
+        {isMonitoring ? 'Sync Engine' : 'Initialize'}
       </button>
     </div>
   )
@@ -186,6 +76,22 @@ export const ArbSettingsWidget = () => {
 export const ArbAnalysisWidget = () => {
   const { matrix } = useAppSelector(state => state.arb)
   const venues = ["Raydium", "Orca", "Meteora", "Phoenix"]
+  const [isAddPairOpen, setIsAddPairOpen] = useState(false)
+  const [dbTokens, setDbTokens] = useState<any[]>([])
+
+  // Fetch tokens only when modal is opened to save resources
+  useEffect(() => {
+    if (isAddPairOpen && dbTokens.length === 0) {
+      const fetchTokens = async () => {
+        try {
+          const res = await fetch('/api/tokens')
+          const data = await res.json()
+          setDbTokens(data)
+        } catch (e) {}
+      }
+      fetchTokens()
+    }
+  }, [isAddPairOpen])
 
   return (
     <div className="bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full">
@@ -196,7 +102,15 @@ export const ArbAnalysisWidget = () => {
           <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan"><BarChart3 size={18} /></div>
           <h2 className="text-xs font-bold text-white uppercase tracking-tight">Venue Matrix</h2>
         </div>
-        <div className="text-[8px] font-mono text-accent-cyan uppercase tracking-widest opacity-60 px-2">Live 5s Polling</div>
+        <div className="flex items-center gap-2">
+          <div className="text-[8px] font-mono text-accent-cyan uppercase tracking-widest opacity-60">Live 5s Polling</div>
+          <button 
+            onClick={() => setIsAddPairOpen(true)}
+            className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-accent-cyan border border-white/5 transition-colors active:scale-95"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0 mt-2">
@@ -234,6 +148,8 @@ export const ArbAnalysisWidget = () => {
           </div>
         </div>
       </div>
+      
+      <ArbAddPairModal isOpen={isAddPairOpen} onClose={() => setIsAddPairOpen(false)} dbTokens={dbTokens} />
     </div>
   )
 }
