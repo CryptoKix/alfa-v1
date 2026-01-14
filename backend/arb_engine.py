@@ -109,6 +109,7 @@ class ArbEngine:
         valid_quotes = [r for r in results if r and "outAmount" in r]
         
         matrix_data = {
+            "id": pair.get("id"),
             "input_symbol": pair["input_symbol"],
             "output_symbol": pair["output_symbol"],
             "venues": {}

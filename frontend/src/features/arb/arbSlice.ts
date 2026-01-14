@@ -18,7 +18,7 @@ export interface ArbOpportunity {
 
 export interface ArbState {
   opportunities: ArbOpportunity[]
-  matrix: Record<string, Record<string, number>>
+  matrix: Record<string, { venues: Record<string, number>; id?: string }>
   isMonitoring: boolean
   minProfit: number
   jitoTip: number
@@ -41,8 +41,11 @@ const arbSlice = createSlice({
     addOpportunity: (state, action: PayloadAction<ArbOpportunity>) => {
       state.opportunities = [action.payload, ...state.opportunities].slice(0, 50)
     },
-    updateMatrix: (state, action: PayloadAction<{ pair: string, venues: Record<string, number> }>) => {
-      state.matrix[action.payload.pair] = action.payload.venues
+    updateMatrix: (state, action: PayloadAction<{ pair: string; venues: Record<string, number>; id?: string }>) => {
+      state.matrix[action.payload.pair] = {
+        venues: action.payload.venues,
+        id: action.payload.id
+      }
     },
     setArbConfig: (state, action: PayloadAction<Partial<ArbState>>) => {
       return { ...state, ...action.payload }

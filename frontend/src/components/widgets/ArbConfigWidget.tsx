@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Activity, Zap, Clock, Settings2, BarChart3, Plus, Target } from 'lucide-react'
+import { Activity, Zap, Clock, Settings2, BarChart3, Plus, Target, Trash2 } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { addNotification } from '@/features/notifications/notificationsSlice'
@@ -74,10 +74,26 @@ export const ArbSettingsWidget = () => {
 
 // --- 2. ANALYSIS WIDGET ---
 export const ArbAnalysisWidget = () => {
+  const dispatch = useAppDispatch()
   const { matrix } = useAppSelector(state => state.arb)
   const venues = ["Raydium", "Orca", "Meteora", "Phoenix"]
   const [isAddPairOpen, setIsAddPairOpen] = useState(false)
   const [dbTokens, setDbTokens] = useState<any[]>([])
+
+  const handleDeletePair = async (id: string) => {
+    try {
+      const res = await fetch('/api/arb/pairs/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      })
+      if (res.ok) {
+        dispatch(addNotification({ title: 'Pair Removed', message: 'Monitoring target updated', type: 'success' }))
+      }
+    } catch (e) {
+      dispatch(addNotification({ title: 'Error', message: 'Failed to remove pair', type: 'error' }))
+    }
+  }
 
   // Fetch tokens only when modal is opened to save resources
   useEffect(() => {
@@ -113,18 +129,20 @@ export const ArbAnalysisWidget = () => {
 
       <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0 mt-2">
         <div className="flex-1 overflow-auto custom-scrollbar p-2">
-          <div className="grid grid-cols-[85px_repeat(4,1fr)] gap-1 mb-1 px-1">
+          <div className="grid grid-cols-[85px_repeat(4,1fr)_24px] gap-1 mb-1 px-1">
             <div className="text-[7px] font-black text-text-muted uppercase">Pair</div>
             {venues.map(v => <div key={v} className="text-[7px] font-black text-text-muted uppercase text-center">{v}</div>)}
+            <div />
           </div>
 
           <div className="space-y-1">
-            {Object.entries(matrix).map(([pair, venuePrices]) => {
+            {Object.entries(matrix).map(([pair, data]) => {
+              const { venues: venuePrices, id } = data
               const prices = Object.values(venuePrices)
               const minPrice = Math.min(...prices)
               const maxPrice = Math.max(...prices)
               return (
-                <div key={pair} className="grid grid-cols-[85px_repeat(4,1fr)] gap-1 h-10 items-stretch">
+                <div key={pair} className="grid grid-cols-[85px_repeat(4,1fr)_24px] gap-1 h-10 items-stretch group">
                   <div className="bg-white/5 rounded-lg border border-white/5 px-1.5 flex items-center min-w-0">
                     <span className="text-[8px] font-black text-white uppercase truncate">{pair}</span>
                   </div>
@@ -140,6 +158,14 @@ export const ArbAnalysisWidget = () => {
                       </div>
                     )
                   })}
+                  <div className="flex items-center justify-center">
+                    <button 
+                      onClick={() => id && handleDeletePair(id)}
+                      className="p-1 hover:bg-accent-pink/20 rounded-md text-text-muted hover:text-accent-pink transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                 </div>
               )
             })}

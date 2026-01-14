@@ -37,7 +37,8 @@ export const initSockets = () => {
   arbSocket.on('price_matrix_update', (data: any) => {
     store.dispatch(updateMatrix({ 
       pair: `${data.input_symbol}/${data.output_symbol}`, 
-      venues: data.venues 
+      venues: data.venues,
+      id: data.id
     }))
   })
 
