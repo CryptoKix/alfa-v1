@@ -133,8 +133,8 @@ export const ArbAnalysisWidget = () => {
                     const isBest = price === minPrice && minPrice !== maxPrice
                     const isWorst = price === maxPrice && minPrice !== maxPrice
                     return (
-                      <div key={v} className={cn("rounded-lg border px-1 flex flex-col items-center justify-center transition-all", isBest ? "bg-accent-green/10 border-accent-green/30" : isWorst ? "bg-accent-red/10 border-accent-red/30" : "bg-white/[0.02] border-white/5")}>
-                        <div className={cn("text-[9px] font-mono font-bold", isBest ? "text-accent-green" : isWorst ? "text-accent-red" : "text-white/60")}>
+                      <div key={v} className={cn("rounded-lg border px-1 flex flex-col items-center justify-center transition-all", isBest ? "bg-accent-cyan/10 border-accent-cyan/30" : isWorst ? "bg-accent-pink/10 border-accent-pink/30" : "bg-white/[0.02] border-white/5")}>
+                        <div className={cn("text-[9px] font-mono font-bold", isBest ? "text-accent-cyan" : isWorst ? "text-accent-pink" : "text-white/60")}>
                           {price ? price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'}
                         </div>
                       </div>
