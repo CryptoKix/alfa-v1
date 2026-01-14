@@ -1,4 +1,3 @@
-import { MainLayout } from '@/components/layout/MainLayout'
 import { useState } from 'react'
 import { StrategiesWidget } from '@/components/widgets/StrategiesWidget'
 import { GridConfigWidget } from '@/components/widgets/GridConfigWidget'
@@ -41,7 +40,7 @@ export default function StrategiesPage() {
   }
 
   return (
-    <MainLayout>
+    <>
       <div className="flex flex-col gap-2 h-full overflow-hidden">
         {selectedStrategy === 'arb' ? (
           <div className="flex gap-2 h-full overflow-hidden">
@@ -111,6 +110,6 @@ export default function StrategiesPage() {
         onDelete={handleDeleteBot}
         onCreateNew={() => setIsBotsModalOpen(false)}
       />
-    </MainLayout>
+    </>
   )
 }
