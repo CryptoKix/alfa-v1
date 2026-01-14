@@ -129,7 +129,7 @@ export const ArbAnalysisWidget = () => {
 
       <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0 mt-2">
         <div className="flex-1 overflow-auto custom-scrollbar p-2">
-          <div className="grid grid-cols-[85px_repeat(4,1fr)_24px] gap-1 mb-1 px-1">
+          <div className="grid grid-cols-[85px_repeat(4,1fr)_32px] gap-1 mb-1 px-1">
             <div className="text-[7px] font-black text-text-muted uppercase">Pair</div>
             {venues.map(v => <div key={v} className="text-[7px] font-black text-text-muted uppercase text-center">{v}</div>)}
             <div />
@@ -142,7 +142,7 @@ export const ArbAnalysisWidget = () => {
               const minPrice = Math.min(...prices)
               const maxPrice = Math.max(...prices)
               return (
-                <div key={pair} className="grid grid-cols-[85px_repeat(4,1fr)_24px] gap-1 h-10 items-stretch group">
+                <div key={pair} className="grid grid-cols-[85px_repeat(4,1fr)_32px] gap-1 h-10 items-stretch group">
                   <div className="bg-white/5 rounded-lg border border-white/5 px-1.5 flex items-center min-w-0">
                     <span className="text-[8px] font-black text-white uppercase truncate">{pair}</span>
                   </div>
@@ -163,7 +163,7 @@ export const ArbAnalysisWidget = () => {
                       onClick={() => id && handleDeletePair(id)}
                       className={cn(
                         "p-1.5 rounded-md transition-all",
-                        id ? "text-accent-pink/60 hover:text-accent-pink hover:bg-accent-pink/10" : "text-white/5 cursor-not-allowed"
+                        id ? "text-accent-pink hover:bg-accent-pink/10 shadow-[0_0_10px_rgba(255,0,128,0.1)]" : "text-white/10 cursor-not-allowed"
                       )}
                       title={id ? "Remove Pair" : "System Pair (Non-removable)"}
                     >
