@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Activity, Target, Zap, Clock, Settings2, BarChart3, Plus, Trash2, ChevronDown } from 'lucide-react'
+import { Activity, Target, Zap, Clock, Settings2, BarChart3, Trash2, ChevronDown } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { addNotification } from '@/features/notifications/notificationsSlice'
@@ -13,7 +13,6 @@ export const ArbSettingsWidget = () => {
   const { minProfit, jitoTip, autoStrike, isMonitoring } = useAppSelector(state => state.arb)
   
   const [pairs, setPairs] = useState<any[]>([])
-  const [isAddingPair, setIsAddingPair] = useState(false)
   const [newInputMint, setNewInputMint] = useState('')
   const [newOutputMint, setNewOutputMint] = useState('')
   const [newAmount, setNewAmount] = useState('')
@@ -58,7 +57,7 @@ export const ArbSettingsWidget = () => {
         body: JSON.stringify({ inputMint: newInputMint, outputMint: newOutputMint, amount: parseFloat(newAmount) })
       })
       if (res.ok) {
-        setIsAddingPair(false); fetchPairs()
+        ; fetchPairs()
         dispatch(addNotification({ title: 'Pair Added', message: 'Target updated', type: 'success' }))
       }
     } catch (e) {}
@@ -105,75 +104,101 @@ export const ArbSettingsWidget = () => {
           <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple"><Settings2 size={18} /></div>
           <h2 className="text-xs font-bold text-white uppercase tracking-tight">ARB CONFIG</h2>
         </div>
-        <button onClick={() => setIsAddingPair(!isAddingPair)} className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-accent-cyan border border-white/5"><Plus size={16} /></button>
       </div>
 
       <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
         <div className="flex-1 overflow-auto custom-scrollbar p-2 space-y-3">
-          {isAddingPair && (
-            <div className="p-3 bg-accent-purple/5 border border-accent-purple/20 rounded-xl space-y-3 animate-in slide-in-from-top-2">
+          {true && (
+            <div className="p-4 bg-accent-purple/5 border border-accent-purple/20 rounded-xl space-y-4 animate-in slide-in-from-top-2">
               <div className="space-y-1.5 relative">
-                <label className="text-[8px] uppercase text-text-muted font-bold px-1">Base</label>
-                <button onClick={() => setIsInputTokenOpen(!isInputTokenOpen)} className="w-full bg-black/40 border border-white/10 rounded-lg px-3 h-9 flex items-center justify-between text-white text-xs font-bold">
-                  {inputToken ? inputToken.symbol : 'Select Asset'} <ChevronDown size={12} />
+                <label className="text-[8px] uppercase text-text-muted font-bold px-1">Base Asset</label>
+                <button onClick={() => setIsInputTokenOpen(!isInputTokenOpen)} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 h-12 flex items-center justify-between text-white text-sm font-bold hover:bg-black/60 transition-all">
+                  {inputToken ? (
+                    <div className="flex items-center gap-2">
+                      <img src={inputToken.logoURI} className="w-5 h-5 rounded-full" />
+                      {inputToken.symbol}
+                    </div>
+                  ) : 'Select Asset'} 
+                  <ChevronDown size={16} className="text-text-muted" />
                 </button>
                 {isInputTokenOpen && (
-                  <div className="absolute top-full left-0 right-0 z-50 bg-background-card border border-white/10 rounded-xl shadow-2xl p-1 max-h-40 overflow-auto">
+                  <div className="absolute top-full left-0 right-0 z-50 bg-background-card border border-white/10 rounded-xl shadow-2xl p-1.5 max-h-48 overflow-auto mt-1 backdrop-blur-xl">
                     {tokens.map(t => <TokenItem key={t.mint} token={t} onClick={() => { setNewInputMint(t.mint); setIsInputTokenOpen(false) }} />)}
                   </div>
                 )}
               </div>
               <div className="space-y-1.5 relative">
-                <label className="text-[8px] uppercase text-text-muted font-bold px-1">Target</label>
-                <button onClick={() => setIsOutputTokenOpen(!isOutputTokenOpen)} className="w-full bg-black/40 border border-white/10 rounded-lg px-3 h-9 flex items-center justify-between text-white text-xs font-bold">
-                  {outputToken ? outputToken.symbol : 'Select Asset'} <ChevronDown size={12} />
+                <label className="text-[8px] uppercase text-text-muted font-bold px-1">Target Asset</label>
+                <button onClick={() => setIsOutputTokenOpen(!isOutputTokenOpen)} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 h-12 flex items-center justify-between text-white text-sm font-bold hover:bg-black/60 transition-all">
+                  {outputToken ? (
+                    <div className="flex items-center gap-2">
+                      <img src={outputToken.logoURI} className="w-5 h-5 rounded-full" />
+                      {outputToken.symbol}
+                    </div>
+                  ) : 'Select Asset'} 
+                  <ChevronDown size={16} className="text-text-muted" />
                 </button>
                 {isOutputTokenOpen && (
-                  <div className="absolute top-full left-0 right-0 z-50 bg-background-card border border-white/10 rounded-xl shadow-2xl p-1 max-h-40 overflow-auto">
+                  <div className="absolute top-full left-0 right-0 z-50 bg-background-card border border-white/10 rounded-xl shadow-2xl p-1.5 max-h-48 overflow-auto mt-1 backdrop-blur-xl">
                     {tokens.map(t => <TokenItem key={t.mint} token={t} onClick={() => { setNewOutputMint(t.mint); setIsOutputTokenOpen(false) }} />)}
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="Amt" type="number" className="bg-black/40 border border-white/10 rounded-lg px-2 h-9 text-xs text-white" />
-                <button onClick={handleAddPair} className="bg-accent-cyan text-black rounded-lg font-black uppercase text-[10px] h-9">Add</button>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[8px] uppercase text-text-muted font-bold px-1">Amount</label>
+                  <input value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="0.00" type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 h-12 text-sm font-mono font-bold text-white focus:border-accent-cyan/50 outline-none" />
+                </div>
+                <div className="flex items-end">
+                  <button onClick={handleAddPair} className="w-full bg-accent-cyan text-black rounded-xl font-black uppercase text-xs h-12 shadow-glow-cyan active:scale-95 transition-all">Add Pair</button>
+                </div>
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <label className="text-[8px] uppercase text-text-muted font-bold">Min Profit (%)</label>
-              <input type="number" value={minProfit} onChange={e => dispatch(setArbConfig({ minProfit: parseFloat(e.target.value) }))} className="w-full bg-black/40 border border-white/10 rounded px-2 h-8 text-[10px] text-white" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[8px] uppercase text-text-muted font-bold px-1">Min Profit (%)</label>
+              <input type="number" value={minProfit} onChange={e => dispatch(setArbConfig({ minProfit: parseFloat(e.target.value) }))} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 h-11 text-sm font-mono font-bold text-white focus:border-accent-cyan/50 outline-none" />
             </div>
-            <div className="space-y-1">
-              <label className="text-[8px] uppercase text-text-muted font-bold">Jito Tip</label>
-              <input type="number" value={jitoTip} onChange={e => dispatch(setArbConfig({ jitoTip: parseFloat(e.target.value) }))} className="w-full bg-black/40 border border-white/10 rounded px-2 h-8 text-[10px] text-white" />
+            <div className="space-y-1.5">
+              <label className="text-[8px] uppercase text-text-muted font-bold px-1">Jito Tip (SOL)</label>
+              <input type="number" value={jitoTip} onChange={e => dispatch(setArbConfig({ jitoTip: parseFloat(e.target.value) }))} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 h-11 text-sm font-mono font-bold text-white focus:border-accent-cyan/50 outline-none" />
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-2 bg-white/5 rounded-lg border border-white/10">
-            <span className="text-[9px] font-black text-white uppercase">Auto-Strike</span>
-            <button onClick={() => dispatch(setArbConfig({ autoStrike: !autoStrike }))} className={cn("w-8 h-4 rounded-full p-0.5 transition-all", autoStrike ? "bg-accent-purple" : "bg-white/10")}>
-              <div className={cn("w-3 h-3 rounded-full bg-white transition-all", autoStrike ? "translate-x-4" : "translate-x-0")} />
+          <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
+            <div className="flex flex-col">
+              <span className="text-xs font-black text-white uppercase leading-none">Auto-Strike</span>
+              <span className="text-[8px] text-text-muted mt-1 uppercase font-bold tracking-tighter">Execute Atomic Bundles</span>
+            </div>
+            <button onClick={() => dispatch(setArbConfig({ autoStrike: !autoStrike }))} className={cn("w-10 h-5 rounded-full p-0.5 transition-all", autoStrike ? "bg-accent-purple" : "bg-white/10")}>
+              <div className={cn("w-4 h-4 rounded-full bg-white transition-all shadow-lg", autoStrike ? "translate-x-5" : "translate-x-0")} />
             </button>
           </div>
 
-          <div className="space-y-1 pt-2 border-t border-white/5">
-            <div className="text-[8px] text-text-muted font-black uppercase mb-1">Monitored</div>
-            {pairs.map(p => (
-              <div key={p.id} className="flex items-center justify-between p-1.5 bg-white/[0.02] border border-white/5 rounded-lg group text-[10px]">
-                <span className="font-bold text-white">{p.input_symbol}/{p.output_symbol}</span>
-                <button onClick={() => handleDeletePair(p.id)} className="text-text-muted hover:text-accent-red opacity-0 group-hover:opacity-100"><Trash2 size={10} /></button>
-              </div>
-            ))}
+          <div className="space-y-2 pt-2 border-t border-white/5">
+            <div className="text-[9px] text-text-muted font-black uppercase mb-1 px-1">Active Monitoring</div>
+            <div className="grid grid-cols-1 gap-1.5">
+              {pairs.map(p => (
+                <div key={p.id} className="flex items-center justify-between p-3 bg-white/[0.02] border border-white/5 rounded-xl group hover:border-white/10 transition-all">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-black text-white">{p.input_symbol}/{p.output_symbol}</span>
+                    <span className="text-[8px] text-text-muted font-mono uppercase tracking-tighter">Live scanning active</span>
+                  </div>
+                  <button onClick={() => handleDeletePair(p.id)} className="p-1.5 bg-accent-red/10 text-accent-red rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-accent-red hover:text-white">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      <button onClick={handleInitialize} disabled={status === 'loading'} className={cn("w-full py-3.5 rounded-2xl text-black font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2", isMonitoring ? "bg-white/5 text-accent-cyan border border-accent-cyan/30" : "bg-accent-cyan shadow-glow-cyan")}>
-        {status === 'loading' ? <Activity size={14} className="animate-spin" /> : <Zap size={14} fill="currentColor" />}
-        Sync Engine
+      <button onClick={handleInitialize} disabled={status === 'loading'} className={cn("w-full py-4.5 rounded-2xl text-black font-black text-sm uppercase tracking-[0.25em] transition-all flex items-center justify-center gap-3", isMonitoring ? "bg-white/5 text-accent-cyan border border-accent-cyan/30" : "bg-accent-cyan shadow-glow-cyan shadow-[0_0_30px_rgba(0,255,255,0.2)] hover:bg-white active:scale-95")}>
+        {status === 'loading' ? <Activity size={20} className="animate-spin" /> : <Zap size={20} fill="currentColor" />}
+        {isMonitoring ? 'Sync Engine Settings' : 'Initialize Engine'}
       </button>
     </div>
   )
