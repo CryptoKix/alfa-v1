@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Activity, Target, Zap, Clock, Settings2, Plus, Trash2, ChevronDown } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Activity, Target, Zap, Clock, Settings2, BarChart3, Plus, Trash2, ChevronDown } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { addNotification } from '@/features/notifications/notificationsSlice'
@@ -22,9 +22,20 @@ export const ArbSettingsWidget = () => {
   const [isInputTokenOpen, setIsInputTokenOpen] = useState(false)
   const [isOutputTokenOpen, setIsOutputTokenOpen] = useState(false)
 
-  const tokens = (holdings || []).length > 0 ? holdings : [
-    { mint: 'So11111111111111111111111111111111111111112', symbol: 'SOL', logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png' }
-  ]
+  const tokens = useMemo(() => {
+    const defaults = [
+      { mint: 'So11111111111111111111111111111111111111112', symbol: 'SOL', logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png' },
+      { mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', symbol: 'USDC', logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png' },
+      { mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', symbol: 'JUP', logoURI: 'https://static.jup.ag/jup/icon.png' }
+    ]
+    const combined = [...holdings]
+    defaults.forEach(d => {
+      if (!combined.find(c => c.mint === d.mint)) {
+        combined.push({ ...d, balance: 0, price: 0, value: 0 } as any)
+      }
+    })
+    return combined
+  }, [holdings])
 
   const inputToken = tokens.find(t => t.mint === newInputMint)
   const outputToken = tokens.find(t => t.mint === newOutputMint)
@@ -162,7 +173,7 @@ export const ArbSettingsWidget = () => {
 
       <button onClick={handleInitialize} disabled={status === 'loading'} className={cn("w-full py-3.5 rounded-2xl text-black font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2", isMonitoring ? "bg-white/5 text-accent-cyan border border-accent-cyan/30" : "bg-accent-cyan shadow-glow-cyan")}>
         {status === 'loading' ? <Activity size={14} className="animate-spin" /> : <Zap size={14} fill="currentColor" />}
-        Initialize Engine
+        Sync Engine
       </button>
     </div>
   )
@@ -174,46 +185,50 @@ export const ArbAnalysisWidget = () => {
   const venues = ["Raydium", "Orca", "Meteora", "Phoenix"]
 
   return (
-    <div className="bg-black/40 rounded-2xl border border-white/15 h-full flex flex-col relative overflow-hidden shadow-inner p-3">
-      <div className="flex items-center justify-between mb-2 shrink-0">
+    <div className="bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full shrink-0">
+      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-20" />
+      
+      <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
         <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-accent-cyan animate-pulse shadow-[0_0_8px_#00ffff]" />
-          <span className="text-[10px] font-black text-white uppercase tracking-wider">Venue Matrix</span>
+          <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan"><BarChart3 size={18} /></div>
+          <h2 className="text-xs font-bold text-white uppercase tracking-tight">Venue Matrix</h2>
         </div>
-        <div className="text-[8px] font-mono text-accent-cyan uppercase tracking-widest opacity-60">Live 5s Polling</div>
+        <div className="text-[8px] font-mono text-accent-cyan uppercase tracking-widest opacity-60 px-2">Live 5s Polling</div>
       </div>
 
-      <div className="flex-1 overflow-auto custom-scrollbar pr-1">
-        <div className="grid grid-cols-[60px_repeat(4,1fr)] gap-1 mb-1 px-1">
-          <div className="text-[7px] font-black text-text-muted uppercase">Pair</div>
-          {venues.map(v => <div key={v} className="text-[7px] font-black text-text-muted uppercase text-center">{v}</div>)}
-        </div>
+      <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0 mt-2">
+        <div className="flex-1 overflow-auto custom-scrollbar p-2">
+          <div className="grid grid-cols-[60px_repeat(4,1fr)] gap-1 mb-1 px-1">
+            <div className="text-[7px] font-black text-text-muted uppercase">Pair</div>
+            {venues.map(v => <div key={v} className="text-[7px] font-black text-text-muted uppercase text-center">{v}</div>)}
+          </div>
 
-        <div className="space-y-1">
-          {Object.entries(matrix).map(([pair, venuePrices]) => {
-            const prices = Object.values(venuePrices)
-            const minPrice = Math.min(...prices)
-            const maxPrice = Math.max(...prices)
-            return (
-              <div key={pair} className="grid grid-cols-[60px_repeat(4,1fr)] gap-1 h-10 items-stretch">
-                <div className="bg-white/5 rounded-lg border border-white/5 px-1.5 flex items-center min-w-0">
-                  <span className="text-[8px] font-black text-white uppercase truncate">{pair}</span>
-                </div>
-                {venues.map(v => {
-                  const price = venuePrices[v]
-                  const isBest = price === minPrice && minPrice !== maxPrice
-                  const isWorst = price === maxPrice && minPrice !== maxPrice
-                  return (
-                    <div key={v} className={cn("rounded-lg border px-1 flex flex-col items-center justify-center transition-all", isBest ? "bg-accent-green/10 border-accent-green/30" : isWorst ? "bg-accent-red/10 border-accent-red/30" : "bg-white/[0.02] border-white/5")}>
-                      <div className={cn("text-[9px] font-mono font-bold", isBest ? "text-accent-green" : isWorst ? "text-accent-red" : "text-white/60")}>
-                        {price ? price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'}
+          <div className="space-y-1">
+            {Object.entries(matrix).map(([pair, venuePrices]) => {
+              const prices = Object.values(venuePrices)
+              const minPrice = Math.min(...prices)
+              const maxPrice = Math.max(...prices)
+              return (
+                <div key={pair} className="grid grid-cols-[60px_repeat(4,1fr)] gap-1 h-10 items-stretch">
+                  <div className="bg-white/5 rounded-lg border border-white/5 px-1.5 flex items-center min-w-0">
+                    <span className="text-[8px] font-black text-white uppercase truncate">{pair}</span>
+                  </div>
+                  {venues.map(v => {
+                    const price = venuePrices[v]
+                    const isBest = price === minPrice && minPrice !== maxPrice
+                    const isWorst = price === maxPrice && minPrice !== maxPrice
+                    return (
+                      <div key={v} className={cn("rounded-lg border px-1 flex flex-col items-center justify-center transition-all", isBest ? "bg-accent-green/10 border-accent-green/30 shadow-[inset_0_0_10px_rgba(0,255,157,0.1)]" : isWorst ? "bg-accent-red/10 border-accent-red/30 shadow-[inset_0_0_10px_rgba(255,42,109,0.1)]" : "bg-white/[0.02] border-white/5")}>
+                        <div className={cn("text-[9px] font-mono font-bold", isBest ? "text-accent-green" : isWorst ? "text-accent-red" : "text-white/60")}>
+                          {price ? price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'}
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )
-          })}
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -229,7 +244,7 @@ export const ArbOpportunitiesWidget = () => {
   const formatTime = (ts: number) => new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
 
   return (
-    <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
+    <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full shrink-0">
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-20" />
       
       <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
@@ -239,7 +254,7 @@ export const ArbOpportunitiesWidget = () => {
         </div>
       </div>
 
-      <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
+      <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0 mt-2">
         <div className="flex-1 overflow-auto custom-scrollbar p-3 space-y-2">
           {opportunities.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-text-muted gap-3 opacity-50">
@@ -275,11 +290,3 @@ export const ArbOpportunitiesWidget = () => {
     </div>
   )
 }
-
-// Backward compat wrapper
-export const ArbConfigWidget = () => (
-  <div className="flex gap-2 h-full min-h-0">
-    <ArbSettingsWidget />
-    <ArbOpportunitiesWidget />
-  </div>
-)
