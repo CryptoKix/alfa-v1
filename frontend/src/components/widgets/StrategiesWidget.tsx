@@ -53,12 +53,15 @@ const STRATEGIES = [
   },
 ]
 
-export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
+export const StrategiesWidget = ({ onSelect, selectedId, onViewBots, rightElement }: any) => {
   const { bots } = useAppSelector(state => state.bots)
 
-  return (
-    <div className="bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full shrink-0">
-      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50" />
+  const terminalContent = (
+    <div className={cn(
+      "bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full shrink-0",
+      rightElement ? "lg:w-[500px]" : "w-full"
+    )}>
+      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-20" />
       
       <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
         <div className="flex items-center gap-2">
@@ -133,6 +136,17 @@ export const StrategiesWidget = ({ onSelect, selectedId, onViewBots }: any) => {
             )
           })}
         </div>
+      </div>
+    </div>
+  )
+
+  if (!rightElement) return terminalContent
+
+  return (
+    <div className="flex gap-2 h-full">
+      {terminalContent}
+      <div className="flex-1 min-w-0">
+        {rightElement}
       </div>
     </div>
   )

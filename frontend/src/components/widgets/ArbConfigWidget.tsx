@@ -6,7 +6,7 @@ import { addNotification } from '@/features/notifications/notificationsSlice'
 import { ArbSimulatorModal } from '../modals/ArbSimulatorModal'
 import { setArbConfig } from '@/features/arb/arbSlice'
 
-// --- 1. SETTINGS WIDGET (Left Column) ---
+// --- 1. SETTINGS WIDGET ---
 export const ArbSettingsWidget = () => {
   const dispatch = useAppDispatch()
   const { holdings } = useAppSelector(state => state.portfolio)
@@ -97,7 +97,7 @@ export const ArbSettingsWidget = () => {
   )
 
   return (
-    <div className="lg:w-[380px] bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 shrink-0 h-full">
+    <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 h-full min-w-0">
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple via-accent-cyan to-accent-pink opacity-50 z-20" />
       
       <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
@@ -179,13 +179,13 @@ export const ArbSettingsWidget = () => {
   )
 }
 
-// --- 2. ANALYSIS WIDGET (Top Right Slot) ---
+// --- 2. ANALYSIS WIDGET ---
 export const ArbAnalysisWidget = () => {
   const { matrix } = useAppSelector(state => state.arb)
   const venues = ["Raydium", "Orca", "Meteora", "Phoenix"]
 
   return (
-    <div className="bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full shrink-0">
+    <div className="bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full">
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-20" />
       
       <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
@@ -218,7 +218,7 @@ export const ArbAnalysisWidget = () => {
                     const isBest = price === minPrice && minPrice !== maxPrice
                     const isWorst = price === maxPrice && minPrice !== maxPrice
                     return (
-                      <div key={v} className={cn("rounded-lg border px-1 flex flex-col items-center justify-center transition-all", isBest ? "bg-accent-green/10 border-accent-green/30 shadow-[inset_0_0_10px_rgba(0,255,157,0.1)]" : isWorst ? "bg-accent-red/10 border-accent-red/30 shadow-[inset_0_0_10px_rgba(255,42,109,0.1)]" : "bg-white/[0.02] border-white/5")}>
+                      <div key={v} className={cn("rounded-lg border px-1 flex flex-col items-center justify-center transition-all", isBest ? "bg-accent-green/10 border-accent-green/30" : isWorst ? "bg-accent-red/10 border-accent-red/30" : "bg-white/[0.02] border-white/5")}>
                         <div className={cn("text-[9px] font-mono font-bold", isBest ? "text-accent-green" : isWorst ? "text-accent-red" : "text-white/60")}>
                           {price ? price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'}
                         </div>
@@ -235,7 +235,7 @@ export const ArbAnalysisWidget = () => {
   )
 }
 
-// --- 3. OPPORTUNITIES WIDGET (Right Bottom) ---
+// --- 3. OPPORTUNITIES WIDGET ---
 export const ArbOpportunitiesWidget = () => {
   const { opportunities } = useAppSelector(state => state.arb)
   const [selectedOpp, setSelectedOpp] = useState<any>(null)
@@ -244,7 +244,7 @@ export const ArbOpportunitiesWidget = () => {
   const formatTime = (ts: number) => new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
 
   return (
-    <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full shrink-0">
+    <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full shrink-0 min-w-0">
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-20" />
       
       <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
