@@ -161,9 +161,13 @@ export const ArbAnalysisWidget = () => {
                   <div className="flex items-center justify-center">
                     <button 
                       onClick={() => id && handleDeletePair(id)}
-                      className="p-1 hover:bg-accent-pink/20 rounded-md text-text-muted hover:text-accent-pink transition-all opacity-0 group-hover:opacity-100"
+                      className={cn(
+                        "p-1.5 rounded-md transition-all",
+                        id ? "text-text-muted hover:text-accent-pink hover:bg-accent-pink/10 opacity-40 hover:opacity-100" : "text-white/5 cursor-not-allowed"
+                      )}
+                      title={id ? "Remove Pair" : "System Pair (Non-removable)"}
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
