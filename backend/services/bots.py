@@ -57,7 +57,22 @@ def process_grid_logic(bot, current_price):
         bot_alias = config.get('alias') or bot_id
         hysteresis = current_price * 0.0001 
 
-        print(f"DEBUG: Processing GRID logic for {bot_alias} | Price: {current_price:.4f} | Levels: {len(levels)}")
+        # Calculate next targets for logging
+        next_buy = None
+        next_sell = None
+        for i in range(1, len(levels)):
+            lvl = levels[i]
+            prev_lvl = levels[i-1]
+            if not lvl.get('has_position'):
+                if next_buy is None or prev_lvl['price'] > next_buy:
+                    next_buy = prev_lvl['price']
+            if lvl.get('has_position'):
+                if next_sell is None or lvl['price'] < next_sell:
+                    next_sell = lvl['price']
+
+        buy_str = f"${next_buy:.2f}" if next_buy is not None else "NONE"
+        sell_str = f"${next_sell:.2f}" if next_sell is not None else "NONE"
+        print(f"DEBUG: GRID {bot_alias} | Price: {current_price:.4f} | Next Buy: {buy_str} | Next Sell: {sell_str}")
 
         upper_bound = config.get('upper_bound', 0)
         if current_price >= (upper_bound + hysteresis):

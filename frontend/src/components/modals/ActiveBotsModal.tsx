@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Trash2, Activity, Pause, RefreshCw, ChevronDown, Plus, Edit2, Check, Eye } from 'lucide-react'
 import { Bot, setMonitorBotId } from '@/features/bots/botsSlice'
+import { addNotification } from '@/features/notifications/notificationsSlice'
 import { cn } from '@/lib/utils'
 import { useAppDispatch } from '@/app/hooks'
 
@@ -19,6 +20,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
   const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active')
   const [expandedBotId, setExpandedBotId] = useState<string | null>(null)
   const [editingBotId, setEditingBotId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   
   const activeBots = useMemo(() => bots.filter(b => b && b.status === 'active'), [bots])
@@ -367,13 +369,40 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
                           {bot.status === 'active' ? <Pause size={12} /> : <RefreshCw size={12} />}
                           {bot.status === 'active' ? 'Pause' : 'Resume'}
                        </button>
-                       <button 
-                          onClick={() => onDelete(bot.id)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-red/10 hover:bg-accent-red/20 border border-accent-red/20 rounded-lg text-accent-red text-[10px] font-bold uppercase tracking-wider transition-colors"
-                       >
-                          <Trash2 size={12} />
-                          Stop Engine
-                       </button>
+                       
+                       {confirmDeleteId === bot.id ? (
+                         <div className="flex items-center gap-2 bg-accent-red/10 border border-accent-red/20 rounded-lg px-2 py-1 animate-in fade-in zoom-in-95">
+                           <span className="text-[9px] font-black text-accent-red uppercase tracking-tighter">Confirm Termination?</span>
+                           <button 
+                             onClick={() => {
+                               onDelete(bot.id)
+                               setConfirmDeleteId(null)
+                               dispatch(addNotification({
+                                 title: 'Strategy Terminated',
+                                 message: `Engine ${bot.alias || bot.id} has been decommissioned.`,
+                                 type: 'info'
+                               }))
+                             }}
+                             className="px-2 py-1 bg-accent-red text-white rounded text-[9px] font-black uppercase hover:bg-white hover:text-accent-red transition-all"
+                           >
+                             Yes, Stop
+                           </button>
+                           <button 
+                             onClick={() => setConfirmDeleteId(null)}
+                             className="px-2 py-1 bg-white/10 text-white rounded text-[9px] font-black uppercase hover:bg-white/20 transition-all"
+                           >
+                             Cancel
+                           </button>
+                         </div>
+                       ) : (
+                         <button 
+                            onClick={() => setConfirmDeleteId(bot.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-red/10 hover:bg-accent-red/20 border border-accent-red/20 rounded-lg text-accent-red text-[10px] font-bold uppercase tracking-wider transition-colors"
+                         >
+                            <Trash2 size={12} />
+                            Stop Engine
+                         </button>
+                       )}
                     </div>
                   )}
                </div>

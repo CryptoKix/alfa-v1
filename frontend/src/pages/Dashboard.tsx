@@ -25,7 +25,6 @@ export default function Dashboard() {
   }
 
   const handleDeleteBot = async (id: string) => {
-    if (!confirm('Are you sure you want to terminate this strategy?')) return
     try {
         await fetch('/api/dca/delete', {
             method: 'POST',
