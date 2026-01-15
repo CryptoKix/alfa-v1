@@ -128,6 +128,7 @@ export const CopyTradeConfigWidget = () => {
 
   return (
     <div className="flex flex-col lg:flex-row gap-2 h-full animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-0">
+      {/* TARGETS COLUMN */}
       <div className="lg:w-[380px] bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 shrink-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-20" />
         
@@ -222,6 +223,7 @@ export const CopyTradeConfigWidget = () => {
         </div>
       </div>
 
+      {/* PARAMETERS COLUMN */}
       <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-cyan opacity-50 z-20" />
         
@@ -338,68 +340,7 @@ export const CopyTradeConfigWidget = () => {
         </div>
       </div>
 
-      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-pink opacity-50 z-20" />
-        
-        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
-              <Activity size={18} />
-            </div>
-            <div>
-              <h2 className="text-xs font-bold text-white uppercase tracking-tight">SIGNALS</h2>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
-          <div className="flex-1 overflow-auto custom-scrollbar p-3 space-y-2">
-            {signals?.map(s => (
-              <div key={s.signature} className="p-3 rounded-xl border border-white/5 bg-white/[0.02] transition-all relative overflow-hidden group">
-                <div className="flex items-start gap-3">
-                  <div className="p-1.5 rounded-lg shrink-0 text-accent-cyan bg-accent-cyan/10">
-                    <Zap size={14} />
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-0.5">
-                      <span className="text-[10px] font-black text-white uppercase tracking-tight truncate">
-                        {s.type || 'SIGNAL'} - {s.alias}
-                      </span>
-                      <span className="text-[8px] text-text-muted font-mono shrink-0 flex items-center gap-1">
-                        <Clock size={8} />
-                        {formatTime(s.timestamp)}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-text-secondary leading-relaxed line-clamp-2">
-                      {s.sent && s.received ? (
-                        <span className="flex items-center gap-1">
-                          Sold {s.sent.amount.toFixed(2)} {s.sent.symbol} → Bought {s.received.amount.toFixed(2)} {s.received.symbol}
-                        </span>
-                      ) : (
-                        `Activity detected for ${s.alias}`
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-text-muted italic text-[10px] opacity-50 gap-2">
-                <Users size={24} strokeWidth={1} />
-                <span>Select a target wallet</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
+      {/* SIGNALS COLUMN */}
       <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-pink opacity-50 z-20" />
         
