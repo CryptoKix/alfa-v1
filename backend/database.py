@@ -214,8 +214,8 @@ class TactixDB:
         """Record a newly detected token launch."""
         sql = '''
             INSERT OR REPLACE INTO sniped_tokens (
-                mint, symbol, name, pool_address, dex_id, initial_liquidity, socials_json, signature, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                mint, symbol, name, pool_address, dex_id, initial_liquidity, socials_json, signature, status, is_rug
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         '''
         with self._get_connection() as conn:
             conn.execute(sql, (
@@ -227,7 +227,8 @@ class TactixDB:
                 token_data.get('initial_liquidity'),
                 json.dumps(token_data.get('socials', {})),
                 token_data.get('signature'),
-                token_data.get('status', 'tracking')
+                token_data.get('status', 'tracking'),
+                token_data.get('is_rug', False)
             ))
 
     def get_tracked_tokens(self, limit=50):

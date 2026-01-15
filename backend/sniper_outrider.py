@@ -156,6 +156,11 @@ class SniperOutrider:
                 info = asset.get('token_info', {})
                 metadata = asset.get('content', {}).get('metadata', {})
                 
+                # Rug Check Analysis
+                mint_auth = info.get('mint_authority')
+                freeze_auth = info.get('freeze_authority')
+                is_rug = bool(mint_auth or freeze_auth)
+                
                 token_data = {
                     "mint": new_mint,
                     "symbol": info.get('symbol') or metadata.get('symbol') or "???",
@@ -163,7 +168,10 @@ class SniperOutrider:
                     "dex_id": dex_id,
                     "initial_liquidity": round(sol_delta, 2),
                     "detected_at": datetime.now().isoformat(),
-                    "signature": signature
+                    "signature": signature,
+                    "is_rug": is_rug,
+                    "mint_auth": mint_auth,
+                    "freeze_auth": freeze_auth
                 }
 
                 # Final False-Positive Check: If token is a well-known old token (like Fartcoin), skip it.
@@ -171,7 +179,8 @@ class SniperOutrider:
                 # For now, just trust the "new mint in balances" logic.
 
                 self.db.save_sniped_token(token_data)
-                logger.info(f"✨ SNIPER ALERT: {token_data['symbol']} | LIQ: {sol_delta:.2f} SOL")
+                rug_status = "⚠️ RUG RISK" if is_rug else "✅ SAFE"
+                logger.info(f"✨ SNIPER ALERT: {token_data['symbol']} | LIQ: {sol_delta:.2f} SOL | {rug_status}")
                 requests.post(self.api_url, json=token_data, timeout=5)
 
             except Exception as e:

@@ -2,6 +2,12 @@
 
 ## [2026-01-15] - Arb Dynamic Manager, Sniper Refit & Backend Hardening
 
+### Feature: Sniper Rug Check Integration
+- **Authority Analysis:** Upgraded `sniper_outrider.py` to deeply inspect the Helius DAS asset response for `mint_authority` and `freeze_authority`.
+- **Risk Flagging:** Implemented logic to automatically flag tokens as "Rug Risk" (`is_rug=True`) if either authority is active (not null).
+- **Database Schema:** Updated `save_sniped_token` to correctly persist the `is_rug` status to the `sniped_tokens` table.
+- **UI Visual:** The `SniperWidget` now accurately displays the "Shield Alert" icon for tokens with active authorities.
+
 ### Feature: Arbitrage Dynamic Pair Manager
 - **Custom Mint Support:** Enhanced `ArbAddPairModal` with a unified search-and-entry interface, allowing users to paste any valid Solana mint address for real-time spread monitoring.
 - **Backend Resolution:** Updated the backend pairing logic to automatically resolve and cache metadata for unknown mints via Helius DAS during the pairing process.
