@@ -33,46 +33,54 @@ const NewsPage: React.FC = () => {
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
       {/* Header Info */}
-      <div className="flex justify-between items-center shrink-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 items-center gap-4 shrink-0">
         <div>
           <h1 className="text-xl font-bold text-text-primary tracking-tight flex items-center gap-2">
             <Newspaper className="text-accent-purple" size={24} />
             TACTIX INTELLIGENCE
           </h1>
-          <p className="text-xs text-text-muted">High-frequency fundamental stream & social signals</p>
         </div>
         
-        {/* Filter Controls */}
-        <div className="flex bg-background-card border border-white/5 rounded-xl p-1 gap-1">
-          <button 
-            onClick={() => setFilter('all')}
-            className={cn(
-              "px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
-              filter === 'all' ? "bg-white/10 text-white shadow-glow-white" : "text-text-muted hover:text-white"
-            )}
-          >
-            All
-          </button>
-          <button 
-            onClick={() => setFilter('news')}
-            className={cn(
-              "px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center gap-2",
-              filter === 'news' ? "bg-accent-purple/20 text-accent-purple border border-accent-purple/20" : "text-text-muted hover:text-white"
-            )}
-          >
-            <Newspaper size={12} />
-            News
-          </button>
-          <button 
-            onClick={() => setFilter('social')}
-            className={cn(
-              "px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center gap-2",
-              filter === 'social' ? "bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/20" : "text-text-muted hover:text-white"
-            )}
-          >
-            <Twitter size={12} />
-            Social
-          </button>
+        {/* Center Filter Controls */}
+        <div className="flex justify-center">
+          <div className="flex bg-background-card border border-white/5 rounded-xl p-1 gap-1">
+            <button 
+              onClick={() => setFilter('all')}
+              className={cn(
+                "px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                filter === 'all' ? "bg-white/10 text-white shadow-glow-white" : "text-text-muted hover:text-white"
+              )}
+            >
+              All
+            </button>
+            <button 
+              onClick={() => setFilter('news')}
+              className={cn(
+                "px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center gap-2",
+                filter === 'news' ? "bg-accent-purple/20 text-accent-purple border border-accent-purple/20" : "text-text-muted hover:text-white"
+              )}
+            >
+              <Newspaper size={12} />
+              News
+            </button>
+            <button 
+              onClick={() => setFilter('social')}
+              className={cn(
+                "px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center gap-2",
+                filter === 'social' ? "bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/20" : "text-text-muted hover:text-white"
+              )}
+            >
+              <Twitter size={12} />
+              Social
+            </button>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <div className="flex items-center gap-2 bg-accent-cyan/5 border border-accent-cyan/20 px-3 py-1.5 rounded-full">
+            <div className="w-1.5 h-1.5 rounded-full bg-accent-cyan animate-pulse" />
+            <span className="text-[10px] font-black text-accent-cyan uppercase tracking-widest">Global Feed Active</span>
+          </div>
         </div>
       </div>
 

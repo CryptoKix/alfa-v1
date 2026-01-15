@@ -2,6 +2,26 @@
 
 ## [2026-01-15] - Discovery Sniper, HFA Hardening & Ultra-Safe Operations
 
+### Feature: Logic & PnL Hardening (HFA)
+- **Execution Fix:** Resolved a critical crash in `process_grid_logic` caused by an unsupported `profit` keyword argument in the trade execution call.
+- **Ceiling Safety:** Engineered a protective catch-all mechanism to automatically liquidate any remaining positions if the market price exceeds the grid's `upper_bound`.
+- **Token Amount Validation:** Hardened the sell logic to verify positive inventory before triggering executions, preventing "zero-amount" trade errors.
+- **Industrial Telemetry:** Integrated high-density debug logging for real-time monitoring of price vs. grid interval processing.
+
+### Feature: UI/UX Engine v2
+- **Tabbed Management:** Integrated "Active" and "Inactive" tabs into the `ActiveBotsModal` for superior fleet oversight and filtered bot browsing.
+- **Dashboard HUD Refit:** Restructured the 12-column grid to elevate **Limit Orders** to the top-level HUD alongside Portfolio and Alerts.
+- **Modal Logic Hardening:** Enforced unconditional React Hook ordering in `ActiveBotsModal` to eliminate "Rules of Hooks" violations and prevent UI stalls.
+- **News Page Refinement:** Optimized the `NewsPage` header with a 3-column balanced layout and global feed status indicator.
+
+### Feature: Intel Hybrid Engine
+- **Social Integration:** Expanded the Intel service to aggregate high-signal posts from Reddit (`r/CryptoCurrency`) alongside industrial RSS feeds.
+- **Signal Multi-Threading:** Increased the news cache capacity to 100 items with asynchronous background polling.
+
+### Discord Telemetry v3
+- **Extended Alerts:** Added real-time Discord notifications for **Limit Orders** placement and **On-Chain Asset Transfers**.
+- **Webhook Hardening:** Centralized trade notification routing via the `DISCORD_WEBHOOK_URL` environment variable for seamless deployment.
+
 ### Feature: Discovery Sniper Engine
 - **Industrial Poller:** Implemented a high-speed discovery process in `sniper_outrider.py` monitoring Raydium Auth, CLMM, Meteora, and Pump.fun.
 - **Ultra-Safe Mode:** Engineered a protective operational state with strict serial RPC processing and a 1.5s mandatory stagger to prevent API key blacklisting.

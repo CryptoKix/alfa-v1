@@ -67,6 +67,22 @@ def create_limit_order(input_mint, output_mint, amount, price, priority_fee=0.00
     except Exception as e:
         raise e
 
+    # Discord Notification
+    try:
+        from services.notifications import send_discord_notification
+        input_sym = get_token_symbol(input_mint)
+        output_sym = get_token_symbol(output_mint)
+        title = f"📝 LIMIT ORDER PLACED: {input_sym}/{output_sym}"
+        message = f"On-chain limit order created via **Jupiter**."
+        fields = [
+            {"name": "Making", "value": f"{amount:.4f} {input_sym}", "inline": True},
+            {"name": "Price", "value": f"${price:.6f}", "inline": True},
+            {"name": "Taking (Est)", "value": f"{(amount/price):.4f} {output_sym}", "inline": True}
+        ]
+        send_discord_notification(title, message, color=0x9945FF, fields=fields)
+    except Exception as e:
+        print(f"Discord Limit Order Notify Error: {e}")
+
     return {
         "success": True,
         "signature": sig,
@@ -217,6 +233,20 @@ def execute_transfer(recipient_address, amount, mint="So111111111111111111111111
     socketio.emit('history_update', {'history': db.get_history(50, wallet_address=WALLET_ADDRESS)}, namespace='/history')
     broadcast_balance()
 
+    # Discord Notification
+    try:
+        from services.notifications import send_discord_notification
+        title = f"💸 ASSET TRANSFER: {symbol}"
+        message = f"Transferred **{amount:.4f} {symbol}** to recipient wallet."
+        fields = [
+            {"name": "Amount", "value": f"{amount:.4f} {symbol}", "inline": True},
+            {"name": "Recipient", "value": f"`{recipient_address[:8]}...`", "inline": True},
+            {"name": "Signature", "value": f"[`Explorer`](https://solscan.io/tx/{sig})", "inline": True}
+        ]
+        send_discord_notification(title, message, color=0x9945FF, fields=fields)
+    except Exception as e:
+        print(f"Discord Transfer Notify Error: {e}")
+
     return sig
 
 def execute_trade_logic(input_mint, output_mint, amount, source="Manual", slippage_bps=50, priority_fee=0.001):
@@ -309,6 +339,26 @@ def execute_trade_logic(input_mint, output_mint, amount, source="Manual", slippa
     # Broadcast updates
     socketio.emit('history_update', {'history': db.get_history(50, wallet_address=WALLET_ADDRESS)}, namespace='/history')
     broadcast_balance()
+
+    # Discord Notification
+    try:
+        input_sym = get_token_symbol(input_mint)
+        output_sym = get_token_symbol(output_mint)
+        # Calculate price per unit of output token
+        price_per_unit = usd_value / amount_out if amount_out > 0 else 0
+        
+        notify_trade(
+            tx_type="BUY" if source.lower() != "grid sell" else "SELL",
+            input_sym=input_sym,
+            input_amt=amount,
+            output_sym=output_sym,
+            output_amt=amount_out,
+            price=price_per_unit,
+            source=source,
+            signature=sig
+        )
+    except Exception as e:
+        print(f"Discord Trade Notify Error: {e}")
 
     return {
         "signature": sig,

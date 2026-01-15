@@ -57,19 +57,59 @@ def process_grid_logic(bot, current_price):
         bot_alias = config.get('alias') or bot_id
         hysteresis = current_price * 0.0001 
 
+        print(f"DEBUG: Processing GRID logic for {bot_alias} | Price: {current_price:.4f} | Levels: {len(levels)}")
+
+        upper_bound = config.get('upper_bound', 0)
+        if current_price >= (upper_bound + hysteresis):
+            # Check for ANY level that still has a position and sell it
+            for i, level in enumerate(levels):
+                if level.get('has_position'):
+                    print(f"🚀 GRID CEILING SELL TRIGGER: {bot_alias} | Level {i+1} @ {level['price']} (Price: {current_price})")
+                    try:
+                        token_amount = level.get('token_amount', 0)
+                        if token_amount > 0:
+                            res = execute_trade_logic(
+                                fresh_bot['output_mint'], 
+                                fresh_bot['input_mint'], 
+                                token_amount, 
+                                f"Grid Ceiling Sell @ {level['price']:.2f}", 
+                                priority_fee=0
+                            )
+                            realized_val = res.get('usd_value', token_amount * current_price)
+                            cost_basis = level.get('cost_usd', config['amount_per_level'])
+                            profit = realized_val - cost_basis
+                            state['grid_yield'] = state.get('grid_yield', 0) + profit
+                            state['profit_realized'] = state.get('grid_yield', 0)
+                            state['run_count'] = state.get('run_count', 0) + 1
+                            level['has_position'] = False
+                            level['token_amount'] = 0
+                            level['cost_usd'] = 0
+                            changed = True
+                            print(f"✅ GRID CEILING SELL SUCCESS: {bot_alias} | Profit: ${profit:.4f}")
+                            # We don't break here, we might want to sell all levels above ceiling
+                        else:
+                            level['has_position'] = False # No tokens, just clear it
+                    except Exception as e:
+                        print(f"❌ GRID CEILING SELL ERROR: {bot_alias} | {e}")
+
         for i in range(1, len(levels)):
             level = levels[i] 
             prev_level = levels[i-1] 
             
+            # print(f"DEBUG: Checking Level {i+1}: Price={level['price']:.2f}, HasPos={level.get('has_position')}")
+
             # 1. SELL LOGIC
             if current_price >= (level['price'] + hysteresis) and level.get('has_position'):
                 level['has_position'] = False 
                 
                 print(f"🚀 GRID SELL TRIGGER: {bot_alias} | Level {i+1} @ {level['price']} (Price: {current_price})")
+                print(f"DEBUG: Attempting to sell {token_amount:.4f} {fresh_bot['output_symbol']} for estimated profit ${est_profit:.4f}")
                 try:
                     token_amount = level.get('token_amount', 0)
                     if token_amount <= 0:
-                        token_amount = config['amount_per_level'] / prev_level['price']
+                        print(f"⚠️ GRID SELL SKIPPED: {bot_alias} | Level {i+1} @ {level['price']} - No tokens to sell.")
+                        level['has_position'] = True # Revert has_position as no sell occurred
+                        continue # Skip to next level if no tokens to sell
                     
                     cost_basis = level.get('cost_usd', config['amount_per_level'])
                     est_profit = (token_amount * current_price) - cost_basis
@@ -79,8 +119,7 @@ def process_grid_logic(bot, current_price):
                         fresh_bot['input_mint'], 
                         token_amount, 
                         f"Grid Sell @ {level['price']:.2f}", 
-                        priority_fee=0,
-                        profit=est_profit
+                        priority_fee=0
                     )
                     
                     realized_val = res.get('usd_value', token_amount * current_price)
@@ -104,6 +143,7 @@ def process_grid_logic(bot, current_price):
                 level['has_position'] = True 
                 
                 print(f"🚀 GRID BUY TRIGGER: {bot_alias} | Level {i} @ {prev_level['price']} (Price: {current_price})")
+                print(f"DEBUG: Attempting to buy with {config['amount_per_level']:.4f} {fresh_bot['input_symbol']}")
                 try:
                     res = execute_trade_logic(fresh_bot['input_mint'], fresh_bot['output_mint'], config['amount_per_level'], f"Grid Buy @ {prev_level['price']:.2f}", priority_fee=0)
                     

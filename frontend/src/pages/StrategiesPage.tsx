@@ -88,7 +88,6 @@ export default function StrategiesPage() {
         isOpen={isBotsModalOpen}
         onClose={() => setIsBotsModalOpen(false)}
         bots={bots}
-        type={selectedStrategy}
         onPause={handlePauseBot}
         onDelete={handleDeleteBot}
         onCreateNew={() => setIsBotsModalOpen(false)}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Trash2, Activity, Pause, RefreshCw, ChevronDown, Plus, Edit2, Check, Eye } from 'lucide-react'
 import { Bot, setMonitorBotId } from '@/features/bots/botsSlice'
@@ -9,25 +9,24 @@ interface ActiveBotsModalProps {
   isOpen: boolean
   onClose: () => void
   bots: Bot[]
-  type: string
   onDelete: (id: string) => void
   onPause: (id: string, currentStatus: string) => void
   onCreateNew: () => void
 }
 
-export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, onPause, onCreateNew }: ActiveBotsModalProps) => {
+export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause, onCreateNew }: ActiveBotsModalProps) => {
   const dispatch = useAppDispatch()
+  const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active')
   const [expandedBotId, setExpandedBotId] = useState<string | null>(null)
   const [editingBotId, setEditingBotId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   
-  if (!isOpen) return null
+  const activeBots = useMemo(() => bots.filter(b => b && b.status === 'active'), [bots])
+  const inactiveBots = useMemo(() => bots.filter(b => b && (b.status === 'paused' || b.status === 'completed' || b.status === 'deleted')), [bots])
   
-  const safeType = String(type || 'all')
-  const isAll = safeType.toLowerCase() === 'all'
-  const filteredBots = (bots || []).filter(b => b && (isAll || (b.type?.toLowerCase() === safeType.toLowerCase())) && b.status !== 'deleted')
-  const activeBots = filteredBots.filter(b => b.status === 'active')
-  const completedBots = filteredBots.filter(b => b.status === 'completed')
+  const displayedBots = activeTab === 'active' ? activeBots : inactiveBots
+
+  if (!isOpen) return null
 
   const toggleExpand = (id: string, botType?: string) => {
     const type = botType?.toLowerCase()
@@ -83,15 +82,31 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
               <div className="p-2 bg-accent-cyan/10 rounded-xl text-accent-cyan">
                 <Activity size={28} />
               </div>
-              {isAll ? 'Master Engine Controller' : `${safeType.toUpperCase()} Engine Deployment`}
+              Bot Strategies
             </h2>
-            <div className="flex items-center gap-4 mt-2">
-              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-accent-green/10 border border-accent-green/20 rounded text-[10px] font-bold text-accent-green tracking-widest uppercase">
-                {activeBots.length} Online
-              </div>
-              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] font-bold text-text-muted tracking-widest uppercase">
-                {completedBots.length} Fulfilled
-              </div>
+            <div className="flex items-center gap-2 mt-2">
+              <button 
+                onClick={() => setActiveTab('active')}
+                className={cn(
+                  "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors",
+                  activeTab === 'active' 
+                      ? "bg-accent-green text-black shadow-glow-green" 
+                      : "text-text-muted hover:text-white"
+                )}
+              >
+                Active ({activeBots.length})
+              </button>
+              <button 
+                onClick={() => setActiveTab('inactive')}
+                className={cn(
+                  "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors",
+                  activeTab === 'inactive' 
+                      ? "bg-accent-red text-white shadow-glow-red" 
+                      : "text-text-muted hover:text-white"
+                )}
+              >
+                Inactive ({inactiveBots.length})
+              </button>
             </div>
           </div>
           <button 
@@ -104,16 +119,20 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], type, onDelete, on
 
         {/* Content */}
         <div className="flex-1 overflow-auto custom-scrollbar p-8 space-y-6">
-          {filteredBots.length === 0 ? (
+          {displayedBots.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-text-muted opacity-30 gap-4">
               <Activity size={48} strokeWidth={1} />
               <div className="text-center">
-                <div className="font-black text-lg uppercase tracking-[0.3em]">No Active Engines</div>
-                <div className="text-xs mt-1 uppercase tracking-widest">Awaiting tactical initialization</div>
+                <div className="font-black text-lg uppercase tracking-[0.3em]">
+                  {activeTab === 'active' ? 'No Active Engines' : 'No Inactive Engines'}
+                </div>
+                <div className="text-xs mt-1 uppercase tracking-widest">
+                  {activeTab === 'active' ? 'Awaiting tactical initialization' : 'All engines are active or deleted'}
+                </div>
               </div>
             </div>
           ) : (
-            filteredBots.map(bot => {
+            displayedBots.map(bot => {
                const isExpanded = expandedBotId === bot.id
                const gridLevels = bot.grid_levels || []
                const isGrid = bot.type?.toLowerCase() === 'grid'
