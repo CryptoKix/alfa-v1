@@ -5,10 +5,11 @@ export interface NewsItem {
   title: string
   url: string
   source: string
+  type: 'news' | 'social'
   published_at: string
   sentiment: 'bullish' | 'bearish' | 'neutral' | 'urgent'
   is_relevant: boolean
-  currencies: string[]
+  currencies?: string[]
 }
 
 export interface IntelState {

@@ -1,10 +1,16 @@
-import React from 'react'
-import { Newspaper, TrendingUp, TrendingDown, Zap, Clock, ExternalLink } from 'lucide-react'
+import React, { useState } from 'react'
+import { Newspaper, TrendingUp, TrendingDown, Zap, Clock, ExternalLink, Twitter, Filter } from 'lucide-react'
 import { useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 
 const NewsPage: React.FC = () => {
   const { news } = useAppSelector(state => state.intel)
+  const [filter, setFilter] = useState<'all' | 'news' | 'social'>('all')
+
+  const filteredNews = news.filter(item => {
+    if (filter === 'all') return true
+    return item.type === filter
+  })
 
   const getSentimentStyles = (sentiment: string) => {
     switch (sentiment) {
@@ -33,23 +39,52 @@ const NewsPage: React.FC = () => {
             <Newspaper className="text-accent-purple" size={24} />
             TACTIX INTELLIGENCE
           </h1>
-          <p className="text-xs text-text-muted">High-frequency fundamental stream & sentiment analysis</p>
+          <p className="text-xs text-text-muted">High-frequency fundamental stream & social signals</p>
         </div>
-        <div className="flex items-center gap-2 bg-accent-cyan/5 border border-accent-cyan/20 px-3 py-1.5 rounded-full">
-          <div className="w-1.5 h-1.5 rounded-full bg-accent-cyan animate-pulse" />
-          <span className="text-[10px] font-black text-accent-cyan uppercase tracking-widest">Global Feed Active</span>
+        
+        {/* Filter Controls */}
+        <div className="flex bg-background-card border border-white/5 rounded-xl p-1 gap-1">
+          <button 
+            onClick={() => setFilter('all')}
+            className={cn(
+              "px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+              filter === 'all' ? "bg-white/10 text-white shadow-glow-white" : "text-text-muted hover:text-white"
+            )}
+          >
+            All
+          </button>
+          <button 
+            onClick={() => setFilter('news')}
+            className={cn(
+              "px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center gap-2",
+              filter === 'news' ? "bg-accent-purple/20 text-accent-purple border border-accent-purple/20" : "text-text-muted hover:text-white"
+            )}
+          >
+            <Newspaper size={12} />
+            News
+          </button>
+          <button 
+            onClick={() => setFilter('social')}
+            className={cn(
+              "px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center gap-2",
+              filter === 'social' ? "bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/20" : "text-text-muted hover:text-white"
+            )}
+          >
+            <Twitter size={12} />
+            Social
+          </button>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto custom-scrollbar pr-2">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-8">
-          {news.length === 0 ? (
+          {filteredNews.length === 0 ? (
             <div className="col-span-full h-64 flex flex-col items-center justify-center text-text-muted opacity-50 italic border border-white/5 rounded-2xl bg-background-card">
-              <Newspaper size={48} strokeWidth={1} className="mb-4" />
-              <span className="text-sm uppercase tracking-widest">Aggregating Global Intel...</span>
+              <Filter size={48} strokeWidth={1} className="mb-4" />
+              <span className="text-sm uppercase tracking-widest">No signals found for filter: {filter}</span>
             </div>
           ) : (
-            news.map((item) => (
+            filteredNews.map((item) => (
               <div 
                 key={item.id} 
                 className={cn(
@@ -66,6 +101,12 @@ const NewsPage: React.FC = () => {
                 <div className="flex flex-col gap-3 flex-1">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
+                      <div className={cn(
+                        "p-1 rounded bg-white/5",
+                        item.type === 'social' ? "text-accent-cyan" : "text-accent-purple"
+                      )}>
+                        {item.type === 'social' ? <Twitter size={12} /> : <Newspaper size={12} />}
+                      </div>
                       <span className={cn(
                         "px-2 py-0.5 rounded border text-[9px] font-black uppercase flex items-center gap-1.5",
                         getSentimentStyles(item.sentiment)
@@ -73,13 +114,8 @@ const NewsPage: React.FC = () => {
                         {getSentimentIcon(item.sentiment)}
                         {item.sentiment}
                       </span>
-                      {item.is_relevant && (
-                        <span className="px-2 py-0.5 rounded bg-accent-cyan text-black text-[9px] font-black uppercase shadow-glow-cyan">
-                          Portfolio Match
-                        </span>
-                      )}
                     </div>
-                    <span className="text-[10px] text-text-muted font-bold uppercase tracking-tighter">
+                    <span className="text-[10px] text-text-muted font-bold uppercase tracking-tighter truncate max-w-[120px]">
                       {item.source}
                     </span>
                   </div>
@@ -91,9 +127,11 @@ const NewsPage: React.FC = () => {
 
                 <div className="flex items-center justify-between mt-auto pt-4 border-t border-white/5">
                   <div className="flex gap-2">
-                    {item.currencies?.slice(0, 3).map(cur => (
-                      <span key={cur} className="text-[10px] font-black text-accent-cyan/70 uppercase">#{cur}</span>
-                    ))}
+                    {item.is_relevant && (
+                      <span className="px-2 py-0.5 rounded bg-accent-cyan text-black text-[9px] font-black uppercase shadow-glow-cyan">
+                        Portfolio Match
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="text-[10px] text-text-muted font-mono">
