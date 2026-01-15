@@ -4,7 +4,7 @@ import requests
 import json
 import time
 from datetime import datetime
-from config import DISCORD_WEBHOOK_URL, DISCORD_GIT_WEBHOOK_URL
+from config import DISCORD_WEBHOOK_URL, DISCORD_GIT_WEBHOOK_URL, DISCORD_SYSTEM_WEBHOOK_URL
 
 def send_discord_notification(title, message, color=0x00FFFF, fields=None, webhook_url=None):
     """Send a formatted embed to Discord via webhook."""
@@ -52,6 +52,17 @@ def notify_git_commit(author, branch, commit_hash, message, changes_summary=None
         fields.append({"name": "Files Changed", "value": f"```\n{changes_summary}\n```", "inline": False})
 
     send_discord_notification(title, desc, color=0x00FF00, fields=fields, webhook_url=DISCORD_GIT_WEBHOOK_URL)
+
+def notify_system_status(status, detail=None):
+    """Notify when system components go online or offline."""
+    title = f"🛰️ SYSTEM {status.upper()}"
+    color = 0x00FFFF if status.upper() == "ONLINE" else 0xFF0000 # Cyan for ON, Red for OFF
+    
+    message = f"TacTix.sol System Core component is now **{status.upper()}**."
+    if detail:
+        message += f"\n\n**Detail:** {detail}"
+        
+    send_discord_notification(title, message, color=color, webhook_url=DISCORD_SYSTEM_WEBHOOK_URL)
 
 def notify_trade(tx_type, input_sym, input_amt, output_sym, output_amt, price, profit=None, signature=None, source="Manual"):
     """Specific formatter for trade notifications."""

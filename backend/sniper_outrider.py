@@ -6,10 +6,12 @@ import time
 import asyncio
 import logging
 import requests
+import signal
 from datetime import datetime
 from helius_infrastructure import HeliusClient
 from database import TactixDB
 from config import HELIUS_API_KEY, SERVER_PORT
+from services.notifications import notify_system_status
 
 # Configure logging with high precision
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s.%(msecs)03d] [%(levelname)s] %(name)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -37,6 +39,13 @@ class SniperOutrider:
 
     async def start(self):
         logger.info("🎯 Sniper Outrider Started (Ultra-Safe Mode)")
+        notify_system_status("ONLINE", "High-speed Sniper Outrider discovery process is active.")
+        
+        # Signal Handling for OFFLINE notification
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            loop.add_signal_handler(sig, lambda: asyncio.create_task(self.shutdown()))
+
         asyncio.create_task(self.heartbeat())
         
         # Wait for backend
@@ -174,6 +183,15 @@ class SniperOutrider:
             status = "COOLDOWN" if time.time() < self.cooldown_until else "ACTIVE"
             logger.info(f"💓 Heartbeat: {status} | Tracking {len(self.seen_signatures)} sigs")
             await asyncio.sleep(60)
+
+    async def shutdown(self):
+        logger.info("🛑 Sniper Outrider: Shutting down...")
+        self.running = False
+        notify_system_status("OFFLINE", "High-speed Sniper Outrider discovery process has been terminated.")
+        await asyncio.sleep(1) # Give time for notification
+        # The loop will stop naturally since self.running is False, 
+        # or the process will exit after this task completes if triggered by signal
+        os._exit(0)
 
 if __name__ == "__main__":
     outrider = SniperOutrider()

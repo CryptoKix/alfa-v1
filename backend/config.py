@@ -8,7 +8,7 @@ import json
 from dotenv import load_dotenv
 from solders.keypair import Keypair
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 # Base paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -20,6 +20,7 @@ JUPITER_API_KEY = os.getenv("JUPITER_API_KEY", "")
 SOLANA_TRACKER_API_KEY = os.getenv("SOLANA_TRACKER_API_KEY", "")
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 DISCORD_GIT_WEBHOOK_URL = os.getenv("DISCORD_GIT_WEBHOOK_URL", "")
+DISCORD_SYSTEM_WEBHOOK_URL = os.getenv("DISCORD_SYSTEM_WEBHOOK_URL", "")
 
 # RPC & API URLs
 SOLANA_RPC = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"

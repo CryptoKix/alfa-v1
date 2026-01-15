@@ -6,6 +6,8 @@ eventlet.monkey_patch()
 import os
 import threading
 import logging
+import signal
+import sys
 from flask import request, render_template, jsonify
 
 # Configure logging
@@ -22,7 +24,7 @@ from arb_engine import ArbEngine
 from services.bots import dca_scheduler
 from services.trading import execute_trade_logic
 from copy_trader import CopyTraderEngine
-from services.notifications import send_discord_notification
+from services.notifications import send_discord_notification, notify_system_status
 from services.sniper import sniper_engine
 from services.news import news_service
 
@@ -50,6 +52,18 @@ arb_engine = ArbEngine(helius, db, socketio)
 set_arb_engine(arb_engine)
 set_copy_trader(copy_trader)
 
+def handle_shutdown(signum, frame):
+    """Graceful shutdown handler for Discord notification."""
+    logger.info(f"🛑 Received signal {signum}. Shutting down...")
+    try:
+        notify_system_status("OFFLINE", "TacTix.sol System Core is shutting down.")
+    except:
+        pass
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, handle_shutdown)
+signal.signal(signal.SIGINT, handle_shutdown)
+
 if __name__ == '__main__':
     threading.Thread(target=dca_scheduler, args=(app,), daemon=True).start()
     threading.Thread(target=balance_poller, args=(app,), daemon=True).start()
@@ -58,7 +72,7 @@ if __name__ == '__main__':
     # sniper_engine.start() # Replaced by sniper_outrider.py for real-time WebSocket discovery
     news_service.start()
 
-    send_discord_notification("🛰️ SYSTEM ONLINE", "TacTix.sol System Core has initialized.", color=0x00FFFF)
+    notify_system_status("ONLINE", "TacTix.sol System Core has initialized.")
 
     socketio.run(
         app,

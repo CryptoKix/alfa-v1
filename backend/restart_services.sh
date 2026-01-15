@@ -9,8 +9,19 @@ cd "$SCRIPT_DIR"
 
 echo "🔄 Restarting TACTIX Services in $SCRIPT_DIR..."
 
-# 1. Kill existing instances (Aggressive)
-# Kill standard and unbuffered variants
+# 1. Kill existing instances (Graceful first)
+echo "🛑 Terminating existing services..."
+pkill -f "python3 app.py"
+pkill -f "python3 -u app.py"
+pkill -f "python3 price_server.py"
+pkill -f "python3 -u price_server.py"
+pkill -f "python3 sniper_outrider.py"
+pkill -f "python3 -u sniper_outrider.py"
+
+# Small wait to allow graceful exit and Discord notifications
+sleep 3
+
+# Forced cleanup for any stubborn processes
 pkill -9 -f "python3 app.py"
 pkill -9 -f "python3 -u app.py"
 pkill -9 -f "python3 price_server.py"
