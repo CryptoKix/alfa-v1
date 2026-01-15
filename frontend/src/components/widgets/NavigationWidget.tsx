@@ -21,15 +21,20 @@ export const NavigationWidget = () => {
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50" />
 
       <div className="h-16 flex items-center justify-center border-b border-white/5 mb-2 shrink-0">
-        <div className="hidden md:flex items-baseline gap-2">
-          <h1 className="text-2xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-accent-cyan to-accent-purple">
-            TACTIX.sol
-          </h1>
-          <span className="text-[8px] font-bold text-accent-cyan uppercase tracking-widest opacity-80">
-            v1.0.1 Alpha
-          </span>
+        <div className="hidden md:flex items-center gap-3">
+          <img src="/logo_concept_1.svg" alt="Tactix" className="w-8 h-8 drop-shadow-glow-cyan" />
+          <div className="flex flex-col">
+            <h1 className="text-xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-accent-cyan to-accent-purple leading-none">
+              TACTIX.sol
+            </h1>
+            <span className="text-[7px] font-bold text-accent-cyan uppercase tracking-[0.3em] opacity-80 mt-1">
+              v1.0.1 Alpha
+            </span>
+          </div>
         </div>
-        <h1 className="md:hidden text-2xl font-black text-accent-cyan">T</h1>
+        <div className="md:hidden flex items-center justify-center">
+          <img src="/logo_concept_1.svg" alt="T" className="w-10 h-10 drop-shadow-glow-cyan" />
+        </div>
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto custom-scrollbar mt-2">
