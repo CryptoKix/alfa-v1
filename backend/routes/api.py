@@ -133,6 +133,20 @@ def api_sniper_engine_toggle():
         return jsonify({"success": True, "isRunning": True})
 
 
+# --- Wolf Pack APIs ---
+
+@api_bp.route('/api/wolfpack/status')
+def api_wolfpack_status():
+    from services.wolfpack import wolf_pack
+    return jsonify(wolf_pack.get_status())
+
+@api_bp.route('/api/wolfpack/update', methods=['POST'])
+def api_wolfpack_update():
+    from services.wolfpack import wolf_pack
+    wolf_pack.update_config(request.json)
+    return jsonify({"success": True})
+
+
 # --- Address Book APIs ---
 
 @api_bp.route('/api/addressbook')

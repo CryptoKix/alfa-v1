@@ -31,7 +31,17 @@
 
 ## Phase 4: Advanced Execution Engines (Next)
 
-### 1. Jupiter Limit Order Grid Bot
+### 1. "Wolf Pack" Consensus Engine
+- **Concept:** Automated trend following based on consensus among multiple tracked whale wallets.
+- **Logic:** Trigger a buy only if `X` unique targets buy the same token within `Y` minutes.
+- **UI:** A specialized HUD showing "Consensus Forming" events (e.g., "2/3 targets bought $WIF").
+
+### 2. "Guardian" Portfolio Manager
+- **Concept:** An automated Trailing Stop-Loss system for manual portfolio holdings.
+- **UI:** Right-click context menu on Portfolio assets to "Attach Guardian".
+- **Logic:** Monitors real-time price feed and liquidates the position if it drops X% from its local high.
+
+### 3. Jupiter Limit Order Grid Bot
 - **On-Chain Persistence:** Implement a secondary GRID engine that utilizes Jupiter Limit Orders instead of real-time market swaps.
 - **Hybrid Management:** Build a UI toggle to switch between "HFA Grid" (Backend Triggered) and "Limit Grid" (On-Chain Triggered).
 - **Automated Re-queueing:** Logic to automatically place the next Buy/Sell limit order once an existing one is filled on-chain.

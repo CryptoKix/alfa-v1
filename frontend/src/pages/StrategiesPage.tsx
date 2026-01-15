@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { GridConfigWidget } from '@/components/widgets/GridConfigWidget'
 import { TWAPConfigWidget } from '@/components/widgets/TWAPConfigWidget'
 import { CopyTradeConfigWidget } from '@/components/widgets/CopyTradeConfigWidget'
+import { WolfPackWidget } from '@/components/widgets/WolfPackWidget'
 import { ArbSettingsWidget, ArbAnalysisWidget, ArbOpportunitiesWidget } from '@/components/widgets/ArbConfigWidget'
 import { ActiveBotsModal } from '@/components/modals/ActiveBotsModal'
 import { StrategyGauges } from '@/components/widgets/StrategyGauges'
@@ -64,8 +65,9 @@ export default function StrategiesPage() {
             {selectedStrategy === 'grid' && <GridConfigWidget />}
             {selectedStrategy === 'twap' && <TWAPConfigWidget />}
             {selectedStrategy === 'copy' && <CopyTradeConfigWidget />}
+            {selectedStrategy === 'wolf' && <WolfPackWidget />}
             
-            {!['grid', 'twap', 'copy', 'arb'].includes(selectedStrategy) && (
+            {!['grid', 'twap', 'copy', 'arb', 'wolf'].includes(selectedStrategy) && (
               <div className="h-full flex flex-col items-center justify-center bg-background-card border border-white/5 rounded-2xl relative overflow-hidden">
                  <div className="absolute inset-0 bg-gradient-to-br from-accent-purple/5 to-accent-cyan/5" />
                  <div className="p-20 text-center relative z-10">

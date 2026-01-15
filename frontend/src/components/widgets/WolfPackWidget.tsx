@@ -1,0 +1,205 @@
+import { useState, useEffect } from 'react'
+import { Dog, Activity, Settings2, Play, Pause, Zap } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { addNotification } from '@/features/notifications/notificationsSlice'
+import { useAppDispatch } from '@/app/hooks'
+import { socket } from '@/services/socket'
+
+export const WolfPackWidget = () => {
+  const dispatch = useAppDispatch()
+  const [config, setConfig] = useState<any>({
+    enabled: false,
+    consensus_threshold: 2,
+    time_window: 60,
+    buy_amount: 0.1,
+    priority_fee: 0.005,
+    slippage: 15
+  })
+  const [consensus, setConsensus] = useState<any[]>([])
+  
+  useEffect(() => {
+    fetchStatus()
+    
+    const handleUpdate = (data: any) => {
+        if (data.config) setConfig(data.config)
+        if (data.consensus) setConsensus(data.consensus)
+    }
+    
+    socket.on('wolfpack_update', handleUpdate)
+    return () => { socket.off('wolfpack_update', handleUpdate) }
+  }, [])
+
+  const fetchStatus = async () => {
+    try {
+        const res = await fetch('/api/wolfpack/status')
+        const data = await res.json()
+        if (data.config) setConfig(data.config)
+        if (data.consensus) setConsensus(data.consensus)
+    } catch(e) {}
+  }
+
+  const updateConfig = async (key: string, value: any) => {
+    const newConfig = { ...config, [key]: value }
+    setConfig(newConfig) // Optimistic update
+    try {
+        await fetch('/api/wolfpack/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [key]: value })
+        })
+        dispatch(addNotification({ title: 'Wolf Pack Updated', message: 'Parameters saved', type: 'success' }))
+    } catch (e) {}
+  }
+
+  return (
+    <div className="flex gap-4 h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Config Panel */}
+      <div className="w-[320px] bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4">
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple via-accent-pink to-accent-cyan opacity-50 z-20" />
+        
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-accent-pink/10 rounded-lg text-accent-pink">
+              <Dog size={18} />
+            </div>
+            <div>
+              <h2 className="text-xs font-bold text-white uppercase tracking-tight">Wolf Pack Config</h2>
+            </div>
+          </div>
+          <button 
+            onClick={() => updateConfig('enabled', !config.enabled)}
+            className={cn(
+                "p-1.5 rounded-lg transition-all border",
+                config.enabled 
+                    ? "bg-accent-green/10 border-accent-green/30 text-accent-green hover:bg-accent-green/20" 
+                    : "bg-white/5 border-white/10 text-text-muted hover:text-white"
+            )}
+          >
+            {config.enabled ? <Pause size={16} /> : <Play size={16} />}
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-4 overflow-auto custom-scrollbar p-1">
+            <div className="space-y-2">
+                <label className="text-[10px] uppercase text-text-muted font-bold block">Consensus Threshold</label>
+                <div className="flex items-center gap-2">
+                    <input 
+                        type="range" min="2" max="10" step="1" 
+                        value={config.consensus_threshold}
+                        onChange={(e) => updateConfig('consensus_threshold', parseInt(e.target.value))}
+                        className="flex-1 h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-accent-pink"
+                    />
+                    <span className="font-mono font-bold text-accent-pink w-8 text-right">{config.consensus_threshold}</span>
+                </div>
+                <p className="text-[9px] text-text-secondary">Minimum unique whales buying within window.</p>
+            </div>
+
+            <div className="space-y-2">
+                <label className="text-[10px] uppercase text-text-muted font-bold block">Time Window (Seconds)</label>
+                <input 
+                    type="number" 
+                    value={config.time_window}
+                    onChange={(e) => updateConfig('time_window', parseInt(e.target.value))}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-pink/50 outline-none"
+                />
+            </div>
+
+            <div className="space-y-2">
+                <label className="text-[10px] uppercase text-text-muted font-bold block">Buy Amount (SOL)</label>
+                <input 
+                    type="number" 
+                    value={config.buy_amount}
+                    onChange={(e) => updateConfig('buy_amount', parseFloat(e.target.value))}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-pink/50 outline-none"
+                />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                    <label className="text-[9px] uppercase text-text-muted font-bold block">Slippage (%)</label>
+                    <input 
+                        type="number" value={config.slippage}
+                        onChange={(e) => updateConfig('slippage', parseFloat(e.target.value))}
+                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-pink/50 outline-none"
+                    />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[9px] uppercase text-text-muted font-bold block">Priority (SOL)</label>
+                    <input 
+                        type="number" value={config.priority_fee}
+                        onChange={(e) => updateConfig('priority_fee', parseFloat(e.target.value))}
+                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-pink/50 outline-none"
+                    />
+                </div>
+            </div>
+        </div>
+      </div>
+
+      {/* Consensus Feed */}
+      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4">
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-20" />
+        
+        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
+              <Activity size={18} />
+            </div>
+            <div>
+              <h2 className="text-xs font-bold text-white uppercase tracking-tight">Consensus Feed</h2>
+            </div>
+          </div>
+          <div className="text-[10px] font-mono text-text-muted">
+            {consensus.length} Active Signals
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto custom-scrollbar space-y-2 bg-black/20 rounded-xl border border-white/5 p-2">
+            {consensus.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-text-muted gap-2 opacity-50">
+                    <Dog size={32} strokeWidth={1} />
+                    <div className="text-center font-bold text-[10px] uppercase tracking-widest">Waiting for the Pack...</div>
+                </div>
+            ) : (
+                consensus.map((item) => (
+                    <div key={item.mint} className="p-3 rounded-xl border border-white/5 bg-white/[0.02] flex items-center justify-between group hover:bg-white/5 transition-colors">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-accent-pink/10 text-accent-pink">
+                                <Zap size={16} />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-black text-white uppercase">{item.symbol}</span>
+                                    <span className="text-[9px] text-text-muted font-mono">{item.mint.slice(0,6)}...</span>
+                                </div>
+                                <div className="text-[10px] text-text-secondary">
+                                    {item.count} / {config.consensus_threshold} Whales • {item.wallets.length} Unique
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-4">
+                            {/* Progress Bar */}
+                            <div className="w-24 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-accent-purple to-accent-pink transition-all duration-500"
+                                    style={{ width: `${Math.min(100, (item.count / config.consensus_threshold) * 100)}%` }}
+                                />
+                            </div>
+                            
+                            <span className={cn(
+                                "text-xs font-black uppercase px-2 py-1 rounded",
+                                item.count >= config.consensus_threshold 
+                                    ? "bg-accent-green/20 text-accent-green animate-pulse" 
+                                    : "text-text-muted"
+                            )}>
+                                {item.count >= config.consensus_threshold ? "ATTACKING" : "FORMING"}
+                            </span>
+                        </div>
+                    </div>
+                ))
+            )}
+        </div>
+      </div>
+    </div>
+  )
+}

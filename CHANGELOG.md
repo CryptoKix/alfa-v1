@@ -2,6 +2,12 @@
 
 ## [2026-01-15] - Arb Dynamic Manager, Sniper Refit & Backend Hardening
 
+### Feature: Wolf Pack Consensus Engine
+- **Wisdom of Whales:** Implemented a new strategy engine that monitors signal consensus across all tracked targets.
+- **Automated Trend Following:** Triggers a buy execution only when a configurable number of unique whales buy the same token within a set time window.
+- **Tactical UI:** Added a specialized `WolfPackWidget` featuring consensus threshold sliders, live signal feed, and attack visualization.
+- **Safety Integration:** Fully integrated with the new slippage and priority fee safety controls.
+
 ### Feature: Sniper Rug Check Integration
 - **Authority Analysis:** Upgraded `sniper_outrider.py` to deeply inspect the Helius DAS asset response for `mint_authority` and `freeze_authority`.
 - **Risk Flagging:** Implemented logic to automatically flag tokens as "Rug Risk" (`is_rug=True`) if either authority is active (not null).

@@ -27,6 +27,7 @@ from copy_trader import CopyTraderEngine
 from services.notifications import send_discord_notification, notify_system_status
 from services.sniper import sniper_engine
 from services.news import news_service
+from services.wolfpack import wolf_pack
 
 # Create Flask application
 app = create_app()
@@ -71,6 +72,7 @@ if __name__ == '__main__':
     arb_engine.start()
     # sniper_engine.start() # Replaced by sniper_outrider.py for real-time WebSocket discovery
     news_service.start()
+    wolf_pack.start()
 
     notify_system_status("ONLINE", "TacTix.sol System Core has initialized.")
 
