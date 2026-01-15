@@ -39,7 +39,6 @@ export const ArbAddPairModal = ({ isOpen, onClose, dbTokens }: ArbAddPairModalPr
   }, [dbTokens, holdings])
 
   const inputToken = tokens.find(t => t.mint === newInputMint) || (newInputMint ? { symbol: 'CUSTOM', mint: newInputMint, logoURI: null } : null)
-  const outputToken = tokens.find(t => t.mint === newOutputMint) || (newOutputMint ? { symbol: 'CUSTOM', mint: newOutputMint, logoURI: null } : null)
 
   useEffect(() => {
     if (!isOpen) {

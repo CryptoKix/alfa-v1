@@ -16,6 +16,23 @@ export const GridConfigWidget = () => {
     [bots, monitorBotId]
   )
 
+  const [knownTokens, setKnownTokens] = useState<any[]>([])
+
+  useEffect(() => {
+    const fetchTokens = async () => {
+      try {
+        const res = await fetch('/api/tokens')
+        if (res.ok) {
+          const data = await res.json()
+          setKnownTokens(data)
+        }
+      } catch (e) {
+        console.error("Failed to fetch tokens", e)
+      }
+    }
+    fetchTokens()
+  }, [])
+
   // Asset Selection
   const tokens = useMemo(() => {
     const defaults = [
@@ -40,14 +57,26 @@ export const GridConfigWidget = () => {
         logoURI: 'https://static.jup.ag/jup/icon.png' 
       }
     ]
+    
+    // Start with holdings
     const combined = [...holdings]
+    
+    // Add defaults if missing
     defaults.forEach(d => {
       if (!combined.find(c => c.mint === d.mint)) {
         combined.push({ ...d, balance: 0, price: 0, value: 0 } as any)
       }
     })
+
+    // Add known tokens from DB if missing
+    knownTokens.forEach(k => {
+      if (!combined.find(c => c.mint === k.mint)) {
+        combined.push({ ...k, balance: 0, price: 0, value: 0 } as any)
+      }
+    })
+    
     return combined
-  }, [holdings])
+  }, [holdings, knownTokens])
 
   const [inputMint, setInputMint] = useState('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') // USDC
   const [outputMint, setOutputMint] = useState('So11111111111111111111111111111111111111112') // SOL
@@ -69,6 +98,7 @@ export const GridConfigWidget = () => {
   const toToken = useMemo(() => tokens.find(t => t.mint === outputMint) || tokens[0], [tokens, outputMint])
 
   const currentPrice = useMemo(() => prices[outputMint] || toToken?.price || 0, [prices, outputMint, toToken])
+  
   const [priceColor, setPriceColor] = useState('text-accent-cyan')
   const prevPriceRef = useRef<number>(currentPrice)
 
@@ -103,8 +133,24 @@ export const GridConfigWidget = () => {
 
   const sellLevels = gridLevels.filter(l => l.price > currentPrice)
   const buyLevels = gridLevels.filter(l => l.price <= currentPrice)
-  const totalSellValue = sellLevels.length * amountPerLevel
   const totalBuyValue = buyLevels.length * amountPerLevel
+  
+  // Calculate Token Amounts for display
+  const totalSellTokenAmount = sellLevels.reduce((acc, lvl) => acc + (amountPerLevel / lvl.price), 0)
+  const activeBotSellTokenAmount = activeBot?.grid_levels?.filter(l => l.has_position).reduce((acc, l) => acc + (l.token_amount || 0), 0) || 0
+
+  // DEBUG LOGGING
+  useEffect(() => {
+    console.log("DEBUG GRID:", {
+        outputMint,
+        toTokenSymbol: toToken?.symbol,
+        currentPrice,
+        priceFromRedux: prices[outputMint],
+        priceFromToken: toToken?.price,
+        sellLevelsCount: sellLevels.length,
+        buyLevelsCount: buyLevels.length
+    })
+  }, [outputMint, toToken, currentPrice, prices, sellLevels, buyLevels])
 
   const hasInsufficientBalance = totalInv > (fromToken.balance || 0)
 
@@ -445,7 +491,11 @@ export const GridConfigWidget = () => {
             </div>
             <span className="text-[8px] uppercase tracking-widest text-text-muted font-bold text-accent-pink">Sell Side</span>
             <div className="text-base font-black font-mono text-white tracking-tight">
-              ${activeBot ? ((activeBot.grid_levels?.filter(l => l.has_position).length || 0) * (activeBot.amount_per_level || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : totalSellValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {activeBot ? (
+                 <span>{activeBotSellTokenAmount.toLocaleString(undefined, { maximumFractionDigits: 4 })} <span className="text-xs text-text-muted">{activeBot.output_symbol || toToken.symbol}</span></span>
+              ) : (
+                 <span>{totalSellTokenAmount.toLocaleString(undefined, { maximumFractionDigits: 4 })} <span className="text-xs text-text-muted">{toToken.symbol}</span></span>
+              )}
             </div>
           </div>
           <div className="bg-background-elevated/50 border border-white/5 rounded-xl p-2 flex flex-col gap-0.5 relative overflow-hidden">
@@ -522,11 +572,19 @@ export const GridConfigWidget = () => {
                           )}>
                             {activeBot ? (level.has_position ? "Sell Target" : "Buy Trigger") : (isBelowCurrent ? "Buy" : "Sell")}
                           </div>
-                          {activeBot && level.has_position && level.token_amount && (
-                            <div className="text-[7px] font-bold text-text-muted mt-1 uppercase">
-                              {Number(level.token_amount).toFixed(4)} {activeBot.output_symbol}
-                            </div>
-                          )}
+                          
+                          {/* Step Amount Display */}
+                          <div className="text-[8px] font-bold text-text-secondary mt-1 font-mono">
+                            {activeBot ? (
+                                level.has_position 
+                                    ? `${Number(level.token_amount).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${activeBot.output_symbol}`
+                                    : `$${Number(level.cost_usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                            ) : (
+                                isBelowCurrent 
+                                    ? `$${amountPerLevel.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                    : `${(amountPerLevel / level.price).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${toToken.symbol}`
+                            )}
+                          </div>
                         </div>
                       </div>
                     )

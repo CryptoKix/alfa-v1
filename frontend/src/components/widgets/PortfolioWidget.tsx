@@ -76,11 +76,22 @@ export const PortfolioWidget = () => {
 
   // Prepare Area Chart Data
   const areaChartData = useMemo(() => {
-    return snapshots.map(s => ({
-        time: new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
-        value: s.total_value_usd
-    }))
+    return snapshots.map(s => {
+        try {
+            const date = new Date(s.timestamp)
+            // Check for Invalid Date
+            if (isNaN(date.getTime())) return null
+            return {
+                time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+                value: s.total_value_usd
+            }
+        } catch (e) {
+            return null
+        }
+    }).filter(item => item !== null) as { time: string, value: number }[]
   }, [snapshots])
+
+  if (!holdings) return null;
 
   return (
     <div className="bg-background-card border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden group flex flex-col h-full">
@@ -236,7 +247,7 @@ export const PortfolioWidget = () => {
                         contentStyle={{ backgroundColor: '#12121a', borderColor: '#2a2a3a', borderRadius: '8px' }}
                         itemStyle={{ color: '#fff' }}
                         labelStyle={{ display: 'none' }}
-                        formatter={(value: number) => ['$' + value.toLocaleString(), 'Total Value']}
+                        formatter={(value: number | undefined) => ['$' + (value?.toLocaleString() ?? '0'), 'Total Value']}
                     />
                     <Area type="monotone" dataKey="value" stroke="#9945FF" fillOpacity={1} fill="url(#colorValue)" strokeWidth={2} />
                   </AreaChart>

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Activity, Settings2, Play, Pause, Zap } from 'lucide-react'
+import { Activity, Play, Pause, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { addNotification } from '@/features/notifications/notificationsSlice'
 import { useAppDispatch } from '@/app/hooks'
-import { socket } from '@/services/socket'
+import { botsSocket } from '@/services/socket'
 
 export const WolfPackWidget = () => {
   const dispatch = useAppDispatch()
@@ -27,8 +27,10 @@ export const WolfPackWidget = () => {
         if (data.attacks) setAttacks(data.attacks)
     }
     
-    socket.on('wolfpack_update', handleUpdate)
-    return () => { socket.off('wolfpack_update', handleUpdate) }
+    if (botsSocket) {
+        botsSocket.on('wolfpack_update', handleUpdate)
+        return () => { botsSocket.off('wolfpack_update', handleUpdate) }
+    }
   }, [])
 
   const fetchStatus = async () => {

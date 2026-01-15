@@ -13,6 +13,8 @@ export interface CopyTarget {
     major_scale?: number
     major_max?: number
     auto_execute?: boolean
+    slippage?: number
+    priority_fee?: number
   }
   performance: {
     total_profit_sol?: number
