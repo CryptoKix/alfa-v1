@@ -22,7 +22,7 @@ if not HELIUS_API_KEY:
 
 HELIUS_RPC = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
 HELIUS_WS = f"wss://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
-FLASK_WEBHOOK_URL = "http://127.0.0.1:5001/api/webhook/price"
+FLASK_WEBHOOK_URL = "http://localhost:5001/api/webhook/price"
 
 def get_tracked_mints():
     """Fetch discovered tokens from DB for tracking."""
@@ -128,6 +128,7 @@ async def broadcast_price(mint, symbol, price, session):
 
     # Update Flask webhook (fire and forget)
     try:
+        print(f"[DEBUG] Calling Flask webhook for {symbol} @ {price}")
         async with session.post(FLASK_WEBHOOK_URL, json=payload, timeout=0.5) as resp:
             if resp.status != 200:
                 print(f"[ERROR] Webhook status {resp.status} for {symbol}")

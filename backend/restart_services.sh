@@ -39,6 +39,10 @@ sleep 2
 nohup python3 -u app.py > server.log 2>&1 &
 echo "✅ Backend (app.py) started in background."
 
+# Wait for Backend to be ready
+echo "⏳ Waiting for backend to initialize..."
+sleep 5
+
 # 3. Start Price Server (Redirect to price_server.log)
 nohup python3 -u price_server.py > price_server.log 2>&1 &
 echo "✅ Price Server (price_server.py) started in background."

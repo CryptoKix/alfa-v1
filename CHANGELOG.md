@@ -1,6 +1,21 @@
 # Tactix-Gem Project Changelog
 
-## [2026-01-15] - Discovery Sniper, HFA Hardening & Ultra-Safe Operations
+## [2026-01-15] - Arb Dynamic Manager, Sniper Refit & Backend Hardening
+
+### Feature: Arbitrage Dynamic Pair Manager
+- **Custom Mint Support:** Enhanced `ArbAddPairModal` with a unified search-and-entry interface, allowing users to paste any valid Solana mint address for real-time spread monitoring.
+- **Backend Resolution:** Updated the backend pairing logic to automatically resolve and cache metadata for unknown mints via Helius DAS during the pairing process.
+- **Auto-Refresh:** Configured the Arb Engine to hot-reload monitoring targets immediately upon new pair additions.
+
+### UI/UX: Sniper Widget Refactor
+- **Grid Architecture:** Migrated the `SniperWidget` from a legacy HTML table to a responsive CSS Grid layout (`div`-based), aligning it with the "Cyberpunk Obsidian" design system.
+- **Responsive Columns:** Implemented a `grid-cols-[1fr_100px_60px_80px_80px_90px]` layout for precise column alignment and better scalability on smaller screens.
+- **Sticky Headers:** Ensured headers remain fixed during scroll for better data readability in high-volume environments.
+
+### Backend Stability & Fixes
+- **Indentation Repair:** Fixed critical `IndentationError` in `backend/routes/api.py` that was preventing the API service from starting.
+- **Service Cleanup:** Updated `restart_services.sh` to use aggressive `pkill -9` termination, ensuring no zombie processes block the price feed ports.
+- **Webhook Telemetry:** Verified and stabilized the internal webhook routing for price updates and grid triggers.
 
 ### Feature: Logic & PnL Hardening (HFA)
 - **PnL Data Integrity:** Refactored `update_bot_performance` to fetch fresh bot state from the database before recalculating, preventing stale memory from overwriting recent trade results.

@@ -393,25 +393,19 @@ def api_transfer():
         return jsonify({"error": str(e)}), 500
 
 @api_bp.route('/api/webhook/price', methods=['POST'])
-
 def internal_webhook():
-
     import extensions
-
     data = request.json
-
     mint, price = data.get('mint'), data.get('price')
 
     if mint and price:
-
         extensions.last_price_update = time.time()
-
-        with price_cache_lock: price_cache[mint] = (price, time.time())
-
+        with price_cache_lock:
+            price_cache[mint] = (price, time.time())
+        
         socketio.emit('price_update', {'mint': mint, 'price': price}, namespace='/prices')
 
         # Trigger grid bots
-
         for bot in db.get_all_bots():
             if bot['status'] == 'active' and bot['output_mint'] == mint:
                 if bot['type'] == 'GRID':
@@ -420,7 +414,7 @@ def internal_webhook():
                 elif bot['type'] in ['DCA', 'TWAP', 'VWAP']:
                     update_bot_performance(bot['id'], price)
 
-    return jsonify({"status": "ok"})
+    return jsonify({"status": "success"}), 200
 
 
 
