@@ -1,0 +1,25 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="blade_glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Background Shield -->
+  <path d="M256 40L460 150V362L256 472L52 362V150L256 40Z" fill="#050508" stroke="#1A1A2E" stroke-width="2"/>
+  
+  <g filter="url(#blade_glow)">
+    <!-- The Horizontal Blade (Scalpel Top) -->
+    <path d="M120 180L392 200L120 220V180Z" fill="#00FFFF" />
+    <!-- The Vertical Strike (Precision Stem) -->
+    <path d="M246 200H266V420L256 440L246 420V200Z" fill="#9945FF" />
+    
+    <!-- Precision Markers -->
+    <circle cx="256" cy="200" r="6" fill="white" />
+    <rect x="380" y="195" width="20" height="10" fill="#00FFFF" />
+    <rect x="112" y="195" width="20" height="10" fill="#00FFFF" />
+  </g>
+</svg>
