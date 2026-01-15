@@ -1,5 +1,30 @@
 # Tactix-Gem Project Changelog
 
+## [2026-01-15] - Discovery Sniper, HFA Hardening & Ultra-Safe Operations
+
+### Feature: Discovery Sniper Engine
+- **Industrial Poller:** Implemented a high-speed discovery process in `sniper_outrider.py` monitoring Raydium Auth, CLMM, Meteora, and Pump.fun.
+- **Ultra-Safe Mode:** Engineered a protective operational state with strict serial RPC processing and a 1.5s mandatory stagger to prevent API key blacklisting.
+- **Auto-Cooldown Logic:** Implemented an intelligent 120s backoff mechanism upon detecting `429 Too Many Requests` errors from the network.
+- **Authority Watcher:** Transitioned to monitoring Authority wallets for high-signal pool initialization events, bypassing standard RPC congestion.
+
+### Feature: Sniper Tactical UI
+- **Discovery Matrix:** Created a high-density `SniperWidget` with millisecond-precision timestamps and real-time liquidity updates.
+- **Token Intelligence Modal:** Built a specialized forensic research modal featuring security status, identity verification (Mint/Pool), and social intel links.
+- **Manual Snipe Controller:** Integrated a tactical execution overlay for surgical market entries with pre-filled parameters.
+- **Execution Guard HUD:** Implemented a persistent configuration panel with real-time "Auto-Save" for liquidity filters and auto-snipe parameters.
+
+### Feature: Logic & Database Hardening
+- **Mint Genesis Verification:** Integrated a "Zero-Balance" check to distinguish true new launches from existing tokens being traded.
+- **Reactive State Sync:** Updated the frontend to live-update existing discovery entries and move recently active tokens to the top of the feed.
+- **Persistence Layer:** Added a new `settings` table to SQLite for persistent cross-session sniper configuration.
+- **Precision Logging:** Upgraded the entire system core to utilize millisecond-precision timestamped logging for latency auditing.
+
+### UI/UX Refinements
+- **Engine Status HUD:** Added a pulsating "ENGINE ACTIVE" indicator to the sniper header, synced with the backend process state.
+- **Theme Consistency:** Applied ultra-slim cyberpunk scrollbars to all new scrollable containers.
+- **Purified Feed:** Redirected sniper alerts to be UI-exclusive, removing them from the global system activity feed for a cleaner workspace.
+
 ### Feature: Tactical Address Book
 - **Persistent Storage:** Implemented a new `address_book` database table to store Solana recipient addresses and aliases.
 - **Modal Integration:** Added a "Quick-Select" address book menu to the **Send Assets** modal.

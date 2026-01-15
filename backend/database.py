@@ -160,8 +160,82 @@ class TactixDB:
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+
+            # 11. Sniped Tokens Table (Detection & Analysis)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS sniped_tokens (
+                    mint TEXT PRIMARY KEY,
+                    symbol TEXT,
+                    name TEXT,
+                    pool_address TEXT,
+                    dex_id TEXT, -- 'Raydium', 'Meteora', 'Pump.fun'
+                    initial_liquidity REAL,
+                    is_rug BOOLEAN DEFAULT 0,
+                    socials_json TEXT,
+                    signature TEXT,
+                    detected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    status TEXT DEFAULT 'tracking' -- 'tracking', 'sniped', 'ignored'
+                )
+            ''')
+            
+            try:
+                cursor.execute('ALTER TABLE sniped_tokens ADD COLUMN signature TEXT')
+            except sqlite3.OperationalError:
+                pass # Already exists
+
+            # 12. App Settings Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value_json TEXT,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
             
             conn.commit()
+
+    def save_setting(self, key, value):
+        """Save a general setting (JSON encoded)."""
+        with self._get_connection() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value_json, updated_at) VALUES (?, ?, ?)",
+                (key, json.dumps(value), datetime.now())
+            )
+
+    def get_setting(self, key, default=None):
+        """Retrieve a general setting."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("SELECT value_json FROM settings WHERE key = ?", (key,))
+            row = cursor.fetchone()
+            return json.loads(row['value_json']) if row else default
+
+    def save_sniped_token(self, token_data):
+        """Record a newly detected token launch."""
+        sql = '''
+            INSERT OR REPLACE INTO sniped_tokens (
+                mint, symbol, name, pool_address, dex_id, initial_liquidity, socials_json, signature, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        '''
+        with self._get_connection() as conn:
+            conn.execute(sql, (
+                token_data.get('mint'),
+                token_data.get('symbol'),
+                token_data.get('name'),
+                token_data.get('pool_address'),
+                token_data.get('dex_id'),
+                token_data.get('initial_liquidity'),
+                json.dumps(token_data.get('socials', {})),
+                token_data.get('signature'),
+                token_data.get('status', 'tracking')
+            ))
+
+    def get_tracked_tokens(self, limit=50):
+        """Fetch recently detected tokens."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("SELECT * FROM sniped_tokens ORDER BY detected_at DESC LIMIT ?", (limit,))
+            return [dict(row) for row in cursor.fetchall()]
 
     def save_address(self, address, alias, notes=None):
         """Save or update an address in the address book."""

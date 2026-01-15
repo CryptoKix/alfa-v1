@@ -5,7 +5,12 @@ eventlet.monkey_patch()
 
 import os
 import threading
+import logging
 from flask import request, render_template, jsonify
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s.%(msecs)03d] [%(levelname)s] %(name)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+logger = logging.getLogger("tactix")
 
 from config import SERVER_HOST, SERVER_PORT, WALLET_ADDRESS
 from extensions import create_app, socketio, helius, db
@@ -15,8 +20,10 @@ from routes.copytrade import set_copy_trader
 from services.portfolio import balance_poller, broadcast_balance
 from arb_engine import ArbEngine
 from services.bots import dca_scheduler
+from services.trading import execute_trade_logic
 from copy_trader import CopyTraderEngine
 from services.notifications import send_discord_notification
+from services.sniper import sniper_engine
 
 # Create Flask application
 app = create_app()
@@ -37,7 +44,7 @@ def not_found(e):
     return render_template('index.html')
 
 # Initialize engines
-copy_trader = CopyTraderEngine(helius, db, socketio, None)
+copy_trader = CopyTraderEngine(helius, db, socketio, execute_trade_logic)
 arb_engine = ArbEngine(helius, db, socketio)
 set_arb_engine(arb_engine)
 set_copy_trader(copy_trader)
@@ -47,6 +54,7 @@ if __name__ == '__main__':
     threading.Thread(target=balance_poller, args=(app,), daemon=True).start()
     copy_trader.start()
     arb_engine.start()
+    # sniper_engine.start() # Replaced by sniper_outrider.py for real-time WebSocket discovery
 
     send_discord_notification("🛰️ SYSTEM ONLINE", "TacTix.sol System Core has initialized.", color=0x00FFFF)
 

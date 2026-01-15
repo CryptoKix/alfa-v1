@@ -33,8 +33,8 @@ def create_app():
     """Application factory."""
     app = Flask(
         __name__,
-        template_folder='ProTerminal/dist',
-        static_folder='ProTerminal/dist',
+        template_folder='../frontend/dist',
+        static_folder='../frontend/dist',
         static_url_path=''
     )
     CORS(app)

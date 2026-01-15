@@ -29,6 +29,16 @@
 
 ---
 
+## Phase 4: Advanced Execution Engines (Next)
+
+### 1. Jupiter Limit Order Grid Bot
+- **On-Chain Persistence:** Implement a secondary GRID engine that utilizes Jupiter Limit Orders instead of real-time market swaps.
+- **Hybrid Management:** Build a UI toggle to switch between "HFA Grid" (Backend Triggered) and "Limit Grid" (On-Chain Triggered).
+- **Automated Re-queueing:** Logic to automatically place the next Buy/Sell limit order once an existing one is filled on-chain.
+- **Fee Efficiency:** Focus on minimizing priority fees by leveraging passive on-chain fulfillment.
+
+---
+
 ## [Current] Phase 2: Core Infrastructure (Jan 2026)
 - ✅ SQLite Migration
 - ✅ Modular Widget Architecture

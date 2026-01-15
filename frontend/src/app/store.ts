@@ -5,6 +5,7 @@ import botsReducer from '../features/bots/botsSlice'
 import copytradeReducer from '../features/copytrade/copytradeSlice'
 import arbReducer from '../features/arb/arbSlice'
 import notificationsReducer from '../features/notifications/notificationsSlice'
+import sniperReducer from '../features/sniper/sniperSlice'
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ export const store = configureStore({
     copytrade: copytradeReducer,
     arb: arbReducer,
     notifications: notificationsReducer,
+    sniper: sniperReducer,
   },
 })
 

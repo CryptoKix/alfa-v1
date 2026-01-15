@@ -7,7 +7,7 @@ const navItems = [
   { icon: Zap, label: 'Trade', path: '/trade' },
   { icon: Bot, label: 'Strategies', path: '/strategies' },
   { icon: Users, label: 'Copy Trade', path: '/copytrade' },
-  { icon: Crosshair, label: 'Sniper', path: '/sniper', disabled: true },
+  { icon: Crosshair, label: 'Sniper', path: '/sniper' },
   { image: '/cherry.jpg', label: 'Cherry', path: '/cherry', disabled: true },
 ]
 

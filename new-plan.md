@@ -265,6 +265,7 @@ interface CopyTradeState {
 | TWAP | duration, totalAmount, slices |
 | VWAP | duration, totalAmount |
 | GRID | lowerBound, upperBound, steps, investment |
+| LIMIT GRID | lowerBound, upperBound, steps, investment, limitOrderExpiry |
 
 ### 5.3 API Integration
 - `GET /api/dca/list` - List all bots

@@ -78,3 +78,13 @@ def register_websocket_handlers():
                 except:
                     pass
         emit('signals_update', {'signals': signals}, namespace='/copytrade')
+
+    @socketio.on('connect', namespace='/sniper')
+    def handle_sniper_connect():
+        print(f"[{datetime.now()}] DEBUG: Sniper namespace connected: {request.sid}")
+
+    @socketio.on('request_tracked', namespace='/sniper')
+    def handle_sniper_req():
+        print(f"[{datetime.now()}] DEBUG: Received request_tracked from {request.sid}")
+        tokens = db.get_tracked_tokens(50)
+        emit('tracked_update', {'tokens': tokens}, namespace='/sniper')

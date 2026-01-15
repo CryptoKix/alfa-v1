@@ -3,6 +3,7 @@
 import json
 import time
 import uuid
+from datetime import datetime
 from flask import Blueprint, render_template, jsonify, request, current_app
 
 from extensions import db, socketio, price_cache, price_cache_lock, last_price_update
@@ -40,6 +41,91 @@ def api_health():
 @api_bp.route('/api/history')
 def api_history():
     return jsonify(db.get_history(50))
+
+
+# --- Sniper APIs ---
+
+@api_bp.route('/api/sniper/tracked')
+def api_get_tracked_tokens():
+    return jsonify(db.get_tracked_tokens(50))
+
+
+@api_bp.route('/api/sniper/settings')
+def api_get_sniper_settings():
+    settings = db.get_setting('sniper_settings', {
+        "autoSnipe": False,
+        "buyAmount": 0.1,
+        "slippage": 15,
+        "priorityFee": 0.005,
+        "minLiquidity": 5,
+        "requireMintRenounced": True,
+        "requireLPBurned": True,
+        "requireSocials": False
+    })
+    return jsonify(settings)
+
+
+@api_bp.route('/api/sniper/settings/update', methods=['POST'])
+def api_update_sniper_settings():
+    data = request.json
+    db.save_setting('sniper_settings', data)
+    # Notify sniper engine of settings change if needed
+    from services.sniper import sniper_engine
+    sniper_engine.update_settings(data)
+    return jsonify({"success": True})
+
+
+@api_bp.route('/api/sniper/test_signal', methods=['POST'])
+def api_sniper_test_signal():
+    """Simulate a new token detection for UI testing."""
+    test_token = {
+        "mint": f"TEST{uuid.uuid4().hex[:8].upper()}",
+        "symbol": "TACTIX",
+        "name": "TacTix Test Token",
+        "pool_address": "3fXKDRJy5NX4Nt3cHgvjiq9ixg2bokMD3Qoni9b3Jyjg",
+        "dex_id": "Raydium",
+        "initial_liquidity": 69.42,
+        "socials": {"twitter": "https://x.com/tactix_sol"},
+        "status": "tracking",
+        "detected_at": datetime.now().isoformat()
+    }
+    # Save to DB so it shows in the tracked list
+    db.save_sniped_token(test_token)
+    # Broadcast to UI
+    socketio.emit('new_token_detected', test_token, namespace='/sniper')
+    return jsonify({"success": True, "token": test_token})
+
+
+@api_bp.route('/api/sniper/engine/status')
+def api_sniper_engine_status():
+    import subprocess
+    try:
+        # Check if outrider process is running
+        output = subprocess.check_output(['pgrep', '-f', 'sniper_outrider.py'])
+        is_running = len(output) > 0
+    except:
+        is_running = False
+    return jsonify({"isRunning": is_running})
+
+
+@api_bp.route('/api/sniper/engine/toggle', methods=['POST'])
+def api_sniper_engine_toggle():
+    import subprocess
+    import os
+    action = request.json.get('action') # 'start' or 'stop'
+    
+    if action == 'stop':
+        subprocess.run(['pkill', '-f', 'sniper_outrider.py'])
+        return jsonify({"success": True, "isRunning": False})
+    else:
+        # Start Outrider
+        script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'sniper_outrider.py')
+        log_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'sniper_outrider.log')
+        subprocess.Popen(['python3', '-u', script_path], 
+                         stdout=open(log_path, 'a'), 
+                         stderr=subprocess.STDOUT,
+                         start_new_session=True)
+        return jsonify({"success": True, "isRunning": True})
 
 
 # --- Address Book APIs ---
@@ -242,20 +328,229 @@ def api_transfer():
         return jsonify({"error": str(e)}), 500
 
 @api_bp.route('/api/webhook/price', methods=['POST'])
+
 def internal_webhook():
+
     import extensions
+
     data = request.json
+
     mint, price = data.get('mint'), data.get('price')
+
     if mint and price:
+
         extensions.last_price_update = time.time()
+
         with price_cache_lock: price_cache[mint] = (price, time.time())
+
         socketio.emit('price_update', {'mint': mint, 'price': price}, namespace='/prices')
+
         # Trigger grid bots
+
         for bot in db.get_all_bots():
+
             if bot['status'] == 'active' and bot['output_mint'] == mint:
+
                 if bot['type'] == 'GRID':
+
                     process_grid_logic(bot, price)
+
                     update_bot_performance(bot, price)
+
                 elif bot['type'] in ['DCA', 'TWAP', 'VWAP']:
+
                     update_bot_performance(bot, price)
+
     return jsonify({"status": "ok"})
+
+
+
+
+
+@api_bp.route('/api/webhook/sniper', methods=['POST'])
+
+
+
+
+
+def internal_sniper_webhook():
+
+
+
+
+
+    """Handle real-time token detections from the outrider process."""
+
+
+
+
+
+    token_data = request.json
+
+
+
+
+
+    if not token_data: return jsonify({"error": "No data"}), 400
+
+
+
+
+
+    
+
+
+
+
+
+    symbol = token_data.get('symbol', '???')
+
+
+
+
+
+    mint = token_data.get('mint', '???')
+
+
+
+
+
+    actual_liq = float(token_data.get('initial_liquidity', 0))
+
+
+
+
+
+    
+
+
+
+
+
+    # Load current settings to check filters
+
+
+
+
+
+    settings = db.get_setting('sniper_settings', {})
+
+
+
+
+
+    min_liq = float(settings.get('minLiquidity', 0))
+
+
+
+
+
+
+
+
+
+
+
+    if actual_liq < min_liq:
+
+
+
+
+
+        current_app.logger.info(f"⏳ Sniper Filter: {symbol} ({mint[:8]}) dropped. Liq {actual_liq:.2f} < threshold {min_liq:.2f}")
+
+
+
+
+
+        return jsonify({"status": "filtered", "threshold": min_liq}), 200
+
+
+
+
+
+
+
+
+
+
+
+    current_app.logger.info(f"🎯 Sniper Broadcast: {symbol} ({mint[:8]}) passed filters with {actual_liq:.2f} SOL. Emitting to UI...")
+
+
+
+
+
+
+
+
+
+
+
+    # Broadcast to UI
+
+
+
+
+
+    socketio.emit('new_token_detected', token_data, namespace='/sniper')
+
+
+
+
+
+    
+
+
+
+
+
+    # Check Auto-Snipe settings
+
+
+
+
+
+    if settings.get('autoSnipe'):
+
+
+
+
+
+        current_app.logger.info(f"🤖 Auto-Snipe: Triggering execution for {symbol}")
+
+
+
+
+
+        from services.sniper import sniper_engine
+
+
+
+
+
+        sniper_engine.attempt_auto_snipe(token_data)
+
+
+
+
+
+            
+
+
+
+
+
+    return jsonify({"status": "ok"})
+
+
+
+
+
+
+
+
+
+
+
+

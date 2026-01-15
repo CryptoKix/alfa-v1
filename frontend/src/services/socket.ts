@@ -7,6 +7,7 @@ import { updateBots } from '../features/bots/botsSlice'
 import { setTargets, addSignal, setSignals } from '../features/copytrade/copytradeSlice'
 import { addOpportunity, updateMatrix, clearMatrix } from '../features/arb/arbSlice'
 import { addNotification } from '../features/notifications/notificationsSlice'
+import { setTrackedTokens, addTrackedToken } from '../features/sniper/sniperSlice'
 
 export let portfolioSocket: any
 export let priceSocket: any
@@ -14,6 +15,7 @@ export let historySocket: any
 export let botsSocket: any
 export let copytradeSocket: any
 export let arbSocket: any
+export let sniperSocket: any
 
 export const initSockets = () => {
   portfolioSocket = io('/portfolio', { transports: ['websocket', 'polling'] })
@@ -22,6 +24,7 @@ export const initSockets = () => {
   botsSocket = io('/bots', { transports: ['websocket', 'polling'] })
   copytradeSocket = io('/copytrade', { transports: ['websocket', 'polling'] })
   arbSocket = io('/arb', { transports: ['websocket', 'polling'] })
+  sniperSocket = io('/sniper', { transports: ['websocket', 'polling'] })
   
   console.log('[Socket] Initializing Arb Socket on namespace /arb')
 
@@ -159,5 +162,19 @@ export const initSockets = () => {
     store.dispatch(updatePrice(data))
   })
 
-  return { portfolioSocket, priceSocket, historySocket, botsSocket, copytradeSocket, arbSocket }
+  // Sniper listeners
+  sniperSocket.on('connect', () => {
+    console.log('[Socket] Sniper Connected | SID:', sniperSocket.id)
+    sniperSocket.emit('request_tracked')
+  })
+
+  sniperSocket.on('new_token_detected', (data: any) => {
+    store.dispatch(addTrackedToken(data))
+  })
+
+  sniperSocket.on('tracked_update', (data: any) => {
+    store.dispatch(setTrackedTokens(data.tokens))
+  })
+
+  return { portfolioSocket, priceSocket, historySocket, botsSocket, copytradeSocket, arbSocket, sniperSocket }
 }
