@@ -150,11 +150,11 @@ export const TradeEntryWidget = () => {
   )
 
   return (
-    <div className="bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl flex flex-col h-[600px] relative overflow-hidden">
+    <div className="bg-background-card border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col h-full relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-10" />
       
       {/* Header */}
-      <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px] z-10 -mx-4 px-4 -mt-4">
+      <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px] z-10 -mx-6 px-6 -mt-6">
         <h3 className="text-sm font-bold flex items-center gap-2 uppercase tracking-tight text-white">
           <Zap className="text-accent-cyan" size={18} />
           Execute Trade
@@ -162,11 +162,11 @@ export const TradeEntryWidget = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-background-elevated rounded-xl p-1.5 mb-2 border border-white/5 relative group/tabs">
+      <div className="flex bg-background-elevated rounded-xl p-1 mb-2 border border-white/5 relative group/tabs shrink-0">
         <button
           onClick={() => setSide('buy')}
           className={cn(
-            "flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all duration-300 relative z-10",
+            "flex-1 py-1.5 text-xs font-black uppercase tracking-widest rounded-lg transition-all duration-300 relative z-10",
             side === 'buy' ? "bg-accent-cyan text-black shadow-glow-cyan" : "text-text-muted hover:text-white"
           )}
         >
@@ -175,7 +175,7 @@ export const TradeEntryWidget = () => {
         <button
           onClick={() => setSide('sell')}
           className={cn(
-            "flex-1 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all duration-300 relative z-10",
+            "flex-1 py-1.5 text-xs font-black uppercase tracking-widest rounded-lg transition-all duration-300 relative z-10",
             side === 'sell' ? "bg-accent-pink text-black shadow-glow-pink" : "text-text-muted hover:text-white"
           )}
         >
@@ -183,11 +183,11 @@ export const TradeEntryWidget = () => {
         </button>
       </div>
 
-      <div className="flex bg-black/20 rounded-lg p-1 mb-4 border border-white/5 gap-1">
+      <div className="flex bg-black/20 rounded-lg p-1 mb-3 border border-white/5 gap-1 shrink-0">
         <button
           onClick={() => setOrderType('market')}
           className={cn(
-            "flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded transition-all",
+            "flex-1 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-all",
             orderType === 'market' ? "bg-white/10 text-white" : "text-text-muted hover:text-white/60"
           )}
         >
@@ -196,7 +196,7 @@ export const TradeEntryWidget = () => {
         <button
           onClick={() => setOrderType('limit')}
           className={cn(
-            "flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded transition-all",
+            "flex-1 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-all",
             orderType === 'limit' ? "bg-white/10 text-white" : "text-text-muted hover:text-white/60"
           )}
         >
@@ -205,11 +205,11 @@ export const TradeEntryWidget = () => {
       </div>
 
       {/* Input Section */}
-      <div className="space-y-3 flex-1 overflow-visible">
+      <div className="space-y-2 flex-1 overflow-visible">
         
         {/* From */}
         <div className="space-y-1 relative">
-          <div className="flex justify-between text-[10px] text-text-secondary uppercase tracking-widest px-1">
+          <div className="flex justify-between text-[9px] text-text-secondary uppercase tracking-widest px-1">
             <span>You Pay</span>
             <span 
               className="cursor-pointer hover:text-accent-cyan transition-colors"
@@ -218,37 +218,37 @@ export const TradeEntryWidget = () => {
               Balance: {fromToken.balance?.toLocaleString()}
             </span>
           </div>
-          <div className="bg-background-elevated border border-white/10 rounded-xl px-3 flex items-center gap-3 focus-within:border-accent-cyan transition-colors relative group/input h-14">
+          <div className="bg-background-elevated border border-white/10 rounded-xl px-3 flex items-center gap-3 focus-within:border-accent-cyan transition-colors relative group/input h-12">
             <div className="flex flex-col gap-0.5 pr-2 border-r border-white/5">
-              <button onClick={() => adjustAmount(1)} className="p-0.5 hover:bg-white/5 rounded text-text-muted hover:text-accent-cyan transition-colors"><Plus size={12} /></button>
-              <button onClick={() => adjustAmount(-1)} className="p-0.5 hover:bg-white/5 rounded text-text-muted hover:text-accent-pink transition-colors"><Minus size={12} /></button>
+              <button onClick={() => adjustAmount(1)} className="p-0.5 hover:bg-white/5 rounded text-text-muted hover:text-accent-cyan transition-colors"><Plus size={10} /></button>
+              <button onClick={() => adjustAmount(-1)} className="p-0.5 hover:bg-white/5 rounded text-text-muted hover:text-accent-pink transition-colors"><Minus size={10} /></button>
             </div>
             <input
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"
-              className="bg-transparent text-xl font-mono font-bold text-accent-cyan w-full focus:outline-none placeholder:text-accent-cyan/20"
+              className="bg-transparent text-lg font-mono font-bold text-accent-cyan w-full focus:outline-none placeholder:text-accent-cyan/20"
             />
             <div 
               onClick={() => { setIsFromOpen(!isFromOpen); setIsToOpen(false); }}
-              className="flex items-center gap-2 bg-black/40 px-2.5 py-1.5 rounded-lg border border-white/5 shrink-0 hover:bg-black/60 transition-colors cursor-pointer group w-[90px]"
+              className="flex items-center gap-2 bg-black/40 px-2.5 py-1.5 rounded-lg border border-white/5 shrink-0 hover:bg-black/60 transition-colors cursor-pointer group w-[85px]"
             >
               <img 
                 src={fromToken.logoURI || 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png'}
                 alt={fromToken.symbol}
-                className="w-4 h-4 rounded-full shadow-sm"
+                className="w-3.5 h-3.5 rounded-full shadow-sm"
                 onError={(e) => (e.currentTarget.src = 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png')}
               />
-              <span className="font-bold text-xs">{fromToken.symbol}</span>
-              <ChevronDown size={12} className={cn("transition-transform", isFromOpen && "rotate-180")} />
+              <span className="font-bold text-[11px]">{fromToken.symbol}</span>
+              <ChevronDown size={10} className={cn("transition-transform", isFromOpen && "rotate-180")} />
             </div>
           </div>
 
           {isFromOpen && (
             <>
               <div className="fixed inset-0 z-20" onClick={() => setIsFromOpen(false)} />
-              <div className="absolute top-full left-0 right-0 mt-2 z-30 bg-background-card/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-2 max-h-64 overflow-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-200">
+              <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-background-card/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-2 max-h-64 overflow-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-200">
                 <div className="text-[8px] uppercase tracking-widest text-text-muted font-bold px-2 py-1 mb-1 border-b border-white/5">Select Asset</div>
                 {tokens.map(t => (
                   <TokenItem key={t.mint} token={t} onClick={() => { setFromTokenMint(t.mint); setIsFromOpen(false); }} />
@@ -259,7 +259,7 @@ export const TradeEntryWidget = () => {
         </div>
 
         {orderType === 'limit' && (
-          <div className="space-y-1">
+          <div className="space-y-1 relative">
             <div className="flex justify-between text-[10px] text-text-secondary uppercase tracking-widest px-1">
               <span>Limit Price</span>
               <span className="text-accent-cyan cursor-pointer hover:underline" onClick={() => setLimitPrice((fromPrice / toPrice).toString())}>Current: {(fromPrice / toPrice).toFixed(6)}</span>
@@ -327,35 +327,37 @@ export const TradeEntryWidget = () => {
         </div>
 
         {/* Advanced Params Row */}
-        <div className="grid grid-cols-2 gap-2 pt-1">
-          <div className="bg-black/20 border border-white/5 rounded-xl px-3 flex flex-col justify-center h-14">
-            <label className="text-[8px] uppercase tracking-[0.2em] text-text-muted font-bold">Slippage</label>
-            <div className="flex items-center gap-2">
-              <input type="number" value={slippage} onChange={(e) => setSlippage(e.target.value)} disabled={orderType === 'limit'} className="bg-transparent text-[11px] font-mono font-bold text-white w-full focus:outline-none disabled:opacity-20" />
-              <span className="text-[9px] text-text-muted font-bold">%</span>
-            </div>
-          </div>
-          <div className="bg-black/20 border border-white/5 rounded-xl px-3 flex flex-col justify-center h-14">
-            <div className="flex justify-between items-center mb-0.5">
-              <label className="text-[8px] uppercase tracking-[0.2em] text-text-muted font-bold">Priority</label>
-              <div className="flex gap-1">
-                {['0', '0.001', '0.005'].map(val => (
-                  <button key={val} onClick={() => setPriorityFee(val)} className={cn("text-[7px] px-1 rounded border", priorityFee === val ? "bg-accent-cyan/20 border-accent-cyan/40 text-accent-cyan" : "bg-white/5 border-white/5 text-text-muted")}>{val === '0' ? 'N' : val === '0.001' ? 'L' : 'M'}</button>
-                ))}
+        {orderType === 'market' && (
+          <div className="grid grid-cols-2 gap-2 pt-1 shrink-0">
+            <div className="bg-black/20 border border-white/5 rounded-xl px-3 flex flex-col justify-center h-14">
+              <label className="text-[8px] uppercase tracking-[0.2em] text-text-muted font-bold">Slippage</label>
+              <div className="flex items-center gap-2">
+                <input type="number" value={slippage} onChange={(e) => setSlippage(e.target.value)} className="bg-transparent text-[11px] font-mono font-bold text-white w-full focus:outline-none" />
+                <span className="text-[9px] text-text-muted font-bold">%</span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <input type="number" value={priorityFee} onChange={(e) => setPriorityFee(e.target.value)} className="bg-transparent text-[11px] font-mono font-bold text-white w-full focus:outline-none" />
-              <span className="text-[9px] text-text-muted font-bold">SOL</span>
+            <div className="bg-black/20 border border-white/5 rounded-xl px-3 flex flex-col justify-center h-14">
+              <div className="flex justify-between items-center mb-0.5">
+                <label className="text-[8px] uppercase tracking-[0.2em] text-text-muted font-bold">Priority</label>
+                <div className="flex gap-1">
+                  {['0', '0.001', '0.005'].map(val => (
+                    <button key={val} onClick={() => setPriorityFee(val)} className={cn("text-[7px] px-1 rounded border", priorityFee === val ? "bg-accent-cyan/20 border-accent-cyan/40 text-accent-cyan" : "bg-white/5 border-white/5 text-text-muted")}>{val === '0' ? 'N' : val === '0.001' ? 'L' : 'M'}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="number" value={priorityFee} onChange={(e) => setPriorityFee(e.target.value)} className="bg-transparent text-[11px] font-mono font-bold text-white w-full focus:outline-none" />
+                <span className="text-[9px] text-text-muted font-bold">SOL</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Feedback */}
         {status === 'error' && <div className="p-2 bg-accent-red/10 border border-accent-red/20 rounded-lg text-[9px] text-accent-red font-bold animate-in fade-in">{errorMsg}</div>}
         {status === 'success' && <div className="p-2 bg-accent-green/10 border border-accent-green/20 rounded-lg text-[9px] text-accent-green font-bold animate-in fade-in text-center">{orderType === 'market' ? 'TRADE EXECUTED' : 'ORDER PLACED'}</div>}
 
-        <div className="p-2 bg-accent-cyan/5 border border-accent-cyan/10 rounded-lg flex items-start gap-2">
+        <div className="p-2 bg-accent-cyan/5 border border-accent-cyan/10 rounded-lg flex items-start gap-2 shrink-0">
           <Info className="text-accent-cyan shrink-0 mt-0.5" size={12} />
           <div className="text-[9px] text-text-secondary leading-relaxed">Best price via <span className="text-accent-cyan font-bold">JUPITER</span></div>
         </div>
@@ -365,23 +367,23 @@ export const TradeEntryWidget = () => {
         onClick={handleTrade}
         disabled={!amount || (orderType === 'limit' && !limitPrice) || status === 'loading'}
         className={cn(
-          "w-full py-4.5 mt-4 rounded-2xl font-black text-lg uppercase tracking-[0.25em] transition-all duration-500 transform active:scale-95 flex items-center justify-center gap-3",
+          "w-full py-3.5 mt-2 rounded-2xl font-black text-base uppercase tracking-[0.2em] transition-all duration-500 transform active:scale-95 flex items-center justify-center gap-3 shrink-0",
           !amount || (orderType === 'limit' && !limitPrice) || status === 'loading' 
             ? "bg-white/5 text-white/10 cursor-not-allowed border border-white/5 opacity-50" 
             : side === 'buy' 
-              ? "bg-accent-cyan text-black hover:bg-white shadow-[0_0_35px_rgba(0,255,255,0.25)] hover:shadow-[0_0_55px_rgba(0,255,255,0.45)] border border-accent-cyan" 
-              : "bg-accent-pink text-black hover:bg-white shadow-[0_0_35px_rgba(255,0,128,0.25)] hover:shadow-[0_0_55px_rgba(255,0,128,0.45)] border border-accent-pink"
+              ? "bg-accent-cyan text-black hover:bg-white shadow-[0_0_25px_rgba(0,255,255,0.2)] hover:shadow-[0_0_45px_rgba(0,255,255,0.35)] border border-accent-cyan" 
+              : "bg-accent-pink text-black hover:bg-white shadow-[0_0_25px_rgba(255,0,128,0.2)] hover:shadow-[0_0_45px_rgba(255,0,128,0.35)] border border-accent-pink"
         )}
       >
         {status === 'loading' ? (
           <div className="flex items-center gap-2">
-            <Activity size={22} className="animate-spin" />
-            <span className="animate-pulse">Confirming...</span>
+            <Activity size={18} className="animate-spin" />
+            <span className="animate-pulse text-sm">Confirming...</span>
           </div>
         ) : (
           <>
-            <Zap size={22} fill="currentColor" />
-            {orderType === 'market' ? `${side.toUpperCase()} ${toToken.symbol}` : `PLACE ${side.toUpperCase()} ORDER`}
+            <Zap size={18} fill="currentColor" />
+            <span className="text-sm">{orderType === 'market' ? `${side.toUpperCase()} ${toToken.symbol}` : `PLACE ${side.toUpperCase()} ORDER`}</span>
           </>
         )}
       </button>

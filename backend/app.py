@@ -24,6 +24,7 @@ from services.trading import execute_trade_logic
 from copy_trader import CopyTraderEngine
 from services.notifications import send_discord_notification
 from services.sniper import sniper_engine
+from services.news import news_service
 
 # Create Flask application
 app = create_app()
@@ -55,6 +56,7 @@ if __name__ == '__main__':
     copy_trader.start()
     arb_engine.start()
     # sniper_engine.start() # Replaced by sniper_outrider.py for real-time WebSocket discovery
+    news_service.start()
 
     send_discord_notification("🛰️ SYSTEM ONLINE", "TacTix.sol System Core has initialized.", color=0x00FFFF)
 

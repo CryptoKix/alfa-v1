@@ -67,10 +67,10 @@ export const LimitOrdersWidget = () => {
   }
 
   return (
-    <div className="bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full min-h-0">
+    <div className="bg-background-card border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col h-full min-h-0">
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-20" />
       
-      <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+      <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple">
             <Clock size={18} />

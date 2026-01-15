@@ -8,6 +8,7 @@ import { setTargets, addSignal, setSignals } from '../features/copytrade/copytra
 import { addOpportunity, updateMatrix, clearMatrix } from '../features/arb/arbSlice'
 import { addNotification } from '../features/notifications/notificationsSlice'
 import { setTrackedTokens, addTrackedToken } from '../features/sniper/sniperSlice'
+import { setNews } from '../features/intel/intelSlice'
 
 export let portfolioSocket: any
 export let priceSocket: any
@@ -16,6 +17,7 @@ export let botsSocket: any
 export let copytradeSocket: any
 export let arbSocket: any
 export let sniperSocket: any
+export let intelSocket: any
 
 export const initSockets = () => {
   portfolioSocket = io('/portfolio', { transports: ['websocket', 'polling'] })
@@ -25,9 +27,11 @@ export const initSockets = () => {
   copytradeSocket = io('/copytrade', { transports: ['websocket', 'polling'] })
   arbSocket = io('/arb', { transports: ['websocket', 'polling'] })
   sniperSocket = io('/sniper', { transports: ['websocket', 'polling'] })
+  intelSocket = io('/intel', { transports: ['websocket', 'polling'] })
   
-  console.log('[Socket] Initializing Arb Socket on namespace /arb')
+  console.log('[Socket] Initializing Sockets...')
 
+  // Arb listeners
   arbSocket.on('connect', () => {
     console.log('[Socket] Arb Connected | SID:', arbSocket.id)
     setInterval(() => arbSocket.emit('ping_arb'), 5000)
@@ -158,7 +162,7 @@ export const initSockets = () => {
   })
 
   priceSocket.on('price_update', (data: { mint: string; price: number }) => {
-    console.log('[Socket] Price Update:', data.mint, data.price); 
+    console.log('[Socket] Price Update:', data.mint, data.price)
     store.dispatch(updatePrice(data))
   })
 
@@ -176,5 +180,16 @@ export const initSockets = () => {
     store.dispatch(setTrackedTokens(data.tokens))
   })
 
-  return { portfolioSocket, priceSocket, historySocket, botsSocket, copytradeSocket, arbSocket, sniperSocket }
+  // Intel listeners
+  intelSocket.on('connect', () => {
+    console.log('[Socket] Intel Connected | SID:', intelSocket.id)
+    intelSocket.emit('request_news')
+  })
+
+  intelSocket.on('news_update', (data: any) => {
+    console.log('[Socket] Received News:', data.news?.length)
+    store.dispatch(setNews(data.news))
+  })
+
+  return { portfolioSocket, priceSocket, historySocket, botsSocket, copytradeSocket, arbSocket, sniperSocket, intelSocket }
 }

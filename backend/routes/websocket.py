@@ -88,3 +88,13 @@ def register_websocket_handlers():
         print(f"[{datetime.now()}] DEBUG: Received request_tracked from {request.sid}")
         tokens = db.get_tracked_tokens(50)
         emit('tracked_update', {'tokens': tokens}, namespace='/sniper')
+
+    @socketio.on('connect', namespace='/intel')
+    def handle_intel_connect():
+        print(f"[{datetime.now()}] DEBUG: Intel namespace connected: {request.sid}")
+
+    @socketio.on('request_news', namespace='/intel')
+    def handle_news_req():
+        from services.news import news_service
+        print(f"[{datetime.now()}] DEBUG: Received request_news from {request.sid} | Cache size: {len(news_service.news_cache)}")
+        emit('news_update', {'news': news_service.news_cache}, namespace='/intel')

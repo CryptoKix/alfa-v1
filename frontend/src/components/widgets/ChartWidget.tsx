@@ -64,7 +64,7 @@ export const ChartWidget = memo(() => {
   }, [])
 
   return (
-    <div className="bg-background-card border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col relative overflow-hidden h-[600px]">
+    <div className="bg-background-card border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col relative overflow-hidden h-full">
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-10" />
       
       {/* Header */}
