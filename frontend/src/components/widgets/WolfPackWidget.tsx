@@ -160,13 +160,13 @@ export const WolfPackWidget = () => {
             </div>
 
             <div className="flex-1 overflow-auto custom-scrollbar space-y-2 bg-black/20 rounded-xl border border-white/5 p-2">
-                {consensus.length === 0 ? (
+                {consensus?.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-text-muted gap-2 opacity-50">
                         <Dog size={32} strokeWidth={1} />
                         <div className="text-center font-bold text-[10px] uppercase tracking-widest">Waiting for the Pack...</div>
                     </div>
                 ) : (
-                    consensus.map((item) => (
+                    consensus?.map((item) => (
                         <div key={item.mint} className="p-3 rounded-xl border border-white/5 bg-white/[0.02] flex items-center justify-between group hover:bg-white/5 transition-colors">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 rounded-lg bg-accent-pink/10 text-accent-pink">
@@ -233,10 +233,10 @@ export const WolfPackWidget = () => {
                         </tr>
                     </thead>
                     <tbody className="text-[10px] font-mono divide-y divide-white/5">
-                        {attacks.length === 0 ? (
+                        {attacks?.length === 0 ? (
                             <tr><td colSpan={4} className="p-4 text-center text-text-muted italic">No attacks executed yet</td></tr>
                         ) : (
-                            attacks.map((atk, i) => (
+                            attacks?.map((atk, i) => (
                                 <tr key={i} className="hover:bg-white/5">
                                     <td className="p-2 text-text-secondary">
                                         {new Date(atk.timestamp * 1000).toLocaleTimeString()}
