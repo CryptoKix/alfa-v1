@@ -22,7 +22,7 @@ export const NavigationWidget = () => {
 
       <div className="h-16 flex items-center justify-center border-b border-white/5 mb-2 shrink-0">
         <div className="hidden md:flex items-center gap-3">
-          <img src="/logo_concept_3.svg" alt="Tactix" className="w-8 h-8 drop-shadow-glow-cyan" />
+          <img src="/logo_concept_3.svg" alt="Tactix" className="w-12 h-12 drop-shadow-glow-cyan" />
           <div className="flex flex-col">
             <h1 className="text-xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-accent-cyan to-accent-purple leading-none">
               TACTIX.sol
