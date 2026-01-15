@@ -12,6 +12,10 @@ from services.tokens import get_known_tokens, get_token_accounts
 
 last_known_balances = {}
 
+def get_cached_balance(mint):
+    """Safe accessor for last known balances."""
+    return last_known_balances.get(mint, 0.0)
+
 def broadcast_balance():
     global last_known_balances
     try:

@@ -17,6 +17,8 @@ export const CopyTradeConfigWidget = () => {
   const [pumpMax, setPumpMax] = useState('0.2')
   const [majorScale, setMajorScale] = useState('0.5')
   const [majorMax, setMajorMax] = useState('5.0')
+  const [slippage, setSlippage] = useState('1.0')
+  const [priorityFee, setPriorityFee] = useState('0.005')
   const [autoExecute, setAutoExecute] = useState(false)
 
   // Add Target State
@@ -42,6 +44,8 @@ export const CopyTradeConfigWidget = () => {
       setPumpMax(cfg.pump_max?.toString() || '0.2')
       setMajorScale(cfg.major_scale?.toString() || '0.5')
       setMajorMax(cfg.major_max?.toString() || '5.0')
+      setSlippage(cfg.slippage?.toString() || '1.0')
+      setPriorityFee(cfg.priority_fee?.toString() || '0.005')
       setAutoExecute(!!cfg.auto_execute)
     }
   }, [selectedTarget])
@@ -111,6 +115,8 @@ export const CopyTradeConfigWidget = () => {
             pump_max: parseFloat(pumpMax),
             major_scale: parseFloat(majorScale),
             major_max: parseFloat(majorMax),
+            slippage: parseFloat(slippage),
+            priority_fee: parseFloat(priorityFee),
             auto_execute: autoExecute
           }
         })
@@ -280,90 +286,45 @@ export const CopyTradeConfigWidget = () => {
                   </div>
                 </div>
 
+                {/* Execution Safety Section */}
                 <div className="grid grid-cols-2 gap-2 mt-2">
-                  <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10">
-                    <div className="flex flex-col">
-                      <div className="text-[10px] font-black text-white uppercase leading-none">Auto-Execute</div>
-                      <div className="text-[8px] text-text-muted mt-1 uppercase tracking-tighter font-bold">Mirror trades</div>
-                    </div>
-                    <button 
-                      onClick={() => setAutoExecute(!autoExecute)}
-                      className={cn(
-                        "w-10 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out",
-                        autoExecute ? "bg-accent-cyan" : "bg-white/10"
-                      )}
-                    >
-                      <div className={cn(
-                        "w-4 h-4 rounded-full bg-white transition-transform duration-200",
-                        autoExecute ? "translate-x-5" : "translate-x-0"
-                      )} />
-                    </button>
-                  </div>
+                   <div className="p-3 bg-white/5 rounded-xl border border-white/10 flex flex-col gap-2">
+                      <div className="text-[10px] font-black text-white uppercase tracking-wider text-center border-b border-white/5 pb-2">Safety Config</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                           <label className="text-[8px] uppercase text-text-muted font-bold block">Slippage (%)</label>
+                           <input type="number" value={slippage} onChange={(e) => setSlippage(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-cyan/50 outline-none h-9" />
+                        </div>
+                        <div className="space-y-1">
+                           <label className="text-[8px] uppercase text-text-muted font-bold block">Priority (SOL)</label>
+                           <input type="number" value={priorityFee} onChange={(e) => setPriorityFee(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-cyan/50 outline-none h-9" />
+                        </div>
+                      </div>
+                   </div>
+                   
+                   <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10 h-[50%]">
+                        <div className="flex flex-col">
+                          <div className="text-[10px] font-black text-white uppercase leading-none">Auto-Execute</div>
+                          <div className="text-[8px] text-text-muted mt-1 uppercase tracking-tighter font-bold">Mirror trades</div>
+                        </div>
+                        <button 
+                          onClick={() => setAutoExecute(!autoExecute)}
+                          className={cn(
+                            "w-10 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out",
+                            autoExecute ? "bg-accent-cyan" : "bg-white/10"
+                          )}
+                        >
+                          <div className={cn(
+                            "w-4 h-4 rounded-full bg-white transition-transform duration-200",
+                            autoExecute ? "translate-x-5" : "translate-x-0"
+                          )} />
+                        </button>
+                      </div>
 
-                  <button onClick={handleUpdateConfig} className="w-full bg-accent-purple text-white rounded-xl font-black uppercase tracking-[0.2em] hover:bg-purple-500 transition-all text-xs shadow-lg active:scale-95 h-full">
-                    Save Config
-                  </button>
+                      <button onClick={handleUpdateConfig} className="w-full bg-accent-purple text-white rounded-xl font-black uppercase tracking-[0.2em] hover:bg-purple-500 transition-all text-xs shadow-lg active:scale-95 h-[50%]">
+                        Save Config
+                      </button>
+                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-text-muted italic text-[10px] opacity-50 gap-2">
-                <Users size={24} strokeWidth={1} />
-                <span>Select a target wallet</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-pink opacity-50 z-20" />
-        
-        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
-              <Activity size={18} />
-            </div>
-            <div>
-              <h2 className="text-xs font-bold text-white uppercase tracking-tight">SIGNALS</h2>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
-          <div className="flex-1 overflow-auto custom-scrollbar p-3 space-y-2">
-            {signals?.map(s => (
-              <div key={s.signature} className="p-3 rounded-xl border border-white/5 bg-white/[0.02] transition-all relative overflow-hidden group">
-                <div className="flex items-start gap-3">
-                  <div className="p-1.5 rounded-lg shrink-0 text-accent-cyan bg-accent-cyan/10">
-                    <Zap size={14} />
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-0.5">
-                      <span className="text-[10px] font-black text-white uppercase tracking-tight truncate">
-                        {s.type || 'SIGNAL'} - {s.alias}
-                      </span>
-                      <span className="text-[8px] text-text-muted font-mono shrink-0 flex items-center gap-1">
-                        <Clock size={8} />
-                        {formatTime(s.timestamp)}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-text-secondary leading-relaxed line-clamp-2">
-                      {s.sent && s.received ? (
-                        <span className="flex items-center gap-1">
-                          Sold {s.sent.amount.toFixed(2)} {s.sent.symbol} → Bought {s.received.amount.toFixed(2)} {s.received.symbol}
-                        </span>
-                      ) : (
-                        `Activity detected for ${s.alias}`
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}

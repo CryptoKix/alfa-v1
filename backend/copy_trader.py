@@ -256,20 +256,45 @@ class CopyTraderEngine:
 
                                     is_buy = sent_token['mint'] == "So11111111111111111111111111111111111111112"
                                     
-                                    trade_amount = 0
-                                    if is_buy:
-                                        trade_amount = min(sent_token['amount'] * scale, max_sol)
-                                        logger.info(f"🤖 Auto-Copy Buy ({profile_name}): {trade_amount} SOL -> {recv_token['symbol']}")
-                                    else:
-                                        trade_amount = sent_token['amount'] * scale
-                                        logger.info(f"🤖 Auto-Copy Sell ({profile_name}): {trade_amount} {sent_token['symbol']} -> {recv_token['symbol']}")
+                                    # Safety & Config
+                                    slippage_bps = int(config.get('slippage', 1.0) * 100)
+                                    priority_fee = float(config.get('priority_fee', 0.005))
                                     
-                                    if trade_amount > 0:
+                                    trade_amount = 0
+                                    should_execute = False
+
+                                    if is_buy:
+                                        # BUY: Input is SOL
+                                        trade_amount = min(sent_token['amount'] * scale, max_sol)
+                                        should_execute = True
+                                        logger.info(f"🤖 Auto-Copy BUY ({profile_name}): {trade_amount:.4f} SOL -> {recv_token['symbol']}")
+                                    else:
+                                        # SELL: Input is Token
+                                        # Check if we actually hold this token
+                                        from services.portfolio import get_cached_balance
+                                        current_balance = get_cached_balance(sent_token['mint'])
+                                        
+                                        target_sell_amount = sent_token['amount'] * scale
+                                        
+                                        if current_balance > 0:
+                                            # Sell whatever we have up to the scaled amount
+                                            trade_amount = min(current_balance, target_sell_amount)
+                                            if trade_amount > 0:
+                                                should_execute = True
+                                                logger.info(f"🤖 Auto-Copy SELL ({profile_name}): {trade_amount:.4f} {sent_token['symbol']} (Held: {current_balance:.4f})")
+                                        else:
+                                            logger.info(f"⚠️ Copy Sell Ignored: We do not hold {sent_token['symbol']}")
+
+                                    if should_execute and trade_amount > 0:
                                         import threading
                                         threading.Thread(
                                             target=self.execute_trade,
                                             args=(sent_token['mint'], recv_token['mint'], trade_amount),
-                                            kwargs={'source': f"Copy: {alias}"},
+                                            kwargs={
+                                                'source': f"Copy: {alias}",
+                                                'slippage_bps': slippage_bps,
+                                                'priority_fee': priority_fee
+                                            },
                                             daemon=True
                                         ).start()
                                         

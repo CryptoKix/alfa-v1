@@ -26,10 +26,18 @@ export interface Trade {
   slippage_bps?: number
 }
 
+export interface PortfolioSnapshot {
+  id: number
+  timestamp: string
+  total_value_usd: number
+  wallet_address: string
+}
+
 export interface PortfolioState {
   holdings: TokenHolding[]
   holdings24hAgo: TokenHolding[]
   history: Trade[]
+  snapshots: PortfolioSnapshot[]
   totalUsd: number
   totalUsd24hAgo: number
   wallet: string
@@ -42,6 +50,7 @@ const initialState: PortfolioState = {
   holdings: [],
   holdings24hAgo: [],
   history: [],
+  snapshots: [],
   totalUsd: 0,
   totalUsd24hAgo: 0,
   wallet: '0x...',
@@ -56,6 +65,9 @@ export const portfolioSlice = createSlice({
   reducers: {
     setWebConnection: (state, action: PayloadAction<boolean>) => {
       state.connected = action.payload
+    },
+    setSnapshots: (state, action: PayloadAction<PortfolioSnapshot[]>) => {
+      state.snapshots = action.payload
     },
     updatePortfolio: (state, action: PayloadAction<{ total_usd: number; total_usd_24h_ago?: number; holdings: any[]; holdings_24h_ago?: any[]; wallet?: string; wallet_alias?: string }>) => {
       state.totalUsd = action.payload.total_usd
@@ -84,5 +96,5 @@ export const portfolioSlice = createSlice({
   },
 })
 
-export const { updatePortfolio, updateHistory, setWebConnection } = portfolioSlice.actions
+export const { updatePortfolio, updateHistory, setWebConnection, setSnapshots } = portfolioSlice.actions
 export default portfolioSlice.reducer

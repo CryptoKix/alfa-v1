@@ -1,14 +1,17 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
-import { useAppSelector } from '@/app/hooks'
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
-import { Wallet } from 'lucide-react'
+import { useAppSelector, useAppDispatch } from '@/app/hooks'
+import { setSnapshots } from '@/features/portfolio/portfolioSlice'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts'
+import { Wallet, PieChart as PieIcon, LineChart as LineIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const COLORS = ['#00ffff', '#ff0080', '#9945FF', '#00ff9d', '#ffaa00', '#ffffff']
 
 export const PortfolioWidget = () => {
-  const { holdings, holdings24hAgo, totalUsd, totalUsd24hAgo } = useAppSelector(state => state.portfolio)
+  const dispatch = useAppDispatch()
+  const { holdings, holdings24hAgo, totalUsd, totalUsd24hAgo, snapshots } = useAppSelector(state => state.portfolio)
   const prices = useAppSelector(state => state.prices.prices)
+  const [viewMode, setViewMode] = useState<'allocation' | 'performance'>('allocation')
   
   // Calculate live values - Memoized to prevent unnecessary re-calcs on other state changes
   const liveHoldings = useMemo(() => {
@@ -55,8 +58,29 @@ export const PortfolioWidget = () => {
             setChartData(liveHoldingsRef.current)
         }
     }, 2000)
+    
+    // Fetch History
+    const fetchHistory = async () => {
+      try {
+        const res = await fetch('/api/portfolio/history')
+        if (res.ok) {
+           const data = await res.json()
+           dispatch(setSnapshots(data))
+        }
+      } catch(e) {}
+    }
+    fetchHistory()
+
     return () => clearInterval(timer)
   }, [])
+
+  // Prepare Area Chart Data
+  const areaChartData = useMemo(() => {
+    return snapshots.map(s => ({
+        time: new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+        value: s.total_value_usd
+    }))
+  }, [snapshots])
 
   return (
     <div className="bg-background-card border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden group flex flex-col h-full">
@@ -144,37 +168,87 @@ export const PortfolioWidget = () => {
         </div>
 
         {/* Chart Section (Right) */}
-        <div className="h-full w-full lg:w-[240px] relative shrink-0 flex flex-col items-center justify-center">
-          <div className="text-[10px] text-text-secondary uppercase tracking-widest mb-4 w-full text-center absolute top-2">Allocation</div>
-          <div className="w-[220px] h-[220px] relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={70} 
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="liveValue"
-                  stroke="none"
-                  isAnimationActive={false}
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={entry.mint} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#12121a', borderColor: '#2a2a3a', borderRadius: '8px' }}
-                  itemStyle={{ color: '#fff' }}
-                  formatter={(value: number | undefined) => ['$' + (value?.toLocaleString() ?? '0'), 'Value']}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+        <div className="h-full w-full lg:w-[240px] relative shrink-0 flex flex-col">
+          {/* Chart Toggles */}
+          <div className="flex justify-center gap-2 mb-2">
+             <button 
+                onClick={() => setViewMode('allocation')}
+                className={cn(
+                    "p-1.5 rounded-lg transition-all",
+                    viewMode === 'allocation' ? "bg-accent-cyan text-black" : "bg-white/5 text-text-muted hover:text-white"
+                )}
+             >
+                <PieIcon size={14} />
+             </button>
+             <button 
+                onClick={() => setViewMode('performance')}
+                className={cn(
+                    "p-1.5 rounded-lg transition-all",
+                    viewMode === 'performance' ? "bg-accent-purple text-white" : "bg-white/5 text-text-muted hover:text-white"
+                )}
+             >
+                <LineIcon size={14} />
+             </button>
+          </div>
+
+          <div className="flex-1 relative flex flex-col items-center justify-center">
+            <div className="text-[10px] text-text-secondary uppercase tracking-widest mb-2 w-full text-center">
+                {viewMode === 'allocation' ? 'Allocation' : '7D Performance'}
+            </div>
             
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-1">
-               <span className="text-[10px] text-text-muted uppercase tracking-tighter leading-none">TOKENS</span>
-               <span className="text-2xl font-black text-white leading-none mt-1">{liveHoldings.length}</span>
+            <div className="w-full h-[180px] relative">
+              <ResponsiveContainer width="100%" height="100%">
+                {viewMode === 'allocation' ? (
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55} 
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="liveValue"
+                      stroke="none"
+                      isAnimationActive={false}
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={entry.mint} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#12121a', borderColor: '#2a2a3a', borderRadius: '8px' }}
+                      itemStyle={{ color: '#fff' }}
+                      formatter={(value: number | undefined) => ['$' + (value?.toLocaleString() ?? '0'), 'Value']}
+                    />
+                  </PieChart>
+                ) : (
+                  <AreaChart data={areaChartData}>
+                    <defs>
+                        <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#9945FF" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#9945FF" stopOpacity={0}/>
+                        </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                    <XAxis dataKey="time" hide />
+                    <YAxis hide domain={['auto', 'auto']} />
+                    <Tooltip 
+                        contentStyle={{ backgroundColor: '#12121a', borderColor: '#2a2a3a', borderRadius: '8px' }}
+                        itemStyle={{ color: '#fff' }}
+                        labelStyle={{ display: 'none' }}
+                        formatter={(value: number) => ['$' + value.toLocaleString(), 'Total Value']}
+                    />
+                    <Area type="monotone" dataKey="value" stroke="#9945FF" fillOpacity={1} fill="url(#colorValue)" strokeWidth={2} />
+                  </AreaChart>
+                )}
+              </ResponsiveContainer>
+              
+              {viewMode === 'allocation' && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-1">
+                    <span className="text-[10px] text-text-muted uppercase tracking-tighter leading-none">TOKENS</span>
+                    <span className="text-2xl font-black text-white leading-none mt-1">{liveHoldings.length}</span>
+                  </div>
+              )}
             </div>
           </div>
         </div>

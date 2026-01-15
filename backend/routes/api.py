@@ -42,6 +42,11 @@ def api_health():
 def api_history():
     return jsonify(db.get_history(50))
 
+@api_bp.route('/api/portfolio/history')
+def api_portfolio_history():
+    return jsonify(db.get_snapshots(168)) # Get last 7 days (hourly)
+
+
 
 # --- Sniper APIs ---
 

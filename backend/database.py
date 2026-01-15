@@ -410,6 +410,16 @@ class TactixDB:
                 (total_value, wallet, json.dumps(holdings))
             )
 
+    def get_snapshots(self, limit=168): # Default to 1 week (168 hours)
+        """Fetch historical portfolio snapshots."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            # Fetch descending to get latest, then reverse in code or sort in SQL
+            cursor = conn.execute("SELECT * FROM snapshots ORDER BY timestamp DESC LIMIT ?", (limit,))
+            rows = [dict(row) for row in cursor.fetchall()]
+            return sorted(rows, key=lambda x: x['timestamp']) # Return chronological order
+
+
     def save_target(self, address, alias, tags=None, config=None, performance=None, status='active'):
         """Create or update a copy-trade target wallet."""
         sql = '''
