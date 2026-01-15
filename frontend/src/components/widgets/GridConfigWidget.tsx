@@ -61,6 +61,7 @@ export const GridConfigWidget = () => {
   const [investment, setInvestment] = useState('')
   const [alias, setAlias] = useState('')
   const [trailingEnabled, setTrailingEnabled] = useState(false)
+  const [gridMode, setGridMode] = useState<'market' | 'limit'>('market')
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -119,7 +120,7 @@ export const GridConfigWidget = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          strategy: 'GRID',
+          strategy: gridMode === 'market' ? 'GRID' : 'LIMIT_GRID',
           alias: alias || undefined,
           inputMint,
           outputMint,
@@ -271,6 +272,31 @@ export const GridConfigWidget = () => {
                   className="bg-transparent text-sm font-mono font-bold text-white w-full focus:outline-none placeholder:text-white/5"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Mode Toggle */}
+          <div className="space-y-1.5">
+            <label className="text-[9px] uppercase tracking-widest text-text-muted font-bold px-1 text-accent-cyan">Execution Mode</label>
+            <div className="flex bg-black/20 rounded-xl p-1 border border-white/5 gap-1 h-12">
+              <button
+                onClick={() => setGridMode('market')}
+                className={cn(
+                  "flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                  gridMode === 'market' ? "bg-accent-cyan text-black shadow-glow-cyan" : "text-text-muted hover:text-white"
+                )}
+              >
+                Market (HFA)
+              </button>
+              <button
+                onClick={() => setGridMode('limit')}
+                className={cn(
+                  "flex-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                  gridMode === 'limit' ? "bg-accent-purple text-white shadow-glow-purple" : "text-text-muted hover:text-white"
+                )}
+              >
+                Limit (On-Chain)
+              </button>
             </div>
           </div>
 

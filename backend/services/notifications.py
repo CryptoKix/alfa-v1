@@ -4,11 +4,12 @@ import requests
 import json
 import time
 from datetime import datetime
-from config import DISCORD_WEBHOOK_URL
+from config import DISCORD_WEBHOOK_URL, DISCORD_GIT_WEBHOOK_URL
 
-def send_discord_notification(title, message, color=0x00FFFF, fields=None):
+def send_discord_notification(title, message, color=0x00FFFF, fields=None, webhook_url=None):
     """Send a formatted embed to Discord via webhook."""
-    if not DISCORD_WEBHOOK_URL:
+    target_url = webhook_url or DISCORD_WEBHOOK_URL
+    if not target_url:
         return
 
     embed = {
@@ -32,9 +33,25 @@ def send_discord_notification(title, message, color=0x00FFFF, fields=None):
     }
 
     try:
-        requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=10)
+        requests.post(target_url, json=payload, timeout=10)
     except Exception as e:
         print(f"Failed to send Discord notification: {e}")
+
+def notify_git_commit(author, branch, commit_hash, message, changes_summary=None):
+    """Specific formatter for GitHub commit notifications."""
+    title = f"🛠️ NEW COMMIT: {branch}"
+    desc = f"**{author}** pushed a new update to the core."
+    
+    fields = [
+        {"name": "Message", "value": message, "inline": False},
+        {"name": "Hash", "value": f"`{commit_hash[:8]}`", "inline": True},
+        {"name": "Branch", "value": branch, "inline": True}
+    ]
+    
+    if changes_summary:
+        fields.append({"name": "Files Changed", "value": f"```\n{changes_summary}\n```", "inline": False})
+
+    send_discord_notification(title, desc, color=0x00FF00, fields=fields, webhook_url=DISCORD_GIT_WEBHOOK_URL)
 
 def notify_trade(tx_type, input_sym, input_amt, output_sym, output_amt, price, profit=None, signature=None, source="Manual"):
     """Specific formatter for trade notifications."""

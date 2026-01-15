@@ -51,7 +51,9 @@ export const TradeEntryWidget = () => {
   const toToken = tokens.find(t => t.mint === toTokenMint) || tokens[1]
 
   const [side, setSide] = useState<'buy' | 'sell'>('buy')
+  const [orderType, setOrderType] = useState<'market' | 'limit'>('market')
   const [amount, setAmount] = useState('')
+  const [limitPrice, setLimitPrice] = useState('')
   
   // Advanced Params
   const [slippage, setSlippage] = useState('0.5')
@@ -68,31 +70,42 @@ export const TradeEntryWidget = () => {
 
   const handleTrade = async () => {
     if (!amount) return
+    if (orderType === 'limit' && !limitPrice) return
+    
     setStatus('loading')
     setErrorMsg('')
 
     try {
-      const res = await fetch('/api/trade', {
+      const endpoint = orderType === 'market' ? '/api/trade' : '/api/limit/create'
+      const payload: any = {
+        inputMint: fromTokenMint,
+        outputMint: toTokenMint,
+        amount: parseFloat(amount),
+        priorityFee: parseFloat(priorityFee)
+      }
+
+      if (orderType === 'market') {
+        payload.strategy = 'Manual Swap'
+        payload.slippageBps = Math.floor(parseFloat(slippage) * 100)
+      } else {
+        payload.price = parseFloat(limitPrice)
+      }
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          inputMint: fromTokenMint,
-          outputMint: toTokenMint,
-          amount: parseFloat(amount),
-          strategy: 'Manual Swap',
-          slippageBps: Math.floor(parseFloat(slippage) * 100),
-          priorityFee: parseFloat(priorityFee)
-        })
+        body: JSON.stringify(payload)
       })
 
       const data = await res.json()
-      if (data.success) {
+      if (data.success || data.signature) {
         setStatus('success')
         setAmount('')
+        setLimitPrice('')
         setTimeout(() => setStatus('idle'), 3000)
       } else {
         setStatus('error')
-        setErrorMsg(data.error || 'Trade failed')
+        setErrorMsg(data.error || 'Execution failed')
       }
     } catch (e) {
       setStatus('error')
@@ -109,7 +122,9 @@ export const TradeEntryWidget = () => {
 
   const fromPrice = prices[fromTokenMint] || fromToken.price || 0
   const toPrice = prices[toTokenMint] || toToken.price || 0
-  const estimatedOut = (amount && fromPrice && toPrice) ? (parseFloat(amount) * fromPrice) / toPrice : 0
+  const estimatedOut = orderType === 'market' 
+    ? ((amount && fromPrice && toPrice) ? (parseFloat(amount) * fromPrice) / toPrice : 0)
+    : ((amount && limitPrice) ? parseFloat(amount) / parseFloat(limitPrice) : 0)
 
   const TokenItem = ({ token, onClick }: { token: any, onClick: () => void }) => (
     <button 
@@ -147,7 +162,7 @@ export const TradeEntryWidget = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-background-elevated rounded-xl p-1.5 mb-4 border border-white/5 relative group/tabs">
+      <div className="flex bg-background-elevated rounded-xl p-1.5 mb-2 border border-white/5 relative group/tabs">
         <button
           onClick={() => setSide('buy')}
           className={cn(
@@ -165,6 +180,27 @@ export const TradeEntryWidget = () => {
           )}
         >
           SELL
+        </button>
+      </div>
+
+      <div className="flex bg-black/20 rounded-lg p-1 mb-4 border border-white/5 gap-1">
+        <button
+          onClick={() => setOrderType('market')}
+          className={cn(
+            "flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded transition-all",
+            orderType === 'market' ? "bg-white/10 text-white" : "text-text-muted hover:text-white/60"
+          )}
+        >
+          Market
+        </button>
+        <button
+          onClick={() => setOrderType('limit')}
+          className={cn(
+            "flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded transition-all",
+            orderType === 'limit' ? "bg-white/10 text-white" : "text-text-muted hover:text-white/60"
+          )}
+        >
+          Limit
         </button>
       </div>
 
@@ -222,6 +258,25 @@ export const TradeEntryWidget = () => {
           )}
         </div>
 
+        {orderType === 'limit' && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-[10px] text-text-secondary uppercase tracking-widest px-1">
+              <span>Limit Price</span>
+              <span className="text-accent-cyan cursor-pointer hover:underline" onClick={() => setLimitPrice((fromPrice / toPrice).toString())}>Current: {(fromPrice / toPrice).toFixed(6)}</span>
+            </div>
+            <div className="bg-background-elevated border border-white/10 rounded-xl px-3 flex items-center gap-3 focus-within:border-accent-cyan transition-colors h-14">
+              <input
+                type="number"
+                value={limitPrice}
+                onChange={(e) => setLimitPrice(e.target.value)}
+                placeholder="0.00"
+                className="bg-transparent text-xl font-mono font-bold text-white w-full focus:outline-none placeholder:text-white/10"
+              />
+              <div className="text-[10px] font-bold text-text-muted uppercase shrink-0">{fromToken.symbol}/{toToken.symbol}</div>
+            </div>
+          </div>
+        )}
+
         {/* Arrow Divider */}
         <div className="flex justify-center -my-2.5 relative z-10">
           <button 
@@ -236,7 +291,7 @@ export const TradeEntryWidget = () => {
         <div className="space-y-1 relative">
           <div className="flex justify-between text-[10px] text-text-secondary uppercase tracking-widest px-1">
             <span>You Receive</span>
-            <span>Est.</span>
+            <span>{orderType === 'market' ? 'Est.' : 'Min.'}</span>
           </div>
           <div className="bg-background-elevated/50 border border-white/5 rounded-xl px-3 flex items-center gap-3 h-14">
             <div className="w-[27px] pr-2 border-r border-transparent shrink-0" />
@@ -276,7 +331,7 @@ export const TradeEntryWidget = () => {
           <div className="bg-black/20 border border-white/5 rounded-xl px-3 flex flex-col justify-center h-14">
             <label className="text-[8px] uppercase tracking-[0.2em] text-text-muted font-bold">Slippage</label>
             <div className="flex items-center gap-2">
-              <input type="number" value={slippage} onChange={(e) => setSlippage(e.target.value)} className="bg-transparent text-[11px] font-mono font-bold text-white w-full focus:outline-none" />
+              <input type="number" value={slippage} onChange={(e) => setSlippage(e.target.value)} disabled={orderType === 'limit'} className="bg-transparent text-[11px] font-mono font-bold text-white w-full focus:outline-none disabled:opacity-20" />
               <span className="text-[9px] text-text-muted font-bold">%</span>
             </div>
           </div>
@@ -298,7 +353,7 @@ export const TradeEntryWidget = () => {
 
         {/* Feedback */}
         {status === 'error' && <div className="p-2 bg-accent-red/10 border border-accent-red/20 rounded-lg text-[9px] text-accent-red font-bold animate-in fade-in">{errorMsg}</div>}
-        {status === 'success' && <div className="p-2 bg-accent-green/10 border border-accent-green/20 rounded-lg text-[9px] text-accent-green font-bold animate-in fade-in text-center">TRADE EXECUTED</div>}
+        {status === 'success' && <div className="p-2 bg-accent-green/10 border border-accent-green/20 rounded-lg text-[9px] text-accent-green font-bold animate-in fade-in text-center">{orderType === 'market' ? 'TRADE EXECUTED' : 'ORDER PLACED'}</div>}
 
         <div className="p-2 bg-accent-cyan/5 border border-accent-cyan/10 rounded-lg flex items-start gap-2">
           <Info className="text-accent-cyan shrink-0 mt-0.5" size={12} />
@@ -308,10 +363,10 @@ export const TradeEntryWidget = () => {
 
       <button 
         onClick={handleTrade}
-        disabled={!amount || status === 'loading'}
+        disabled={!amount || (orderType === 'limit' && !limitPrice) || status === 'loading'}
         className={cn(
           "w-full py-4.5 mt-4 rounded-2xl font-black text-lg uppercase tracking-[0.25em] transition-all duration-500 transform active:scale-95 flex items-center justify-center gap-3",
-          !amount || status === 'loading' 
+          !amount || (orderType === 'limit' && !limitPrice) || status === 'loading' 
             ? "bg-white/5 text-white/10 cursor-not-allowed border border-white/5 opacity-50" 
             : side === 'buy' 
               ? "bg-accent-cyan text-black hover:bg-white shadow-[0_0_35px_rgba(0,255,255,0.25)] hover:shadow-[0_0_55px_rgba(0,255,255,0.45)] border border-accent-cyan" 
@@ -326,7 +381,7 @@ export const TradeEntryWidget = () => {
         ) : (
           <>
             <Zap size={22} fill="currentColor" />
-            {side.toUpperCase()} {toToken.symbol}
+            {orderType === 'market' ? `${side.toUpperCase()} ${toToken.symbol}` : `PLACE ${side.toUpperCase()} ORDER`}
           </>
         )}
       </button>

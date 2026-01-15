@@ -197,7 +197,7 @@ def api_dca_add():
         "next_run": time.time() + 5
     }
 
-    if bot_type == 'GRID':
+    if bot_type in ['GRID', 'LIMIT_GRID']:
         lb, ub, s = config['lower_bound'], config['upper_bound'], config['steps']
         current_price = 0
         with price_cache_lock:
@@ -213,15 +213,18 @@ def api_dca_add():
                 "price": price_level,
                 "has_position": is_sell_level,
                 "token_amount": config['amount_per_level'] / current_price if is_sell_level and current_price > 0 else 0,
-                "cost_usd": config['amount_per_level'] if is_sell_level else 0
+                "cost_usd": config['amount_per_level'] if is_sell_level else 0,
+                "order_id": None
             })
             if is_sell_level: sell_levels_count += 1
         
         state['grid_levels'] = levels
+        
+        # Initial funding for sell side
         if sell_levels_count > 0:
             initial_buy_amount = config['amount_per_level'] * sell_levels_count
             try:
-                res = execute_trade_logic(data['inputMint'], data['outputMint'], initial_buy_amount, "Grid Initial Rebalance")
+                res = execute_trade_logic(data['inputMint'], data['outputMint'], initial_buy_amount, f"{bot_type} Initial Rebalance")
                 actual_tokens = res.get('amount_out', 0)
                 if actual_tokens > 0:
                     tokens_per_level = actual_tokens / sell_levels_count
@@ -230,10 +233,33 @@ def api_dca_add():
                             lvl['token_amount'] = tokens_per_level
                             lvl['cost_usd'] = config['amount_per_level']
             except Exception as e:
+                print(f"Initial rebalance failed: {e}")
                 for lvl in state['grid_levels']:
                     if lvl['has_position']:
                         lvl['has_position'] = False
                         lvl['token_amount'] = 0
+
+        # Place initial Limit Orders if mode is LIMIT_GRID
+        if bot_type == 'LIMIT_GRID':
+            from services.trading import create_limit_order
+            for idx, lvl in enumerate(state['grid_levels']):
+                try:
+                    if lvl['has_position']:
+                        # SELL Order: Sell tokens for USDC/SOL at lvl['price']
+                        # Jupiter: Sell outputMint for inputMint
+                        # takingAmount = makingAmount * price? 
+                        # Wait, create_limit_order(input, output, amount, price)
+                        # Input is what you SELL (makingAmount), Output is what you GET (takingAmount)
+                        # So for SELL: input=outputMint, output=inputMint, price=1/lvl['price']
+                        order = create_limit_order(data['outputMint'], data['inputMint'], lvl['token_amount'], 1/lvl['price'])
+                        lvl['order_id'] = order.get('orderAddress')
+                    elif idx < len(state['grid_levels']) - 1:
+                        # BUY Order: Buy tokens with USDC/SOL at lvl['price']
+                        # Input is inputMint, Output is outputMint, price=lvl['price']
+                        order = create_limit_order(data['inputMint'], data['outputMint'], config['amount_per_level'], lvl['price'])
+                        lvl['order_id'] = order.get('orderAddress')
+                except Exception as e:
+                    print(f"Failed to place initial limit order for level {idx}: {e}")
 
     db.save_bot(bot_id, bot_type, data['inputMint'], data['outputMint'], get_token_symbol(data['inputMint']), get_token_symbol(data['outputMint']), config, state)
     socketio.emit('bots_update', {'bots': get_formatted_bots(), 'timestamp': time.time()}, namespace='/bots')
@@ -308,6 +334,45 @@ def api_trade():
         return jsonify({"success": True, "signature": sig['signature']})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@api_bp.route('/api/limit/create', methods=['POST'])
+def api_limit_create():
+    data = request.json
+    try:
+        from services.trading import create_limit_order
+        res = create_limit_order(
+            data['inputMint'],
+            data['outputMint'],
+            float(data['amount']),
+            float(data['price']),
+            data.get('priorityFee', 0.001)
+        )
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@api_bp.route('/api/limit/cancel', methods=['POST'])
+def api_limit_cancel():
+    data = request.json
+    try:
+        from services.trading import cancel_limit_order
+        res = cancel_limit_order(data['orderAddress'])
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@api_bp.route('/api/limit/list')
+def api_limit_list():
+    try:
+        from services.trading import get_open_limit_orders
+        orders = get_open_limit_orders()
+        return jsonify(orders)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @api_bp.route('/api/transfer', methods=['POST'])
 def api_transfer():

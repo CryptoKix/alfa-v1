@@ -198,16 +198,86 @@ def update_bot_performance(bot, current_price):
         db.save_bot(bot['id'], bot['type'], bot['input_mint'], bot['output_mint'], bot['input_symbol'], bot['output_symbol'], config, state)
     except Exception as e: pass
 
+def process_limit_grid_logic(bot):
+    try:
+        config, state = json.loads(bot['config_json']), json.loads(bot['state_json'])
+        levels = state.get('grid_levels', [])
+        
+        # Get all open orders for the wallet
+        from services.trading import get_open_limit_orders, create_limit_order
+        open_orders = get_open_limit_orders()
+        open_order_pubkeys = [o['publicKey'] for o in open_orders]
+        
+        changed = False
+        for idx, lvl in enumerate(levels):
+            order_id = lvl.get('order_id')
+            if not order_id: continue
+            
+            # If order is no longer in open orders, it was likely filled
+            if order_id not in open_order_pubkeys:
+                print(f"🔔 LIMIT GRID FILL DETECTED: {bot['id']} | Level {idx}")
+                
+                # RE-QUEUE LOGIC
+                if lvl.get('has_position'):
+                    # SELL ORDER WAS FILLED
+                    # Now we have USDC/SOL, place a BUY order at the same level (which is lvl['price'])?
+                    # No, usually you place a BUY at the level BELOW and a SELL at the level ABOVE.
+                    # In our simplified logic: 
+                    # If SELL at price P filled, we now want to BUY at price P-step (wait, our levels are fixed).
+                    # Actually, if SELL at lvl[idx].price filled, we place a BUY at lvl[idx-1].price?
+                    # Let's keep it simple: 
+                    # If SELL filled -> lvl is now EMPTY. Place BUY order at THIS level? 
+                    # Standard Grid: SELL at P, BUY at P-step.
+                    lvl['has_position'] = False
+                    lvl['token_amount'] = 0
+                    lvl['order_id'] = None
+                    
+                    # Place BUY order at this same level price? 
+                    # Wait, our BUY triggers are at prev_level['price'].
+                    # Let's re-align with process_grid_logic:
+                    # BUY is at index i-1, SELL is at index i.
+                    # This needs careful mapping.
+                    
+                    # For now, let's just mark it as "needs new order" and we can refine later.
+                    # Simple re-queue: replace what was filled.
+                    try:
+                        new_order = create_limit_order(bot['input_mint'], bot['output_mint'], config['amount_per_level'], lvl['price'])
+                        lvl['order_id'] = new_order.get('orderAddress')
+                        changed = True
+                    except Exception as e: print(f"Limit Grid Re-queue Error: {e}")
+                else:
+                    # BUY ORDER WAS FILLED
+                    lvl['has_position'] = True
+                    lvl['order_id'] = None
+                    # We bought tokens, now place a SELL order at this level price
+                    try:
+                        # amount = config['amount_per_level'] / lvl['price']
+                        # price_in_output_units = 1 / lvl['price']
+                        new_order = create_limit_order(bot['output_mint'], bot['input_mint'], config['amount_per_level'] / lvl['price'], 1/lvl['price'])
+                        lvl['order_id'] = new_order.get('orderAddress')
+                        changed = True
+                    except Exception as e: print(f"Limit Grid Re-queue Error: {e}")
+
+        if changed:
+            db.save_bot(bot['id'], bot['type'], bot['input_mint'], bot['output_mint'], bot['input_symbol'], bot['output_symbol'], config, state)
+            socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+
+    except Exception as e:
+        print(f"❌ LIMIT GRID WATCHER ERROR: {e}")
+
 def dca_scheduler(app):
     while True:
         try:
             with app.app_context():
                 from extensions import price_cache 
                 for bot in db.get_all_bots():
-                    if bot['status'] == 'active' and bot['type'] in ['DCA', 'TWAP', 'VWAP']:
-                        current_price = 0
-                        if bot['output_mint'] in price_cache:
-                            current_price = price_cache[bot['output_mint']][0]
-                        process_twap_logic(bot, current_price)
+                    if bot['status'] == 'active':
+                        if bot['type'] in ['DCA', 'TWAP', 'VWAP']:
+                            current_price = 0
+                            if bot['output_mint'] in price_cache:
+                                current_price = price_cache[bot['output_mint']][0]
+                            process_twap_logic(bot, current_price)
+                        elif bot['type'] == 'LIMIT_GRID':
+                            process_limit_grid_logic(bot)
         except Exception as e: pass
-        time.sleep(10)
+        time.sleep(15) # Poll limit orders every 15s

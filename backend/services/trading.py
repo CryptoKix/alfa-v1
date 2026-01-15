@@ -12,11 +12,113 @@ from solders.pubkey import Pubkey
 from solders.system_program import TransferParams, transfer
 from spl.token.instructions import transfer_checked, TransferCheckedParams, get_associated_token_address, create_associated_token_account
 
-from config import KEYPAIR, WALLET_ADDRESS, JUPITER_API_KEY, JUPITER_QUOTE_API, JUPITER_SWAP_API
+from config import KEYPAIR, WALLET_ADDRESS, JUPITER_API_KEY, JUPITER_QUOTE_API, JUPITER_SWAP_API, JUPITER_LIMIT_ORDER_API
 from extensions import db, solana_client, socketio, price_cache, price_cache_lock
 from services.tokens import get_known_tokens, get_token_symbol
 from services.portfolio import broadcast_balance
 from services.notifications import notify_trade
+
+def create_limit_order(input_mint, output_mint, amount, price, priority_fee=0.001):
+    """Create a limit order via Jupiter Limit Order V2."""
+    if not KEYPAIR:
+        raise Exception("No private key loaded")
+
+    known = get_known_tokens()
+    input_token = known.get(input_mint, {"decimals": 9})
+    output_token = known.get(output_mint, {"decimals": 9})
+    
+    amount_raw = int(amount * (10 ** input_token.get("decimals", 9)))
+    # price is InputUnits / OutputUnits
+    # takingAmount = amount_in / price
+    taking_amount = amount / price
+    taking_amount_raw = int(taking_amount * (10 ** output_token.get("decimals", 9)))
+
+    if amount_raw <= 0 or taking_amount_raw <= 0:
+        raise Exception("Invalid amount or price")
+
+    headers = {'x-api-key': JUPITER_API_KEY} if JUPITER_API_KEY else {}
+    
+    # Create order transaction
+    url = f"{JUPITER_LIMIT_ORDER_API}/createOrder"
+    payload = {
+        "maker": WALLET_ADDRESS,
+        "inputMint": input_mint,
+        "outputMint": output_mint,
+        "makingAmount": str(amount_raw),
+        "takingAmount": str(taking_amount_raw),
+        "computeUnitPriceMicroLamports": int(priority_fee * 10**15 / 1400000)
+    }
+    
+    res = requests.post(url, json=payload, headers=headers, timeout=10).json()
+    if "error" in res:
+        raise Exception(f"Limit Order API: {res['error']}")
+
+    # Sign and send transaction
+    try:
+        txn = VersionedTransaction.from_bytes(base64.b64decode(res['transaction']))
+        signature = KEYPAIR.sign_message(to_bytes_versioned(txn.message))
+        signed_txn = VersionedTransaction.populate(txn.message, [signature])
+        
+        send_res = solana_client.send_raw_transaction(
+            bytes(signed_txn),
+            opts=TxOpts(skip_preflight=False, preflight_commitment="confirmed")
+        )
+        sig = str(send_res.value)
+    except Exception as e:
+        raise e
+
+    return {
+        "success": True,
+        "signature": sig,
+        "orderAddress": res.get('orderPubKey')
+    }
+
+def cancel_limit_order(order_address):
+    """Cancel an open limit order via Jupiter."""
+    if not KEYPAIR:
+        raise Exception("No private key loaded")
+
+    headers = {'x-api-key': JUPITER_API_KEY} if JUPITER_API_KEY else {}
+    
+    url = f"{JUPITER_LIMIT_ORDER_API}/cancelOrders"
+    payload = {
+        "maker": WALLET_ADDRESS,
+        "orders": [order_address]
+    }
+    
+    res = requests.post(url, json=payload, headers=headers, timeout=10).json()
+    if "error" in res:
+        raise Exception(f"Cancel Order API: {res['error']}")
+
+    # Sign and send transaction
+    try:
+        txn = VersionedTransaction.from_bytes(base64.b64decode(res['transaction']))
+        signature = KEYPAIR.sign_message(to_bytes_versioned(txn.message))
+        signed_txn = VersionedTransaction.populate(txn.message, [signature])
+        
+        send_res = solana_client.send_raw_transaction(
+            bytes(signed_txn),
+            opts=TxOpts(skip_preflight=False, preflight_commitment="confirmed")
+        )
+        sig = str(send_res.value)
+    except Exception as e:
+        raise e
+
+    return {
+        "success": True,
+        "signature": sig
+    }
+
+def get_open_limit_orders():
+    """Fetch all open limit orders for the wallet."""
+    url = f"{JUPITER_LIMIT_ORDER_API}/openOrders?wallet={WALLET_ADDRESS}"
+    headers = {'x-api-key': JUPITER_API_KEY} if JUPITER_API_KEY else {}
+    
+    try:
+        res = requests.get(url, headers=headers, timeout=10).json()
+        return res
+    except:
+        return []
 
 def execute_transfer(recipient_address, amount, mint="So11111111111111111111111111111111111111112"):
     """Execute a SOL or Token transfer to an external wallet."""
