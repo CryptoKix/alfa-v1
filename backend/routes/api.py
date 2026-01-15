@@ -413,18 +413,12 @@ def internal_webhook():
         # Trigger grid bots
 
         for bot in db.get_all_bots():
-
             if bot['status'] == 'active' and bot['output_mint'] == mint:
-
                 if bot['type'] == 'GRID':
-
                     process_grid_logic(bot, price)
-
-                    update_bot_performance(bot, price)
-
+                    update_bot_performance(bot['id'], price)
                 elif bot['type'] in ['DCA', 'TWAP', 'VWAP']:
-
-                    update_bot_performance(bot, price)
+                    update_bot_performance(bot['id'], price)
 
     return jsonify({"status": "ok"})
 

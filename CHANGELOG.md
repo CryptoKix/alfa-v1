@@ -3,6 +3,7 @@
 ## [2026-01-15] - Discovery Sniper, HFA Hardening & Ultra-Safe Operations
 
 ### Feature: Logic & PnL Hardening (HFA)
+- **PnL Data Integrity:** Refactored `update_bot_performance` to fetch fresh bot state from the database before recalculating, preventing stale memory from overwriting recent trade results.
 - **Execution Fix:** Resolved a critical crash in `process_grid_logic` caused by an unsupported `profit` keyword argument in the trade execution call.
 - **Ceiling Safety:** Engineered a protective catch-all mechanism to automatically liquidate any remaining positions if the market price exceeds the grid's `upper_bound`.
 - **Token Amount Validation:** Hardened the sell logic to verify positive inventory before triggering executions, preventing "zero-amount" trade errors.

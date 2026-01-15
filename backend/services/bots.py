@@ -221,10 +221,13 @@ def process_twap_logic(bot, current_price):
             except Exception as e: state['next_run'] = now + 60
     except Exception as e: pass
 
-def update_bot_performance(bot, current_price):
+def update_bot_performance(bot_id, current_price):
     try:
-        config, state = json.loads(bot['config_json']), json.loads(bot['state_json'])
-        if bot['type'] == 'GRID':
+        fresh_bot = db.get_bot(bot_id)
+        if not fresh_bot: return
+        
+        config, state = json.loads(fresh_bot['config_json']), json.loads(fresh_bot['state_json'])
+        if fresh_bot['type'] == 'GRID':
             grid_yield = state.get('grid_yield', 0)
             unrealized_appreciation = 0
             levels = state.get('grid_levels', [])
@@ -235,8 +238,9 @@ def update_bot_performance(bot, current_price):
         else:
             total_bought, total_cost = state.get('total_bought', 0), state.get('total_cost', 0)
             state['profit_realized'] = (total_bought * current_price) - total_cost
-        db.save_bot(bot['id'], bot['type'], bot['input_mint'], bot['output_mint'], bot['input_symbol'], bot['output_symbol'], config, state)
-    except Exception as e: pass
+        db.save_bot(fresh_bot['id'], fresh_bot['type'], fresh_bot['input_mint'], fresh_bot['output_mint'], fresh_bot['input_symbol'], fresh_bot['output_symbol'], config, state)
+    except Exception as e:
+        print(f"Error updating bot performance: {e}")
 
 def process_limit_grid_logic(bot):
     try:
