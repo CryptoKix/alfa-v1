@@ -3,6 +3,7 @@ import { PortfolioWidget } from '@/components/widgets/PortfolioWidget'
 import { TradeHistoryWidget } from '@/components/widgets/TradeHistoryWidget'
 import { AlertsWidget } from '@/components/widgets/AlertsWidget'
 import { ActiveBotsWidget } from '@/components/widgets/ActiveBotsWidget'
+import { LimitOrdersWidget } from '@/components/widgets/LimitOrdersWidget'
 import { ActiveBotsModal } from '@/components/modals/ActiveBotsModal'
 import { useAppSelector } from '@/app/hooks'
 
@@ -49,10 +50,13 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Bottom Row: Trade History & Active Bots */}
+        {/* Bottom Row: Trade History, Limit Orders & Active Bots */}
         <div className="flex-[5] min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-2">
-           <div className="lg:col-span-7 h-full min-h-0">
+           <div className="lg:col-span-4 h-full min-h-0">
              <TradeHistoryWidget />
+           </div>
+           <div className="lg:col-span-3 h-full min-h-0">
+             <LimitOrdersWidget />
            </div>
            <div className="lg:col-span-5 h-full min-h-0">
              <ActiveBotsWidget onViewAll={() => setIsBotsModalOpen(true)} />
