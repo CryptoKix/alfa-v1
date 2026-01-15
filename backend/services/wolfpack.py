@@ -27,6 +27,7 @@ class WolfPackEngine:
         # State
         self.active_consensus = {} # {mint: {wallets: set(), timestamp: float}}
         self.cooldowns = {} # {mint: timestamp} to prevent rebuying immediately
+        self.recent_attacks = [] # Log of executed attacks
 
     def start(self):
         if self._thread: return
@@ -58,7 +59,8 @@ class WolfPackEngine:
                     "symbol": data.get('symbol', '???')
                 } 
                 for mint, data in self.active_consensus.items()
-            ]
+            ],
+            "attacks": self.recent_attacks
         }
 
     def _run_loop(self):
@@ -139,8 +141,18 @@ class WolfPackEngine:
                 priority_fee=self.config["priority_fee"]
             )
             
-            # Set Cooldown (forever for this session, or a long time to prevent double-buy)
+            # Set Cooldown
             self.cooldowns[mint] = time.time()
+            
+            # Log Attack
+            self.recent_attacks.insert(0, {
+                "symbol": symbol,
+                "mint": mint,
+                "amount": amount,
+                "timestamp": time.time(),
+                "status": "executed"
+            })
+            self.recent_attacks = self.recent_attacks[:50] # Cap limit
             
             socketio.emit('notification', {
                 'title': 'Wolf Pack Attack',
@@ -150,6 +162,14 @@ class WolfPackEngine:
             
         except Exception as e:
             logger.error(f"Attack Failed: {e}")
+            self.recent_attacks.insert(0, {
+                "symbol": symbol,
+                "mint": mint,
+                "amount": self.config["buy_amount"],
+                "timestamp": time.time(),
+                "status": "failed",
+                "error": str(e)
+            })
 
 # Helper
 import json
