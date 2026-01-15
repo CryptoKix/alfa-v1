@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Dog, Activity, Settings2, Play, Pause, Zap } from 'lucide-react'
+import { Activity, Settings2, Play, Pause, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { addNotification } from '@/features/notifications/notificationsSlice'
 import { useAppDispatch } from '@/app/hooks'
@@ -63,7 +63,7 @@ export const WolfPackWidget = () => {
         <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-accent-pink/10 rounded-lg text-accent-pink">
-              <Dog size={18} />
+              <Zap size={18} />
             </div>
             <div>
               <h2 className="text-xs font-bold text-white uppercase tracking-tight">Wolf Pack Config</h2>
@@ -155,14 +155,14 @@ export const WolfPackWidget = () => {
                 </div>
               </div>
               <div className="text-[10px] font-mono text-text-muted">
-                {consensus.length} Active Signals
+                {consensus?.length || 0} Active Signals
               </div>
             </div>
 
             <div className="flex-1 overflow-auto custom-scrollbar space-y-2 bg-black/20 rounded-xl border border-white/5 p-2">
                 {consensus?.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-text-muted gap-2 opacity-50">
-                        <Dog size={32} strokeWidth={1} />
+                        <Zap size={32} strokeWidth={1} />
                         <div className="text-center font-bold text-[10px] uppercase tracking-widest">Waiting for the Pack...</div>
                     </div>
                 ) : (

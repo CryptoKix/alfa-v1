@@ -1,11 +1,11 @@
-import { TrendingUp, Users, Bot, Layers, Zap, Activity, Dog } from 'lucide-react'
+import { TrendingUp, Users, Bot, Layers, Zap, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/app/hooks'
 import { setSelectedStrategy } from '@/features/bots/botsSlice'
 
 const STRATEGIES = [
   { id: 'arb', label: 'ARB', icon: TrendingUp },
-  { id: 'wolf', label: 'WOLF', icon: Dog },
+  { id: 'wolf', label: 'WOLF', icon: Zap },
   { id: 'copy', label: 'COPY', icon: Users },
   { id: 'dca', label: 'DCA', icon: Bot },
   { id: 'grid', label: 'GRID', icon: Layers },
