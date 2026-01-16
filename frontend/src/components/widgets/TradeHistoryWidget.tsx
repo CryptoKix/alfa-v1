@@ -49,7 +49,7 @@ export const TradeHistoryWidget = () => {
           </button>
         </div>
 
-        {/* Table Header - Preserving original 5 columns but using new layout structure */}
+        {/* Table Header */}
         <div className="grid grid-cols-[82px_100px_1fr_65px_45px] gap-3 px-2 pb-2 mr-[6px] text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 mb-2">
           <div>Timestamp</div>
           <div>Asset Pair</div>
