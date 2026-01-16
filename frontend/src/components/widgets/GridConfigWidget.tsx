@@ -726,16 +726,16 @@ export const GridConfigWidget = () => {
                         {txType}
                       </div>
 
-                      <div className="flex items-center gap-1 min-w-0 overflow-hidden text-[10px] font-bold uppercase tracking-tighter">
-                        <span className={cn("w-6 shrink-0", fromAssetColor)}>{trade.input}</span>
-                        <span className={cn("truncate", fromAmountColor)}>{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      <div className="flex items-center gap-2 min-w-0 overflow-hidden text-[10px] font-bold uppercase tracking-tighter">
+                        <span className={cn("w-9 shrink-0", fromAssetColor)}>{trade.input}</span>
+                        <span className={cn("truncate tabular-nums", fromAmountColor)}>{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                       </div>
 
                       <div className="text-center text-[10px] text-white/10 font-thin shrink-0">|</div>
 
-                      <div className="flex items-center gap-1 min-w-0 overflow-hidden text-[10px] font-bold uppercase tracking-tighter">
-                        <span className={cn("w-6 shrink-0", toAssetColor)}>{trade.output}</span>
-                        <span className={cn("truncate", toAmountColor)}>{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      <div className="flex items-center gap-2 min-w-0 overflow-hidden text-[10px] font-bold uppercase tracking-tighter">
+                        <span className={cn("w-9 shrink-0", toAssetColor)}>{trade.output}</span>
+                        <span className={cn("truncate tabular-nums", toAmountColor)}>{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                       </div>
 
                       <div className={cn("text-[10px] font-black uppercase tracking-tighter leading-none shrink-0 text-right pr-2", isRebal ? "text-white/30" : "text-white/60")}>
