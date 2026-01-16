@@ -667,7 +667,7 @@ export const GridConfigWidget = () => {
         <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
           <div className="flex-1 overflow-auto custom-scrollbar">
             {/* Sticky Header */}
-            <div className="grid grid-cols-[85px_45px_1fr_12px_1fr_65px_50px] gap-2 px-3 pt-3 pb-2 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 bg-[#0d0d12] sticky top-0 z-10 items-center">
+            <div className="grid grid-cols-[85px_45px_1fr_12px_1fr_65px_50px] gap-2 px-3 pt-3 pb-2 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 bg-background-card sticky top-0 z-10 items-center">
               <div>Time</div>
               <div>Type</div>
               <div className="pl-1">From</div>
