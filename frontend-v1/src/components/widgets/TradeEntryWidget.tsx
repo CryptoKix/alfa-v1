@@ -1,0 +1,391 @@
+import { useState, useMemo } from 'react'
+import { ArrowUpDown, Info, Zap, ChevronDown, Plus, Minus, Activity } from 'lucide-react'
+import { useAppSelector } from '@/app/hooks'
+import { cn } from '@/lib/utils'
+
+export const TradeEntryWidget = () => {
+  const { holdings } = useAppSelector(state => state.portfolio)
+  const prices = useAppSelector(state => state.prices.prices)
+  
+  // Available Tokens: Merge current holdings with defaults
+  const tokens = useMemo(() => {
+    const defaults = [
+      { 
+        mint: 'So11111111111111111111111111111111111111112', 
+        symbol: 'SOL', 
+        logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png' 
+      },
+      { 
+        mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 
+        symbol: 'USDC', 
+        logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png' 
+      },
+      { 
+        mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', 
+        symbol: 'USDT', 
+        logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB/logo.svg' 
+      },
+      { 
+        mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', 
+        symbol: 'JUP', 
+        logoURI: 'https://static.jup.ag/jup/icon.png' 
+      }
+    ]
+    
+    const combined = [...holdings]
+    defaults.forEach(d => {
+      if (!combined.find(c => c.mint === d.mint)) {
+        combined.push({ ...d, balance: 0, price: 0, value: 0 } as any)
+      }
+    })
+    return combined
+  }, [holdings])
+
+  const [fromTokenMint, setFromTokenMint] = useState('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') // Default USDC
+  const [toTokenMint, setToTokenMint] = useState('So11111111111111111111111111111111111111112') // Default SOL
+  
+  const [isFromOpen, setIsFromOpen] = useState(false)
+  const [isToOpen, setIsToOpen] = useState(false)
+
+  const fromToken = tokens.find(t => t.mint === fromTokenMint) || tokens[0]
+  const toToken = tokens.find(t => t.mint === toTokenMint) || tokens[1]
+
+  const [side, setSide] = useState<'buy' | 'sell'>('buy')
+  const [orderType, setOrderType] = useState<'market' | 'limit'>('market')
+  const [amount, setAmount] = useState('')
+  const [limitPrice, setLimitPrice] = useState('')
+  
+  // Advanced Params
+  const [slippage, setSlippage] = useState('0.5')
+  const [priorityFee, setPriorityFee] = useState('0')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const toggleSide = () => {
+    const temp = fromTokenMint
+    setFromTokenMint(toTokenMint)
+    setToTokenMint(temp)
+    setSide(prev => prev === 'buy' ? 'sell' : 'buy')
+  }
+
+  const handleTrade = async () => {
+    if (!amount) return
+    if (orderType === 'limit' && !limitPrice) return
+    
+    setStatus('loading')
+    setErrorMsg('')
+
+    try {
+      const endpoint = orderType === 'market' ? '/api/trade' : '/api/limit/create'
+      const payload: any = {
+        inputMint: fromTokenMint,
+        outputMint: toTokenMint,
+        amount: parseFloat(amount),
+        priorityFee: parseFloat(priorityFee)
+      }
+
+      if (orderType === 'market') {
+        payload.strategy = 'Manual Swap'
+        payload.slippageBps = Math.floor(parseFloat(slippage) * 100)
+      } else {
+        payload.price = parseFloat(limitPrice)
+      }
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      const data = await res.json()
+      if (data.success || data.signature) {
+        setStatus('success')
+        setAmount('')
+        setLimitPrice('')
+        setTimeout(() => setStatus('idle'), 3000)
+      } else {
+        setStatus('error')
+        setErrorMsg(data.error || 'Execution failed')
+      }
+    } catch (e) {
+      setStatus('error')
+      setErrorMsg('Network error')
+    }
+  }
+
+  const adjustAmount = (delta: number) => {
+    setAmount(prev => {
+      const val = parseFloat(prev) || 0
+      return Math.max(0, val + delta).toString()
+    })
+  }
+
+  const fromPrice = prices[fromTokenMint] || fromToken.price || 0
+  const toPrice = prices[toTokenMint] || toToken.price || 0
+  const estimatedOut = orderType === 'market' 
+    ? ((amount && fromPrice && toPrice) ? (parseFloat(amount) * fromPrice) / toPrice : 0)
+    : ((amount && limitPrice) ? parseFloat(amount) / parseFloat(limitPrice) : 0)
+
+  const TokenItem = ({ token, onClick }: { token: any, onClick: () => void }) => (
+    <button 
+      onClick={onClick}
+      className="w-full flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors group"
+    >
+      <div className="flex items-center gap-3">
+        <img 
+          src={token.logoURI || 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png'}
+          alt={token.symbol}
+          className="w-6 h-6 rounded-full"
+          onError={(e) => (e.currentTarget.src = 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png')}
+        />
+        <div className="text-left">
+          <div className="text-sm font-bold text-white group-hover:text-accent-cyan">{token.symbol}</div>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="text-xs font-mono text-white">{token.balance?.toLocaleString(undefined, { maximumFractionDigits: 4 })}</div>
+        <div className="text-[9px] text-text-muted">${((token.balance || 0) * (prices[token.mint] || token.price || 0)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+      </div>
+    </button>
+  )
+
+  return (
+    <div className="bg-background-card border border-accent-pink/30 rounded-lg p-6 shadow-floating flex flex-col h-full relative overflow-hidden">
+      
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2 border-b border-accent-pink/30 shrink-0 h-[55px] z-10 -mx-6 px-6 -mt-6">
+        <h3 className="text-sm font-bold flex items-center gap-2 uppercase tracking-tight text-white">
+          <Zap className="text-accent-cyan" size={18} />
+          Execute Trade
+        </h3>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex bg-background-elevated rounded-md p-1 mb-2 border border-border relative group/tabs shrink-0">
+        <button
+          onClick={() => setSide('buy')}
+          className={cn(
+            "flex-1 py-1.5 text-xs font-black uppercase tracking-widest rounded-lg transition-all duration-300 relative z-10",
+            side === 'buy' ? "bg-accent-cyan text-black shadow-glow-cyan" : "text-text-muted hover:text-white"
+          )}
+        >
+          BUY
+        </button>
+        <button
+          onClick={() => setSide('sell')}
+          className={cn(
+            "flex-1 py-1.5 text-xs font-black uppercase tracking-widest rounded-lg transition-all duration-300 relative z-10",
+            side === 'sell' ? "bg-accent-pink text-black shadow-glow-pink" : "text-text-muted hover:text-white"
+          )}
+        >
+          SELL
+        </button>
+      </div>
+
+      <div className="flex bg-black/20 rounded-lg p-1 mb-3 border border-border gap-1 shrink-0">
+        <button
+          onClick={() => setOrderType('market')}
+          className={cn(
+            "flex-1 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-all",
+            orderType === 'market' ? "bg-white/10 text-white" : "text-text-muted hover:text-white/60"
+          )}
+        >
+          Market
+        </button>
+        <button
+          onClick={() => setOrderType('limit')}
+          className={cn(
+            "flex-1 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-all",
+            orderType === 'limit' ? "bg-white/10 text-white" : "text-text-muted hover:text-white/60"
+          )}
+        >
+          Limit
+        </button>
+      </div>
+
+      {/* Input Section */}
+      <div className="space-y-2 flex-1 overflow-visible">
+        
+        {/* From */}
+        <div className="space-y-1 relative">
+          <div className="flex justify-between text-[9px] text-text-secondary uppercase tracking-widest px-1">
+            <span>You Pay</span>
+            <span 
+              className="cursor-pointer hover:text-accent-cyan transition-colors"
+              onClick={() => setAmount(fromToken.balance.toString())}
+            >
+              Balance: {fromToken.balance?.toLocaleString()}
+            </span>
+          </div>
+          <div className="bg-background-elevated border border-border rounded-md px-3 flex items-center gap-3 focus-within:border-accent-cyan transition-colors relative group/input h-12">
+            <div className="flex flex-col gap-0.5 pr-2 border-r border-border">
+              <button onClick={() => adjustAmount(1)} className="p-0.5 hover:bg-white/5 rounded text-text-muted hover:text-accent-cyan transition-colors"><Plus size={10} /></button>
+              <button onClick={() => adjustAmount(-1)} className="p-0.5 hover:bg-white/5 rounded text-text-muted hover:text-accent-cyan transition-colors"><Minus size={10} /></button>
+            </div>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              className="bg-transparent text-lg font-mono font-bold text-accent-cyan w-full focus:outline-none placeholder:text-accent-cyan/20"
+            />
+            <div 
+              onClick={() => { setIsFromOpen(!isFromOpen); setIsToOpen(false); }}
+              className="flex items-center gap-2 bg-black/40 px-2.5 py-1.5 rounded-lg border border-border shrink-0 hover:bg-black/60 transition-colors cursor-pointer group w-[85px]"
+            >
+              <img 
+                src={fromToken.logoURI || 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png'}
+                alt={fromToken.symbol}
+                className="w-3.5 h-3.5 rounded-full shadow-sm"
+                onError={(e) => (e.currentTarget.src = 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png')}
+              />
+              <span className="font-bold text-[11px]">{fromToken.symbol}</span>
+              <ChevronDown size={10} className={cn("transition-transform", isFromOpen && "rotate-180")} />
+            </div>
+          </div>
+
+          {isFromOpen && (
+            <>
+              <div className="fixed inset-0 z-20" onClick={() => setIsFromOpen(false)} />
+              <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-background-card/95 backdrop-blur-xl border border-border rounded-md shadow-2xl p-2 max-h-64 overflow-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-200">
+                <div className="text-[8px] uppercase tracking-widest text-text-muted font-bold px-2 py-1 mb-1 border-b border-accent-pink/30">Select Asset</div>
+                {tokens.map(t => (
+                  <TokenItem key={t.mint} token={t} onClick={() => { setFromTokenMint(t.mint); setIsFromOpen(false); }} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {orderType === 'limit' && (
+          <div className="space-y-1 relative">
+            <div className="flex justify-between text-[10px] text-text-secondary uppercase tracking-widest px-1">
+              <span>Limit Price</span>
+              <span className="text-accent-cyan cursor-pointer hover:underline" onClick={() => setLimitPrice((fromPrice / toPrice).toString())}>Current: {(fromPrice / toPrice).toFixed(6)}</span>
+            </div>
+            <div className="bg-background-elevated border border-border rounded-md px-3 flex items-center gap-3 focus-within:border-accent-cyan transition-colors h-14">
+              <input
+                type="number"
+                value={limitPrice}
+                onChange={(e) => setLimitPrice(e.target.value)}
+                placeholder="0.00"
+                className="bg-transparent text-xl font-mono font-bold text-white w-full focus:outline-none placeholder:text-white/10"
+              />
+              <div className="text-[10px] font-bold text-text-muted uppercase shrink-0">{fromToken.symbol}/{toToken.symbol}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Arrow Divider */}
+        <div className="flex justify-center -my-2.5 relative z-10">
+          <button 
+            onClick={toggleSide}
+            className="bg-background-card border border-accent-pink/300 p-1.5 rounded-md text-accent-cyan hover:text-white hover:border-accent-cyan/50 transition-all shadow-floating active:scale-90 group"
+          >
+            <ArrowUpDown size={14} className="group-hover:rotate-180 transition-transform duration-500" />
+          </button>
+        </div>
+
+        {/* To */}
+        <div className="space-y-1 relative">
+          <div className="flex justify-between text-[10px] text-text-secondary uppercase tracking-widest px-1">
+            <span>You Receive</span>
+            <span>{orderType === 'market' ? 'Est.' : 'Min.'}</span>
+          </div>
+          <div className="bg-background-elevated/50 border border-border rounded-md px-3 flex items-center gap-3 h-14">
+            <div className="w-[27px] pr-2 border-r border-transparent shrink-0" />
+            <div className="text-xl font-mono font-bold text-accent-cyan w-full truncate">
+              {estimatedOut > 0 ? estimatedOut.toLocaleString(undefined, { maximumFractionDigits: 6 }) : '0.00'}
+            </div>
+            <div 
+              onClick={() => { setIsToOpen(!isToOpen); setIsFromOpen(false); }}
+              className="flex items-center gap-2 bg-black/40 px-2.5 py-1.5 rounded-lg border border-border shrink-0 hover:bg-black/60 transition-colors cursor-pointer group w-[90px]"
+            >
+              <img 
+                src={toToken.logoURI || 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png'}
+                alt={toToken.symbol}
+                className="w-4 h-4 rounded-full shadow-sm"
+                onError={(e) => (e.currentTarget.src = 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png')}
+              />
+              <span className="font-bold text-xs">{toToken.symbol}</span>
+              <ChevronDown size={12} className={cn("transition-transform", isToOpen && "rotate-180")} />
+            </div>
+          </div>
+
+          {isToOpen && (
+            <>
+              <div className="fixed inset-0 z-20" onClick={() => setIsToOpen(false)} />
+              <div className="absolute top-full left-0 right-0 mt-2 z-30 bg-background-card/95 backdrop-blur-xl border border-border rounded-md shadow-2xl p-2 max-h-64 overflow-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-200">
+                <div className="text-[8px] uppercase tracking-widest text-text-muted font-bold px-2 py-1 mb-1 border-b border-accent-pink/30">Select Asset</div>
+                {tokens.map(t => (
+                  <TokenItem key={t.mint} token={t} onClick={() => { setToTokenMint(t.mint); setIsToOpen(false); }} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Advanced Params Row */}
+        {orderType === 'market' && (
+          <div className="grid grid-cols-2 gap-2 pt-1 shrink-0">
+            <div className="bg-black/20 border border-border rounded-md px-3 flex flex-col justify-center h-14">
+              <label className="text-[8px] uppercase tracking-[0.2em] text-text-muted font-bold">Slippage</label>
+              <div className="flex items-center gap-2">
+                <input type="number" value={slippage} onChange={(e) => setSlippage(e.target.value)} className="bg-transparent text-[11px] font-mono font-bold text-white w-full focus:outline-none" />
+                <span className="text-[9px] text-text-muted font-bold">%</span>
+              </div>
+            </div>
+            <div className="bg-black/20 border border-border rounded-md px-3 flex flex-col justify-center h-14">
+              <div className="flex justify-between items-center mb-0.5">
+                <label className="text-[8px] uppercase tracking-[0.2em] text-text-muted font-bold">Priority</label>
+                <div className="flex gap-1">
+                  {['0', '0.001', '0.005'].map(val => (
+                    <button key={val} onClick={() => setPriorityFee(val)} className={cn("text-[7px] px-1 rounded border", priorityFee === val ? "bg-accent-cyan/20 border-accent-cyan/40 text-accent-cyan" : "bg-white/5 border-border text-text-muted")}>{val === '0' ? 'N' : val === '0.001' ? 'L' : 'M'}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="number" value={priorityFee} onChange={(e) => setPriorityFee(e.target.value)} className="bg-transparent text-[11px] font-mono font-bold text-white w-full focus:outline-none" />
+                <span className="text-[9px] text-text-muted font-bold">SOL</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Feedback */}
+        {status === 'error' && <div className="p-2 bg-accent-red/10 border border-accent-red/20 rounded-lg text-[9px] text-accent-red font-bold animate-in fade-in">{errorMsg}</div>}
+        {status === 'success' && <div className="p-2 bg-accent-purple/10 border border-accent-green/20 rounded-lg text-[9px] text-accent-cyan font-bold animate-in fade-in text-center">{orderType === 'market' ? 'TRADE EXECUTED' : 'ORDER PLACED'}</div>}
+
+        <div className="p-2 bg-accent-cyan/5 border border-accent-cyan/10 rounded-lg flex items-start gap-2 shrink-0">
+          <Info className="text-accent-cyan shrink-0 mt-0.5" size={12} />
+          <div className="text-[9px] text-text-secondary leading-relaxed">Best price via <span className="text-accent-cyan font-bold">JUPITER</span></div>
+        </div>
+      </div>
+
+      <button 
+        onClick={handleTrade}
+        disabled={!amount || (orderType === 'limit' && !limitPrice) || status === 'loading'}
+        className={cn(
+          "w-full py-3.5 mt-2 rounded-lg font-black text-base uppercase tracking-[0.2em] transition-all duration-500 transform active:scale-95 flex items-center justify-center gap-3 shrink-0",
+          !amount || (orderType === 'limit' && !limitPrice) || status === 'loading' 
+            ? "bg-white/5 text-white/10 cursor-not-allowed border border-border opacity-50" 
+            : side === 'buy' 
+              ? "bg-accent-cyan text-black hover:bg-white shadow-[0_0_25px_rgba(0,255,255,0.2)] hover:shadow-[0_0_45px_rgba(0,255,255,0.35)] border border-accent-cyan" 
+              : "bg-accent-pink text-black hover:bg-white shadow-[0_0_25px_rgba(255,0,128,0.2)] hover:shadow-[0_0_45px_rgba(255,0,128,0.35)] border border-accent-pink"
+        )}
+      >
+        {status === 'loading' ? (
+          <div className="flex items-center gap-2">
+            <Activity size={18} className="animate-spin" />
+            <span className="animate-pulse text-sm">Confirming...</span>
+          </div>
+        ) : (
+          <>
+            <Zap size={18} fill="currentColor" />
+            <span className="text-sm">{orderType === 'market' ? `${side.toUpperCase()} ${toToken.symbol}` : `PLACE ${side.toUpperCase()} ORDER`}</span>
+          </>
+        )}
+      </button>
+    </div>
+  )
+}

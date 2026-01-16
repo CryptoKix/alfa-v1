@@ -233,20 +233,6 @@ def execute_transfer(recipient_address, amount, mint="So111111111111111111111111
     socketio.emit('history_update', {'history': db.get_history(50, wallet_address=WALLET_ADDRESS)}, namespace='/history')
     broadcast_balance()
 
-    # Discord Notification
-    try:
-        from services.notifications import send_discord_notification
-        title = f"💸 ASSET TRANSFER: {symbol}"
-        message = f"Transferred **{amount:.4f} {symbol}** to recipient wallet."
-        fields = [
-            {"name": "Amount", "value": f"{amount:.4f} {symbol}", "inline": True},
-            {"name": "Recipient", "value": f"`{recipient_address[:8]}...`", "inline": True},
-            {"name": "Signature", "value": f"[`Explorer`](https://solscan.io/tx/{sig})", "inline": True}
-        ]
-        send_discord_notification(title, message, color=0x9945FF, fields=fields)
-    except Exception as e:
-        print(f"Discord Transfer Notify Error: {e}")
-
     return sig
 
 def execute_trade_logic(input_mint, output_mint, amount, source="Manual", slippage_bps=50, priority_fee=0.001):

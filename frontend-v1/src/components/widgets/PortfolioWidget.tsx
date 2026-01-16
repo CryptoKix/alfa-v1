@@ -1,0 +1,273 @@
+import { useMemo, useState, useEffect, useRef } from 'react'
+import { useAppSelector, useAppDispatch } from '@/app/hooks'
+import { setSnapshots } from '@/features/portfolio/portfolioSlice'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts'
+import { Wallet, PieChart as PieIcon, LineChart as LineIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+const COLORS = ['#00ffff', '#ff0080', '#9945FF', '#00ff9d', '#ffaa00', '#ffffff']
+
+export const PortfolioWidget = () => {
+  const dispatch = useAppDispatch()
+  const { holdings, holdings24hAgo, totalUsd, totalUsd24hAgo, snapshots } = useAppSelector(state => state.portfolio)
+  const prices = useAppSelector(state => state.prices.prices)
+  const [viewMode, setViewMode] = useState<'allocation' | 'performance'>('allocation')
+  
+  // Calculate live values - Memoized to prevent unnecessary re-calcs on other state changes
+  const liveHoldings = useMemo(() => {
+    return holdings.map(h => {
+      const currentPrice = prices[h.mint] || h.price
+      const baseline = holdings24hAgo.find(bh => bh.mint === h.mint)
+      const pnl24h = (h.balance * currentPrice) - (baseline ? baseline.balance * (baseline.price || currentPrice) : (h.balance * currentPrice))
+      
+      return {
+        ...h,
+        currentPrice,
+        liveValue: h.balance * currentPrice,
+        pnl24h
+      }
+    }).sort((a, b) => b.liveValue - a.liveValue)
+  }, [holdings, prices, holdings24hAgo])
+
+  const liveTotal = useMemo(() => {
+    return liveHoldings.reduce((acc, h) => acc + h.liveValue, 0) || totalUsd
+  }, [liveHoldings, totalUsd])
+
+  // PnL Calculations
+  const pnl24h = liveTotal - (totalUsd24hAgo || liveTotal)
+  const pnlPct24h = totalUsd24hAgo > 0 ? (pnl24h / totalUsd24hAgo) * 100 : 0
+  const isProfitTotal = pnl24h >= 0
+
+  // Throttle chart data to update max once every 2 seconds to improve performance
+  const [chartData, setChartData] = useState(liveHoldings)
+  const liveHoldingsRef = useRef(liveHoldings)
+  const hasInitializedRef = useRef(false)
+
+  useEffect(() => {
+    liveHoldingsRef.current = liveHoldings
+    // If this is the first time we get real data, set it immediately
+    if (!hasInitializedRef.current && liveHoldings.length > 0) {
+        setChartData(liveHoldings)
+        hasInitializedRef.current = true
+    }
+  }, [liveHoldings])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+        if (liveHoldingsRef.current.length > 0) {
+            setChartData(liveHoldingsRef.current)
+        }
+    }, 2000)
+    
+    // Fetch History
+    const fetchHistory = async () => {
+      try {
+        const res = await fetch('/api/portfolio/history')
+        if (res.ok) {
+           const data = await res.json()
+           dispatch(setSnapshots(data))
+        }
+      } catch(e) {}
+    }
+    fetchHistory()
+
+    return () => clearInterval(timer)
+  }, [])
+
+  // Prepare Area Chart Data
+  const areaChartData = useMemo(() => {
+    return snapshots.map(s => {
+        try {
+            const date = new Date(s.timestamp)
+            // Check for Invalid Date
+            if (isNaN(date.getTime())) return null
+            return {
+                time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+                value: s.total_value_usd
+            }
+        } catch (e) {
+            return null
+        }
+    }).filter(item => item !== null) as { time: string, value: number }[]
+  }, [snapshots])
+
+  if (!holdings) return null;
+
+  return (
+    <div className="bg-background-card border border-accent-pink/30 rounded-lg p-6 shadow-floating relative overflow-hidden group flex flex-col h-full">
+      
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2 border-b border-accent-pink/30 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
+        <h3 className="text-sm font-bold flex items-center gap-2 shrink-0 uppercase tracking-tight text-white">
+          <Wallet className="text-accent-purple" size={18} />
+          Portfolio Snapshot
+        </h3>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="text-[9px] text-accent-cyan/70 uppercase tracking-[0.2em]">Value</div>
+            <div className="text-xl font-black font-mono text-accent-cyan tracking-tight">
+              ${liveTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </div>
+          <div className={cn(
+            "text-[10px] font-bold font-mono flex items-center gap-1",
+            isProfitTotal ? "text-accent-purple" : "text-accent-red"
+          )}>
+            {isProfitTotal ? '+' : ''}${Math.abs(pnl24h).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <span className="opacity-80">({isProfitTotal ? '+' : ''}{pnlPct24h.toFixed(2)}%)</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-8 flex-1 min-h-0">
+        {/* Table Section (Left) - Sized for ~6 rows */}
+        <div className="flex-1 overflow-auto custom-scrollbar pr-2 min-h-0">
+          {/* Table Header */}
+          <div className="grid grid-cols-5 gap-4 px-2 pb-2 text-[9px] font-bold text-text-secondary uppercase tracking-wider shrink-0 sticky top-0 bg-background-card z-10">
+            <div className="pl-1">Asset</div>
+            <div>Price</div>
+            <div>Balance</div>
+            <div>24H CHG</div>
+            <div>Value</div>
+          </div>
+
+          <div className="space-y-1">
+              {liveHoldings.map((token, i) => {
+                const isProfitToken = (token.pnl24h || 0) >= 0
+                return (
+                  <div key={token.mint} className="grid grid-cols-5 gap-4 items-center p-2 rounded-lg bg-background-elevated/30 border border-border hover:border-border transition-colors group text-[11px] font-mono">
+                    <div className="flex items-center gap-2">
+                        <div className="w-1 h-4 rounded-full transition-all group-hover:h-3" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                        <img 
+                          src={token.logoURI || 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png'}
+                          alt={token.symbol}
+                          className="w-4 h-4 rounded-full shrink-0"
+                          onError={(e) => (e.currentTarget.src = 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png')}
+                        />
+                        <div className="font-bold text-white truncate">{token.symbol}</div>
+                    </div>
+                    <div className="text-left text-text-secondary">
+                      ${token.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-left text-text-secondary">
+                      {token.balance.toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                    </div>
+                    <div className={cn("text-left font-bold", isProfitToken ? "text-accent-purple" : "text-accent-red")}>
+                      {token.pnl24h !== 0 ? (
+                        <>
+                          {isProfitToken ? '+' : ''}${Math.abs(token.pnl24h || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </>
+                      ) : (
+                        <span className="text-text-muted">---</span>
+                      )}
+                    </div>
+                    <div className="text-left font-bold text-white">
+                      ${token.liveValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                )
+              })}
+          </div>
+          
+          {liveHoldings.length === 0 && (
+             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background-card/50 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-500">
+               <div className="p-4 rounded-full bg-accent-pink/5 border border-accent-pink/20 shadow-[0_0_30px_rgba(255,0,128,0.1)]">
+                 <Wallet size={32} strokeWidth={1.5} className="text-accent-pink" />
+               </div>
+               <div className="text-center space-y-1">
+                 <div className="font-black text-xs uppercase tracking-[0.2em] text-white">Wallet Empty</div>
+                 <div className="text-[10px] font-bold text-accent-pink/70">Deposit assets to track</div>
+               </div>
+             </div>
+          )}
+        </div>
+
+        {/* Chart Section (Right) */}
+        <div className="h-full w-full lg:w-[240px] relative shrink-0 flex flex-col">
+          {/* Chart Toggles */}
+          <div className="flex justify-center gap-2 mb-2">
+             <button 
+                onClick={() => setViewMode('allocation')}
+                className={cn(
+                    "p-1.5 rounded-lg transition-all",
+                    viewMode === 'allocation' ? "bg-accent-cyan text-black" : "bg-white/5 text-text-muted hover:text-white"
+                )}
+             >
+                <PieIcon size={14} />
+             </button>
+             <button 
+                onClick={() => setViewMode('performance')}
+                className={cn(
+                    "p-1.5 rounded-lg transition-all",
+                    viewMode === 'performance' ? "bg-accent-purple text-white" : "bg-white/5 text-text-muted hover:text-white"
+                )}
+             >
+                <LineIcon size={14} />
+             </button>
+          </div>
+
+          <div className="flex-1 relative flex flex-col items-center justify-center">
+            <div className="text-[10px] text-text-secondary uppercase tracking-widest mb-2 w-full text-center">
+                {viewMode === 'allocation' ? 'Allocation' : '7D Performance'}
+            </div>
+            
+            <div className="w-full h-[180px] relative">
+              <ResponsiveContainer width="100%" height="100%">
+                {viewMode === 'allocation' ? (
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55} 
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="liveValue"
+                      stroke="none"
+                      isAnimationActive={false}
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={entry.mint} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#12121a', borderColor: '#2a2a3a', borderRadius: '8px' }}
+                      itemStyle={{ color: '#fff' }}
+                      formatter={(value: number | undefined) => ['$' + (value?.toLocaleString() ?? '0'), 'Value']}
+                    />
+                  </PieChart>
+                ) : (
+                  <AreaChart data={areaChartData}>
+                    <defs>
+                        <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#9945FF" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#9945FF" stopOpacity={0}/>
+                        </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                    <XAxis dataKey="time" hide />
+                    <YAxis hide domain={['auto', 'auto']} />
+                    <Tooltip 
+                        contentStyle={{ backgroundColor: '#12121a', borderColor: '#2a2a3a', borderRadius: '8px' }}
+                        itemStyle={{ color: '#fff' }}
+                        labelStyle={{ display: 'none' }}
+                        formatter={(value: number | undefined) => ['$' + (value?.toLocaleString() ?? '0'), 'Total Value']}
+                    />
+                    <Area type="monotone" dataKey="value" stroke="#9945FF" fillOpacity={1} fill="url(#colorValue)" strokeWidth={2} />
+                  </AreaChart>
+                )}
+              </ResponsiveContainer>
+              
+              {viewMode === 'allocation' && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-1">
+                    <span className="text-[10px] text-text-muted uppercase tracking-tighter leading-none">TOKENS</span>
+                    <span className="text-2xl font-black text-white leading-none mt-1">{liveHoldings.length}</span>
+                  </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

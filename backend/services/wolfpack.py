@@ -129,6 +129,20 @@ class WolfPackEngine:
     def execute_wolf_attack(self, mint, symbol):
         try:
             amount = self.config["buy_amount"]
+            
+            # --- PRE-ATTACK BALANCE CHECK ---
+            from extensions import solana_client
+            from solders.pubkey import Pubkey
+            from config import WALLET_ADDRESS
+            
+            balance_res = solana_client.get_balance(Pubkey.from_string(WALLET_ADDRESS))
+            current_sol = balance_res.value / 1e9
+            
+            # Reservation for fees (0.01 SOL)
+            if current_sol < (amount + 0.01):
+                logger.warning(f"⚠️ Wolf Pack Aborted: Insufficient Balance. Need {amount+0.01:.4f} SOL, have {current_sol:.4f} SOL")
+                return
+
             logger.info(f"🐺 ATTACKING: Buying {amount} SOL of {symbol}")
             
             # Execute Trade

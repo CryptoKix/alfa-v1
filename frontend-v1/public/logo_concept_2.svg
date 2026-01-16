@@ -1,0 +1,28 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="shard_glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Dark Obsidian Core -->
+  <path d="M256 60L420 180V332L256 452L92 332V180L256 60Z" fill="#050508" stroke="#12121A" stroke-width="2"/>
+  
+  <!-- Glowing Edges -->
+  <g filter="url(#shard_glow)">
+    <path d="M256 60L420 180" stroke="#00FFFF" stroke-width="6" stroke-linecap="square" />
+    <path d="M92 180L256 60" stroke="#FF0080" stroke-width="6" stroke-linecap="square" />
+    <path d="M256 452L420 332" stroke="#9945FF" stroke-width="6" stroke-linecap="square" />
+    
+    <!-- Central Fracture (The X) -->
+    <path d="M200 200L312 312" stroke="#00FFFF" stroke-width="4" opacity="0.8" />
+    <path d="M312 200L200 312" stroke="#FF0080" stroke-width="4" opacity="0.8" />
+  </g>
+  
+  <!-- Reflective Planes -->
+  <path d="M256 60V452" stroke="white" stroke-width="0.5" opacity="0.1" />
+  <path d="M92 180H420" stroke="white" stroke-width="0.5" opacity="0.1" />
+</svg>

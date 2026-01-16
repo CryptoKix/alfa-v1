@@ -1,5 +1,34 @@
 # Tactix-Gem Project Changelog
 
+## [2026-01-15] - Live Intelligence, Supervisor Management & Grid Precision
+
+### Feature: Live Whale Detection Scan
+- **On-Chain Discovery:** Developed `detect_whales.py` to analyze live Jupiter V6 transactions and identify high-net-worth active traders.
+- **Automated Ingestion:** Successfully identified and added **49 new whale targets** to the database, tagged with their real-time SOL balances (including targets with >5,000 SOL).
+- **Profile Tagging:** Added automated metadata tagging (e.g., `bal:5002`) to targets for immediate risk/reward assessment.
+
+### Feature: Intelligence Backfill Engine
+- **Historical Analysis:** Implemented `backfill_whale_trades.py` to retrieve and decode the last 25 swaps for all 64 target wallets.
+- **Signal Reconstruction:** Decoded and saved **321 historical trades** to the database, providing immediate data for win-rate analysis and Wolf Pack consensus.
+- **Smart Parsing:** Upgraded the decoder to handle both legacy and versioned transactions with robust error handling for RPC rate limits.
+
+### Feature: Grid Bot Precision HUD
+- **Step-Level Visibility:** Upgraded `GridConfigWidget` to display the exact execution amounts for every level in the preview.
+- **Dual-Currency HUD:** Buy steps now show reserved **USDC amounts**, while sell steps show target **Token amounts** (e.g., `2.5000 AVICI`).
+- **Global Asset Support:** Integrated the full "Known Tokens" database into the Grid configuration, allowing users to build grids for discovered assets (like AVICI) even before they are held in the wallet.
+- **Real-time Synchronization:** Added deep debug telemetry to the Grid preview to ensure visualization perfectly matches backend trigger logic.
+
+### Infrastructure: TACTIX Robust Supervisor
+- **Self-Healing Stack:** Implemented `supervisor.py` to manage all system processes (Backend, Price Server, Outrider, and Frontend).
+- **Auto-Restart Logic:** Engineered a watchdog that detects service crashes and automatically restores them within 2-5 seconds, eliminating `ERR_CONNECTION_REFUSED` downtime.
+- **Service Standardisation:** Unified all logs under the `backend/` directory with standardized supervisor heartbeats.
+- **Path Hardening:** Fixed a critical issue where the backend was using relative database paths; migrated to absolute pathing relative to the application root for 100% data consistency.
+
+### Bug Fixes & Stability
+- **Frontend Crash Protection:** Wrapped `PortfolioWidget` date parsing in a safe try-catch/NaN-check block to prevent "White Screen" on malformed snapshot data.
+- **TypeScript Unison:** Resolved multiple TS errors in `WolfPackWidget`, `copytradeSlice`, and `ArbAddPairModal` to achieve a 100% clean production build.
+- **Build Verified:** Successfully executed `npm run build` and verified the production bundle size and integrity.
+
 ## [2026-01-15] - Arb Dynamic Manager, Sniper Refit & Backend Hardening
 
 ### Feature: Wolf Pack Consensus Engine

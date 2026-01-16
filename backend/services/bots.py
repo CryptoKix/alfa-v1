@@ -147,7 +147,7 @@ def process_grid_logic(bot, current_price):
                     level['cost_usd'] = 0
                     changed = True
                     print(f"✅ GRID SELL SUCCESS: {bot_alias} | Profit: ${profit:.4f}")
-                    break 
+                    # Removed break to allow multiple sells per tick
 
                 except Exception as e:
                     level['has_position'] = True
@@ -167,7 +167,7 @@ def process_grid_logic(bot, current_price):
                     state['run_count'] = state.get('run_count', 0) + 1
                     changed = True
                     print(f"✅ GRID BUY SUCCESS: {bot_alias} | Amount: {level['token_amount']:.4f}")
-                    break
+                    # Removed break to allow multiple buys per tick
 
                 except Exception as e:
                     level['has_position'] = False

@@ -223,8 +223,20 @@ async def fetch_other_prices(session):
 async def other_prices_loop(session):
     """Periodically fetch prices for non-Pyth tokens."""
     while True:
-        await fetch_other_prices(session)
-        await asyncio.sleep(10)  # Every 10 seconds for JUP etc.
+        try:
+            await fetch_other_prices(session)
+        except Exception as e:
+            print(f"Other prices loop error: {e}")
+        
+        # Check if we have active GRID bots to determine polling speed
+        try:
+            active_bots = db.get_all_bots()
+            has_active_grid = any(b['status'] == 'active' and b['type'] == 'GRID' for b in active_bots)
+            delay = 2 if has_active_grid else 10 # High-frequency polling for grid tokens
+        except:
+            delay = 10
+            
+        await asyncio.sleep(delay)
 
 async def heartbeat_loop(session):
     """Send periodic updates even if price hasn't changed (for UI liveness)."""

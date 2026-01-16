@@ -74,7 +74,17 @@ if __name__ == '__main__':
     news_service.start()
     wolf_pack.start()
 
+    # Clear old notifications in UI
+    socketio.emit('system_reset', namespace='/bots')
+    
     notify_system_status("ONLINE", "TacTix.sol System Core has initialized.")
+    
+    # Send welcome notification to UI
+    socketio.emit('notification', {
+        'title': 'System Online',
+        'message': 'TacTix.sol System Core has initialized.',
+        'type': 'success'
+    }, namespace='/bots')
 
     socketio.run(
         app,
