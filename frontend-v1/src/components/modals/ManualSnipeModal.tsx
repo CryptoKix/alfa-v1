@@ -72,11 +72,10 @@ export const ManualSnipeModal: React.FC<ManualSnipeModalProps> = ({ isOpen, onCl
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-background-card border border-white/10 rounded-3xl w-full max-w-md overflow-hidden relative shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50" />
+      <div className="bg-background-card border border-accent-pink/30 rounded-3xl w-full max-w-md overflow-hidden relative shadow-[0_0_50px_rgba(0,0,0,0.5)]">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-white/5 bg-background-elevated/50">
+        <div className="flex items-center justify-between p-4 border-b border-accent-pink/30 bg-background-elevated/50">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-accent-cyan/10 rounded-xl text-accent-cyan">
               <Zap size={20} fill="currentColor" />
@@ -96,7 +95,7 @@ export const ManualSnipeModal: React.FC<ManualSnipeModalProps> = ({ isOpen, onCl
 
         {/* Token Info Section */}
         <div className="p-6 space-y-6">
-          <div className="bg-black/40 rounded-2xl border border-white/5 p-4 relative group">
+          <div className="bg-black/40 rounded-lg border border-accent-pink/30 p-4 relative group">
             <div className="flex items-start justify-between">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
@@ -123,7 +122,7 @@ export const ManualSnipeModal: React.FC<ManualSnipeModalProps> = ({ isOpen, onCl
               </a>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+            <div className="mt-4 grid grid-cols-2 gap-4 pt-4 border-t border-accent-pink/30">
               <div className="flex flex-col">
                 <span className="text-[8px] font-black text-text-muted uppercase tracking-widest">DEX Venue</span>
                 <span className="text-xs font-bold text-white">{token.dex_id}</span>
@@ -138,7 +137,7 @@ export const ManualSnipeModal: React.FC<ManualSnipeModalProps> = ({ isOpen, onCl
           {/* Config Grid */}
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-black/20 border border-white/5 rounded-2xl p-3 focus-within:border-accent-cyan/50 transition-colors">
+              <div className="bg-black/20 border border-accent-pink/30 rounded-lg p-3 focus-within:border-accent-cyan/50 transition-colors">
                 <label className="text-[8px] font-black text-text-muted uppercase tracking-widest block mb-1">Buy Amount</label>
                 <div className="flex items-baseline gap-1">
                   <input 
@@ -151,7 +150,7 @@ export const ManualSnipeModal: React.FC<ManualSnipeModalProps> = ({ isOpen, onCl
                   <span className="text-[10px] font-bold text-text-muted uppercase">SOL</span>
                 </div>
               </div>
-              <div className="bg-black/20 border border-white/5 rounded-2xl p-3 focus-within:border-accent-pink/50 transition-colors">
+              <div className="bg-black/20 border border-accent-pink/30 rounded-lg p-3 focus-within:border-accent-pink/50 transition-colors">
                 <label className="text-[8px] font-black text-text-muted uppercase tracking-widest block mb-1">Max Slippage</label>
                 <div className="flex items-baseline gap-1">
                   <input 
@@ -166,7 +165,7 @@ export const ManualSnipeModal: React.FC<ManualSnipeModalProps> = ({ isOpen, onCl
               </div>
             </div>
 
-            <div className="bg-accent-cyan/5 border border-accent-cyan/10 rounded-2xl p-4 flex items-center justify-between">
+            <div className="bg-accent-cyan/5 border border-accent-cyan/10 rounded-lg p-4 flex items-center justify-between">
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
                   <Activity size={12} className="text-accent-cyan" />
@@ -174,7 +173,7 @@ export const ManualSnipeModal: React.FC<ManualSnipeModalProps> = ({ isOpen, onCl
                 </div>
                 <span className="text-[8px] text-text-muted uppercase font-bold mt-0.5 tracking-tighter">Accelerated Inclusion</span>
               </div>
-              <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-xl border border-white/5">
+              <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-xl border border-accent-pink/30">
                 <input 
                   type="number" 
                   value={priorityFee}
@@ -205,7 +204,7 @@ export const ManualSnipeModal: React.FC<ManualSnipeModalProps> = ({ isOpen, onCl
             onClick={handleExecute}
             disabled={status === 'loading' || status === 'success'}
             className={cn(
-              "w-full py-4 rounded-2xl font-black text-sm uppercase tracking-[0.3em] transition-all relative overflow-hidden active:scale-95 group",
+              "w-full py-4 rounded-lg font-black text-sm uppercase tracking-[0.3em] transition-all relative overflow-hidden active:scale-95 group",
               status === 'loading' 
                 ? "bg-white/5 text-white/20 cursor-not-allowed" 
                 : status === 'success'

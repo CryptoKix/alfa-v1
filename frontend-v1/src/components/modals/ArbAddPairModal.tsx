@@ -103,7 +103,7 @@ export const ArbAddPairModal = ({ isOpen, onClose, dbTokens }: ArbAddPairModalPr
                 }}
                 className={cn(
                     "w-full bg-black/40 border rounded-xl px-4 h-14 flex items-center justify-between text-white text-base font-bold transition-all outline-none",
-                    isOpen ? "border-accent-cyan/50 bg-black/60" : "border-white/10 hover:bg-black/60"
+                    isOpen ? "border-accent-cyan/50 bg-black/60" : "border-accent-pink/30 hover:bg-black/60"
                 )}
             >
               <div className="flex items-center gap-3 overflow-hidden">
@@ -125,7 +125,7 @@ export const ArbAddPairModal = ({ isOpen, onClose, dbTokens }: ArbAddPairModalPr
             </button>
             
             {isOpen && (
-              <div className="absolute top-full left-0 right-0 z-50 bg-background-elevated border border-white/10 rounded-xl shadow-2xl p-2 mt-2 backdrop-blur-xl animate-in fade-in slide-in-from-top-2">
+              <div className="absolute top-full left-0 right-0 z-50 bg-background-elevated border border-accent-pink/30 rounded-xl shadow-floating p-2 mt-2 backdrop-blur-xl animate-in fade-in slide-in-from-top-2">
                 <div className="mb-2 px-2 relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted w-3.5 h-3.5" />
                     <input 
@@ -133,7 +133,7 @@ export const ArbAddPairModal = ({ isOpen, onClose, dbTokens }: ArbAddPairModalPr
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search symbol or paste mint..."
                         autoFocus
-                        className="w-full bg-black/20 border border-white/5 rounded-lg py-2 pl-8 pr-2 text-xs text-white focus:border-accent-cyan/30 outline-none placeholder:text-text-muted"
+                        className="w-full bg-black/20 border border-accent-pink/30 rounded-lg py-2 pl-8 pr-2 text-xs text-white focus:border-accent-cyan/30 outline-none placeholder:text-text-muted"
                     />
                 </div>
                 
@@ -157,7 +157,7 @@ export const ArbAddPairModal = ({ isOpen, onClose, dbTokens }: ArbAddPairModalPr
                         <div className="p-4 text-center text-[10px] text-text-muted italic">No tokens found</div>
                     ) : (
                         filteredTokens.map(t => (
-                            <button key={t.mint} onClick={() => onSelect(t.mint)} className="w-full flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors group border border-transparent hover:border-white/5">
+                            <button key={t.mint} onClick={() => onSelect(t.mint)} className="w-full flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors group border border-transparent hover:border-accent-pink/30">
                                 <div className="flex items-center gap-3 min-w-0">
                                     <img src={t.logoURI || `https://static.jup.ag/tokens/gen/${t.mint}.png`} alt={t.symbol} className="w-6 h-6 rounded-full shrink-0" onError={(e) => (e.currentTarget.src = 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png')} />
                                     <div className="flex flex-col items-start min-w-0">
@@ -184,9 +184,9 @@ export const ArbAddPairModal = ({ isOpen, onClose, dbTokens }: ArbAddPairModalPr
         className="fixed inset-0" 
         onClick={onClose}
       />
-      <div className="bg-background-card border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative z-10">
+      <div className="bg-background-card border border-accent-pink/30 rounded-lg w-full max-w-md shadow-floating overflow-hidden animate-in zoom-in-95 duration-200 relative z-10">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5">
+        <div className="flex items-center justify-between p-4 border-b border-accent-pink/30 bg-white/5">
           <h2 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
             <Plus size={16} className="text-accent-cyan" />
             Add Target Pair
@@ -223,7 +223,7 @@ export const ArbAddPairModal = ({ isOpen, onClose, dbTokens }: ArbAddPairModalPr
                 onChange={e => setNewAmount(e.target.value)} 
                 placeholder="0.00" 
                 type="number" 
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 h-14 text-lg font-mono font-bold text-white focus:border-accent-cyan/50 outline-none placeholder:text-white/10" 
+                className="w-full bg-black/40 border border-accent-pink/30 rounded-xl px-4 h-14 text-lg font-mono font-bold text-white focus:border-accent-cyan/50 outline-none placeholder:text-white/10" 
               />
               <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-text-muted">
                 {inputToken?.symbol || ''}
@@ -233,7 +233,7 @@ export const ArbAddPairModal = ({ isOpen, onClose, dbTokens }: ArbAddPairModalPr
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-white/5 bg-white/[0.02]">
+        <div className="p-4 border-t border-accent-pink/30 bg-white/[0.02]">
           <button 
             onClick={handleAddPair} 
             disabled={!newInputMint || !newOutputMint || !newAmount}

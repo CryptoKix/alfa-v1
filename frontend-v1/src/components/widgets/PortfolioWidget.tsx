@@ -99,10 +99,32 @@ export const PortfolioWidget = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-2 border-b border-accent-pink/30 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
         <h3 className="text-sm font-bold flex items-center gap-2 shrink-0 uppercase tracking-tight text-white">
-          <Wallet className="text-accent-purple" size={18} />
+          <Wallet className="text-accent-cyan" size={18} />
           Portfolio Snapshot
         </h3>
         <div className="flex items-center gap-4">
+          {/* Chart Toggles */}
+          <div className="flex bg-white/5 border border-white/10 rounded-md p-0.5 gap-0.5">
+             <button 
+                onClick={() => setViewMode('allocation')}
+                className={cn(
+                    "p-1.5 rounded transition-all",
+                    viewMode === 'allocation' ? "bg-accent-cyan text-black shadow-glow-cyan" : "text-text-muted hover:text-white"
+                )}
+             >
+                <PieIcon size={12} />
+             </button>
+             <button 
+                onClick={() => setViewMode('performance')}
+                className={cn(
+                    "p-1.5 rounded transition-all",
+                    viewMode === 'performance' ? "bg-accent-purple text-white shadow-glow-purple" : "text-text-muted hover:text-white"
+                )}
+             >
+                <LineIcon size={12} />
+             </button>
+          </div>
+
           <div className="flex items-center gap-2">
             <div className="text-[9px] text-accent-cyan/70 uppercase tracking-[0.2em]">Value</div>
             <div className="text-xl font-black font-mono text-accent-cyan tracking-tight">
@@ -111,7 +133,7 @@ export const PortfolioWidget = () => {
           </div>
           <div className={cn(
             "text-[10px] font-bold font-mono flex items-center gap-1",
-            isProfitTotal ? "text-accent-purple" : "text-accent-red"
+            isProfitTotal ? "text-accent-cyan" : "text-accent-pink"
           )}>
             {isProfitTotal ? '+' : ''}${Math.abs(pnl24h).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             <span className="opacity-80">({isProfitTotal ? '+' : ''}{pnlPct24h.toFixed(2)}%)</span>
@@ -152,7 +174,7 @@ export const PortfolioWidget = () => {
                     <div className="text-left text-text-secondary">
                       {token.balance.toLocaleString(undefined, { maximumFractionDigits: 4 })}
                     </div>
-                    <div className={cn("text-left font-bold", isProfitToken ? "text-accent-purple" : "text-accent-red")}>
+                    <div className={cn("text-left font-bold", isProfitToken ? "text-accent-cyan" : "text-accent-pink")}>
                       {token.pnl24h !== 0 ? (
                         <>
                           {isProfitToken ? '+' : ''}${Math.abs(token.pnl24h || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -184,28 +206,6 @@ export const PortfolioWidget = () => {
 
         {/* Chart Section (Right) */}
         <div className="h-full w-full lg:w-[240px] relative shrink-0 flex flex-col">
-          {/* Chart Toggles */}
-          <div className="flex justify-center gap-2 mb-2">
-             <button 
-                onClick={() => setViewMode('allocation')}
-                className={cn(
-                    "p-1.5 rounded-lg transition-all",
-                    viewMode === 'allocation' ? "bg-accent-cyan text-black" : "bg-white/5 text-text-muted hover:text-white"
-                )}
-             >
-                <PieIcon size={14} />
-             </button>
-             <button 
-                onClick={() => setViewMode('performance')}
-                className={cn(
-                    "p-1.5 rounded-lg transition-all",
-                    viewMode === 'performance' ? "bg-accent-purple text-white" : "bg-white/5 text-text-muted hover:text-white"
-                )}
-             >
-                <LineIcon size={14} />
-             </button>
-          </div>
-
           <div className="flex-1 relative flex flex-col items-center justify-center">
             <div className="text-[10px] text-text-secondary uppercase tracking-widest mb-2 w-full text-center">
                 {viewMode === 'allocation' ? 'Allocation' : '7D Performance'}

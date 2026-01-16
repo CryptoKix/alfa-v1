@@ -69,7 +69,7 @@ export const ChartWidget = memo(() => {
       {/* Header */}
       <div className="flex items-center justify-between mb-2 border-b border-accent-pink/30 shrink-0 h-[55px] z-10 -mx-6 px-6 -mt-6">
         <h3 className="text-sm font-bold flex items-center gap-2 uppercase tracking-tight text-white">
-          <Zap className="text-accent-purple" size={18} />
+          <Zap className="text-accent-cyan" size={18} />
           SOL/USD
         </h3>
         <div className="text-right">

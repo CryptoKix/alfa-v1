@@ -47,17 +47,17 @@ export const ActiveBotsWidget = ({ onViewAll }: { onViewAll?: () => void }) => {
       {/* Header */}
       <div className="flex items-center justify-between mb-2 border-b border-accent-pink/30 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
         <h3 className="text-sm font-bold flex items-center gap-2 uppercase tracking-tight text-white">
-          <Activity className="text-accent-green" size={18} />
+          <Activity className="text-accent-cyan" size={18} />
           Active Bots
         </h3>
         <div className="flex items-center gap-3">
            <button 
              onClick={onViewAll}
-             className="text-[9px] uppercase tracking-[0.2em] text-text-muted hover:text-accent-green transition-colors font-bold"
+             className="text-[9px] uppercase tracking-[0.2em] text-white hover:text-accent-cyan transition-colors font-bold"
            >
              View All
            </button>
-           <div className="px-2 py-0.5 bg-white/5 border border-border rounded text-[9px] font-mono text-text-muted">
+           <div className="px-2 py-0.5 bg-white/10 border border-white/20 rounded text-[9px] font-mono text-white font-black">
              {runningBots.length} RUNNING
            </div>
         </div>

@@ -115,7 +115,7 @@ export const TWAPConfigWidget = () => {
         
         <div className="flex items-center justify-between mb-1 border-b border-accent-pink/30 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple">
+            <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
               <Clock size={18} />
             </div>
             <div>
@@ -274,7 +274,7 @@ export const TWAPConfigWidget = () => {
         
         <div className="flex items-center justify-between mb-1 border-b border-accent-pink/30 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple">
+            <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
               <Target size={18} />
             </div>
             <div>
@@ -336,7 +336,7 @@ export const TWAPConfigWidget = () => {
         
         <div className="flex items-center justify-between mb-1 border-b border-accent-pink/30 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple">
+            <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
               <Activity size={18} />
             </div>
             <div>

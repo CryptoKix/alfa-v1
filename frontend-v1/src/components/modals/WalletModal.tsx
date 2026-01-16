@@ -64,15 +64,14 @@ export const WalletModal = ({ isOpen, onClose }: WalletModalProps) => {
       onClick={onClose}
     >
       <div 
-        className="bg-background-card border border-white/10 rounded-2xl w-full max-w-md relative overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200"
+        className="bg-background-card border border-accent-pink/30 rounded-lg w-full max-w-md relative overflow-hidden shadow-floating animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink" />
         
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/5">
+        <div className="flex items-center justify-between p-6 border-b border-accent-pink/30">
           <h2 className="text-lg font-bold flex items-center gap-2">
-            <Wallet className="text-accent-purple" size={20} />
+            <Wallet className="text-accent-cyan" size={20} />
             Wallet Manager
           </h2>
           <button onClick={onClose} className="text-text-muted hover:text-white transition-colors">
@@ -81,7 +80,7 @@ export const WalletModal = ({ isOpen, onClose }: WalletModalProps) => {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-white/5">
+        <div className="flex border-b border-accent-pink/30">
           <button
             onClick={() => setActiveTab('details')}
             className={cn(
@@ -110,7 +109,7 @@ export const WalletModal = ({ isOpen, onClose }: WalletModalProps) => {
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-xs uppercase tracking-widest text-text-muted">Wallet Address</label>
-                <div className="flex items-center justify-between p-3 bg-background-elevated rounded-lg border border-white/5 group">
+                <div className="flex items-center justify-between p-3 bg-background-elevated rounded-lg border border-accent-pink/30 group">
                   <code className="text-sm text-accent-cyan break-all font-mono">{wallet}</code>
                   <button onClick={copyAddress} className="p-2 hover:bg-white/10 rounded-md transition-colors text-text-secondary hover:text-white">
                     <Copy size={16} />
@@ -125,7 +124,7 @@ export const WalletModal = ({ isOpen, onClose }: WalletModalProps) => {
                 </div>
               </div>
               
-              <div className="p-4 bg-accent-purple/10 border border-accent-purple/20 rounded-xl text-xs text-text-secondary leading-relaxed">
+              <div className="p-4 bg-accent-cyan/10 border border-accent-purple/20 rounded-xl text-xs text-text-secondary leading-relaxed">
                 This is your primary bot wallet. Ensure it is funded with enough SOL for gas fees to execute automated strategies properly.
               </div>
             </div>
@@ -144,7 +143,7 @@ export const WalletModal = ({ isOpen, onClose }: WalletModalProps) => {
                    </div>
                    <button 
                      onClick={() => setStatus('idle')}
-                     className="mt-6 px-6 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm font-bold transition-colors"
+                     className="mt-6 px-6 py-2 bg-white/5 hover:bg-white/10 border border-accent-pink/30 rounded-lg text-sm font-bold transition-colors"
                    >
                      Send Another
                    </button>
@@ -159,7 +158,7 @@ export const WalletModal = ({ isOpen, onClose }: WalletModalProps) => {
                         value={recipient}
                         onChange={(e) => setRecipient(e.target.value)}
                         placeholder="Solana Address..."
-                        className="w-full bg-background-elevated border border-white/10 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-accent-cyan transition-colors font-mono placeholder:text-text-muted/50"
+                        className="w-full bg-background-elevated border border-accent-pink/30 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-accent-cyan transition-colors font-mono placeholder:text-text-muted/50"
                       />
                     </div>
                     
@@ -171,7 +170,7 @@ export const WalletModal = ({ isOpen, onClose }: WalletModalProps) => {
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
                           placeholder="0.00"
-                          className="w-full bg-background-elevated border border-white/10 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-accent-cyan transition-colors font-mono"
+                          className="w-full bg-background-elevated border border-accent-pink/30 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-accent-cyan transition-colors font-mono"
                         />
                         <div className="absolute right-3 top-3 text-xs font-bold text-text-muted">SOL</div>
                       </div>

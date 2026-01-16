@@ -17,13 +17,13 @@ export const AlertsWidget = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-2 border-b border-accent-pink/30 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
         <h3 className="text-sm font-bold flex items-center gap-2 text-white uppercase tracking-tight">
-          <Bell className="text-accent-purple" size={18} />
+          <Bell className="text-accent-cyan" size={18} />
           System Alerts
         </h3>
         <div className="flex gap-2">
            <button 
              onClick={() => dispatch(clearAll())}
-             className="px-2 py-0.5 bg-white/5 border border-border rounded text-[9px] font-bold text-text-muted hover:text-white hover:bg-white/10 transition-colors uppercase tracking-widest"
+             className="px-2 py-0.5 bg-white/10 border border-white/20 rounded text-[9px] font-bold text-white hover:bg-white/20 transition-colors uppercase tracking-widest"
            >
              Clear All
            </button>

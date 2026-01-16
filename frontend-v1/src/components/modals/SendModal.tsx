@@ -110,13 +110,13 @@ export const SendModal = ({ isOpen, onClose }: SendModalProps) => {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose}>
-      <div className="bg-background-card border border-white/15 rounded-3xl w-full max-w-md flex flex-col shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-background-card border border-white/15 rounded-3xl w-full max-w-md flex flex-col shadow-floating relative overflow-hidden animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-cyan z-20" />
         
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/5 shrink-0 bg-background-card relative z-10">
+        <div className="flex items-center justify-between p-6 border-b border-accent-pink/30 shrink-0 bg-background-card relative z-10">
           <h2 className="text-xl font-black text-white flex items-center gap-3 uppercase tracking-tighter">
-            <div className="p-2 bg-accent-purple/10 rounded-xl text-accent-purple shadow-[0_0_15px_rgba(153,69,255,0.1)]"><Send size={20} /></div>
+            <div className="p-2 bg-accent-cyan/10 rounded-xl text-accent-cyan shadow-[0_0_15px_rgba(153,69,255,0.1)]"><Send size={20} /></div>
             Send Assets
           </h2>
           <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-xl text-text-muted hover:text-white transition-all transform hover:rotate-90"><X size={20} /></button>
@@ -130,27 +130,27 @@ export const SendModal = ({ isOpen, onClose }: SendModalProps) => {
               <h3 className="text-lg font-bold text-white uppercase tracking-wider">Transfer Sent</h3>
               <p className="text-sm text-text-secondary">Successfully sent <span className="text-white font-bold">{amount} {selectedToken.symbol}</span></p>
               <a href={`https://solscan.io/tx/${txSignature}`} target="_blank" rel="noreferrer" className="text-xs text-accent-cyan hover:underline font-mono">View on Explorer</a>
-              <button onClick={() => { setStatus('idle'); setAmount(''); setRecipient(''); setTxSignature(''); setSaveToBook(false); setNewAlias('') }} className="mt-6 px-6 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors">Send Another</button>
+              <button onClick={() => { setStatus('idle'); setAmount(''); setRecipient(''); setTxSignature(''); setSaveToBook(false); setNewAlias('') }} className="mt-6 px-6 py-2 bg-white/5 hover:bg-white/10 border border-accent-pink/30 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors">Send Another</button>
             </div>
           ) : (
             <>
               {/* Asset Selection */}
               <div className="space-y-2 relative">
                 <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Asset</label>
-                <button onClick={() => setIsTokenOpen(!isTokenOpen)} className="w-full bg-background-elevated border border-white/10 rounded-xl p-3 flex items-center justify-between hover:border-accent-purple/50 transition-colors h-14 group">
+                <button onClick={() => setIsTokenOpen(!isTokenOpen)} className="w-full bg-background-elevated border border-accent-pink/30 rounded-xl p-3 flex items-center justify-between hover:border-accent-purple/50 transition-colors h-14 group">
                   <div className="flex items-center gap-3">
                     <img src={selectedToken.logoURI || 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png'} alt="" className="w-8 h-8 rounded-full" />
                     <div className="text-left">
-                      <div className="text-sm font-bold text-white group-hover:text-accent-purple">{selectedToken.symbol}</div>
+                      <div className="text-sm font-bold text-white group-hover:text-accent-cyan">{selectedToken.symbol}</div>
                       <div className="text-[10px] text-text-muted">Balance: {selectedToken.balance.toLocaleString()}</div>
                     </div>
                   </div>
                   <ChevronDown size={16} className={cn("text-text-muted transition-transform", isTokenOpen && "rotate-180")} />
                 </button>
                 {isTokenOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-2 z-30 bg-background-card/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-2 max-h-60 overflow-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-200">
+                  <div className="absolute top-full left-0 right-0 mt-2 z-30 bg-background-card/95 backdrop-blur-xl border border-accent-pink/30 rounded-xl shadow-floating p-2 max-h-60 overflow-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-200">
                     {tokens.map(t => (
-                      <button key={t.mint} onClick={() => { setSelectedMint(t.mint); setIsTokenOpen(false); }} className={cn("w-full flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors group", selectedMint === t.mint && "bg-accent-purple/10")}>
+                      <button key={t.mint} onClick={() => { setSelectedMint(t.mint); setIsTokenOpen(false); }} className={cn("w-full flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors group", selectedMint === t.mint && "bg-accent-cyan/10")}>
                         <div className="flex items-center gap-3">
                           <img src={t.logoURI} alt="" className="w-6 h-6 rounded-full" />
                           <div className="text-xs font-bold text-white">{t.symbol}</div>
@@ -171,13 +171,13 @@ export const SendModal = ({ isOpen, onClose }: SendModalProps) => {
                     Address Book
                   </button>
                 </div>
-                <div className="bg-background-elevated border border-white/10 rounded-xl px-3 flex items-center h-12 focus-within:border-accent-purple transition-colors">
+                <div className="bg-background-elevated border border-accent-pink/30 rounded-xl px-3 flex items-center h-12 focus-within:border-accent-purple transition-colors">
                   <input type="text" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="Solana Address..." className="bg-transparent text-sm font-mono text-white w-full focus:outline-none placeholder:text-text-muted/50" />
                 </div>
 
                 {isAddressBookOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-2 z-30 bg-background-card/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-2 max-h-60 overflow-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-200">
-                    <div className="text-[8px] uppercase tracking-widest text-text-muted font-bold px-2 py-1 mb-1 border-b border-white/5 flex justify-between items-center">
+                  <div className="absolute top-full left-0 right-0 mt-2 z-30 bg-background-card/95 backdrop-blur-xl border border-accent-pink/30 rounded-xl shadow-floating p-2 max-h-60 overflow-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-200">
+                    <div className="text-[8px] uppercase tracking-widest text-text-muted font-bold px-2 py-1 mb-1 border-b border-accent-pink/30 flex justify-between items-center">
                       <span>Saved Addresses</span>
                       <button onClick={() => setIsAddressBookOpen(false)} className="hover:text-white transition-colors">Close</button>
                     </div>
@@ -207,16 +207,16 @@ export const SendModal = ({ isOpen, onClose }: SendModalProps) => {
                   <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Amount</label>
                   <div className="text-[10px] text-text-muted">Max: <span onClick={() => setAmount(selectedToken.balance.toString())} className="text-accent-cyan cursor-pointer hover:underline">{selectedToken.balance}</span></div>
                 </div>
-                <div className="bg-background-elevated border border-white/10 rounded-xl px-3 flex items-center gap-3 h-14 focus-within:border-accent-purple transition-colors">
+                <div className="bg-background-elevated border border-accent-pink/30 rounded-xl px-3 flex items-center gap-3 h-14 focus-within:border-accent-purple transition-colors">
                   <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="bg-transparent text-xl font-mono font-bold text-white w-full focus:outline-none" />
-                  <div className="text-xs font-bold text-text-muted px-2 py-1 bg-black/20 rounded border border-white/5">{selectedToken.symbol}</div>
+                  <div className="text-xs font-bold text-text-muted px-2 py-1 bg-black/20 rounded border border-accent-pink/30">{selectedToken.symbol}</div>
                 </div>
                 <div className="text-right text-[10px] text-text-muted font-mono">≈ ${usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               </div>
 
               {/* Save to Address Book Options */}
               {!addressBook.find(a => a.address === recipient) && recipient.length > 30 && (
-                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-3">
+                <div className="p-4 bg-white/5 rounded-lg border border-accent-pink/30 space-y-3">
                   <button onClick={() => setSaveToBook(!saveToBook)} className="flex items-center gap-3 w-full">
                     <div className={cn("w-4 h-4 rounded border transition-all flex items-center justify-center", saveToBook ? "bg-accent-cyan border-accent-cyan" : "border-white/20")}>
                       {saveToBook && <CheckCircle size={12} className="text-black" />}
@@ -225,7 +225,7 @@ export const SendModal = ({ isOpen, onClose }: SendModalProps) => {
                   </button>
                   {saveToBook && (
                     <div className="animate-in slide-in-from-top-2 duration-300">
-                      <input type="text" value={newAlias} onChange={(e) => setNewAlias(e.target.value)} placeholder="Enter Alias (e.g. My Ledger)" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[11px] font-bold text-white focus:border-accent-cyan/50 outline-none" />
+                      <input type="text" value={newAlias} onChange={(e) => setNewAlias(e.target.value)} placeholder="Enter Alias (e.g. My Ledger)" className="w-full bg-black/40 border border-accent-pink/30 rounded-lg px-3 py-2 text-[11px] font-bold text-white focus:border-accent-cyan/50 outline-none" />
                     </div>
                   )}
                 </div>

@@ -72,13 +72,12 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
       onClick={onClose}
     >
       <div 
-        className="bg-background-card border border-white/15 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300"
+        className="bg-background-card border border-white/15 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-floating relative overflow-hidden animate-in zoom-in-95 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink z-20" />
         
         {/* Header */}
-        <div className="flex items-center justify-between p-8 border-b border-white/5 shrink-0 bg-background-card relative z-10">
+        <div className="flex items-center justify-between p-8 border-b border-accent-pink/30 shrink-0 bg-background-card relative z-10">
           <div>
             <h2 className="text-2xl font-black text-white flex items-center gap-3 uppercase tracking-tighter">
               <div className="p-2 bg-accent-cyan/10 rounded-xl text-accent-cyan">
@@ -113,7 +112,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
           </div>
           <button 
             onClick={onClose}
-            className="p-3 hover:bg-white/5 rounded-2xl text-text-muted hover:text-white transition-all"
+            className="p-3 hover:bg-white/5 rounded-lg text-text-muted hover:text-white transition-all"
           >
             <X size={24} />
           </button>
@@ -122,13 +121,15 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
         {/* Content */}
         <div className="flex-1 overflow-auto custom-scrollbar p-8 space-y-6">
           {displayedBots.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-text-muted opacity-30 gap-4">
-              <Activity size={48} strokeWidth={1} />
-              <div className="text-center">
-                <div className="font-black text-lg uppercase tracking-[0.3em]">
+            <div className="flex flex-col items-center justify-center h-64 gap-4 animate-in fade-in zoom-in-95 duration-500">
+              <div className="p-5 rounded-full bg-accent-pink/5 border border-accent-pink/20 shadow-[0_0_40px_rgba(255,0,128,0.15)]">
+                <Activity size={48} strokeWidth={1.5} className="text-accent-pink animate-pulse" />
+              </div>
+              <div className="text-center space-y-1">
+                <div className="font-black text-lg text-white uppercase tracking-[0.3em]">
                   {activeTab === 'active' ? 'No Active Engines' : 'No Inactive Engines'}
                 </div>
-                <div className="text-xs mt-1 uppercase tracking-widest">
+                <div className="text-xs font-bold text-accent-pink/70 uppercase tracking-widest">
                   {activeTab === 'active' ? 'Awaiting tactical initialization' : 'All engines are active or deleted'}
                 </div>
               </div>
@@ -144,7 +145,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
                   key={bot.id} 
                   onClick={() => isGrid ? handleMonitor(bot.id) : toggleExpand(bot.id, bot.type)}
                   className={cn(
-                    "bg-background-elevated/20 border border-white/5 rounded-2xl p-5 flex flex-col gap-4 group transition-all duration-500",
+                    "bg-background-elevated/20 border border-accent-pink/30 rounded-lg p-5 flex flex-col gap-4 group transition-all duration-500",
                     isGrid ? "cursor-pointer hover:bg-background-elevated/40 hover:border-white/20 shadow-lg hover:shadow-accent-cyan/5" : "",
                     isExpanded ? "border-accent-purple/30 bg-background-elevated/50" : ""
                   )}
@@ -192,7 +193,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
                              )}
                              <span className={cn(
                                "text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest border",
-                               bot.status === 'active' ? "bg-accent-green/10 text-accent-green border-accent-green/20" : "bg-white/5 text-text-muted border-white/10"
+                               bot.status === 'active' ? "bg-accent-green/10 text-accent-green border-accent-green/20" : "bg-white/5 text-text-muted border-accent-pink/30"
                              )}>
                                {bot.type || 'N/A'} | {bot.status}
                              </span>
@@ -247,7 +248,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
 
                   {/* TWAP Specific Details */}
                   {bot.type?.toLowerCase() === 'twap' && (
-                     <div className="grid grid-cols-3 gap-4 py-3 border-y border-white/5 bg-black/30 rounded-xl px-4 text-left">
+                     <div className="grid grid-cols-3 gap-4 py-3 border-y border-accent-pink/30 bg-black/30 rounded-xl px-4 text-left">
                         <div>
                            <div className="text-[8px] text-text-muted font-black uppercase tracking-widest mb-1 opacity-50 text-left">Progress</div>
                            <div className="text-xs font-black font-mono text-white flex items-center gap-2">
@@ -259,7 +260,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
                         </div>
                          <div>
                            <div className="text-[8px] text-text-muted font-black uppercase tracking-widest mb-1 opacity-50 text-left">Avg Entry</div>
-                           <div className="text-xs font-black font-mono text-accent-purple">
+                           <div className="text-xs font-black font-mono text-accent-cyan">
                              ${Number(bot.avg_buy_price || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}
                            </div>
                         </div>
@@ -274,7 +275,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
 
                   {/* Grid Specific Details */}
                   {isGrid && (
-                     <div className="grid grid-cols-3 gap-4 py-3 border-y border-white/5 bg-black/30 rounded-xl px-4">
+                     <div className="grid grid-cols-3 gap-4 py-3 border-y border-accent-pink/30 bg-black/30 rounded-xl px-4">
                         <div>
                            <div className="text-[8px] text-text-muted font-black uppercase tracking-widest mb-1 opacity-50">Range Protocol</div>
                            <div className="text-xs font-black font-mono text-white flex items-center gap-2">
@@ -300,7 +301,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
 
                   {/* Expanded Grid Levels Visualization */}
                   {isExpanded && gridLevels.length > 0 && (
-                    <div className="mt-2 pt-4 border-t border-white/5 animate-in slide-in-from-top-4 duration-500">
+                    <div className="mt-2 pt-4 border-t border-accent-pink/30 animate-in slide-in-from-top-4 duration-500">
                         <div className="grid grid-cols-3 gap-4 px-4 pb-3 text-[9px] font-black text-text-muted uppercase tracking-[0.2em]">
                             <div>Level Calibration</div>
                             <div>Status</div>
@@ -310,7 +311,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
                             {[...gridLevels].reverse().map((level, i) => (
                                 <div key={i} className={cn(
                                     "grid grid-cols-3 gap-4 px-4 py-2.5 rounded-xl text-xs items-center transition-all duration-300 border font-mono",
-                                    level.has_position ? "bg-accent-green/5 text-accent-green border-accent-green/20 shadow-[inset_0_0_15px_rgba(0,255,157,0.05)]" : "bg-black/40 text-text-secondary border-white/5"
+                                    level.has_position ? "bg-accent-green/5 text-accent-green border-accent-green/20 shadow-[inset_0_0_15px_rgba(0,255,157,0.05)]" : "bg-black/40 text-text-secondary border-accent-pink/30"
                                 )}>
                                     <div className="font-black tracking-tight">${level.price.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
                                     <div className="uppercase text-[9px] font-black tracking-widest">
@@ -346,7 +347,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
                                 "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border",
                                 bot.trailing_enabled 
                                   ? "bg-accent-cyan/20 border-accent-cyan/40 text-accent-cyan" 
-                                  : "bg-white/5 border-white/10 text-text-muted hover:text-white"
+                                  : "bg-white/5 border-accent-pink/30 text-text-muted hover:text-white"
                               )}
                               title={bot.trailing_enabled ? 'Disable Trailing' : 'Enable Trailing'}
                            >
@@ -364,7 +365,7 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
                        )}
                        <button 
                           onClick={() => onPause(bot.id, bot.status)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-text-muted hover:text-white text-[10px] font-bold uppercase tracking-wider transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-accent-pink/30 rounded-lg text-text-muted hover:text-white text-[10px] font-bold uppercase tracking-wider transition-colors"
                        >
                           {bot.status === 'active' ? <Pause size={12} /> : <RefreshCw size={12} />}
                           {bot.status === 'active' ? 'Pause' : 'Resume'}
@@ -411,14 +412,14 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
         </div>
 
         {/* Footer */}
-        <div className="p-8 border-t border-white/5 bg-background-elevated/30 flex justify-between items-center shrink-0">
+        <div className="p-8 border-t border-accent-pink/30 bg-background-elevated/30 flex justify-between items-center shrink-0">
            <div className="text-[10px] font-mono text-text-muted tracking-widest uppercase flex items-center gap-2">
               <div className="w-1 h-1 rounded-full bg-accent-cyan animate-pulse" />
               Tactical Sync Active
            </div>
            <button 
               onClick={onCreateNew}
-              className="px-8 py-3 bg-accent-cyan text-black hover:bg-white border border-accent-cyan rounded-2xl font-black text-xs uppercase tracking-[0.25em] transition-all duration-500 shadow-[0_0_25px_rgba(0,255,255,0.2)] hover:shadow-[0_0_45px_rgba(0,255,255,0.4)] flex items-center gap-3 transform hover:-translate-y-0.5 active:scale-95"
+              className="px-8 py-3 bg-accent-cyan text-black hover:bg-white border border-accent-cyan rounded-lg font-black text-xs uppercase tracking-[0.25em] transition-all duration-500 shadow-[0_0_25px_rgba(0,255,255,0.2)] hover:shadow-[0_0_45px_rgba(0,255,255,0.4)] flex items-center gap-3 transform hover:-translate-y-0.5 active:scale-95"
            >
               <Plus size={18} strokeWidth={4} />
               Deploy New Strategy

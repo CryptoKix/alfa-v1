@@ -30,7 +30,7 @@ export const NewsIntelWidget: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-2 border-b border-accent-pink/30 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
         <h3 className="text-sm font-bold flex items-center gap-2 uppercase tracking-tight text-white">
-          <Newspaper className="text-accent-purple" size={18} />
+          <Newspaper className="text-accent-cyan" size={18} />
           Tactix Intel <span className="text-[10px] text-text-muted font-normal">/ Fundamentals</span>
         </h3>
         <div className="flex items-center gap-1.5">

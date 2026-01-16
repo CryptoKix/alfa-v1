@@ -42,26 +42,25 @@ export const TradeHistoryWidget = () => {
           </h3>
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="text-[9px] uppercase tracking-[0.2em] text-text-muted hover:text-white transition-colors font-bold"
+            className="text-[9px] uppercase tracking-[0.2em] text-white hover:text-accent-cyan transition-colors font-bold"
           >
             View All
           </button>
         </div>
 
-        {/* Table Header */}
-        <div className="grid grid-cols-[100px_60px_100px_1fr_80px_60px] gap-4 px-2.5 pb-2 mr-[6px] text-[9px] font-bold text-text-secondary uppercase tracking-wider shrink-0">
-          <div>Timestamp</div>
-          <div>Type</div>
-          <div>Asset Pair</div>
-          <div>Execution Detail</div>
-          <div>Price</div>
-          <div className="text-right">Status</div>
-        </div>
+        <div className="flex-1 relative min-h-0 overflow-auto custom-scrollbar pr-2 pb-4">
+          <div className="grid grid-cols-[100px_60px_100px_1fr_80px_60px] gap-4 px-2.5 pb-2 pt-2 text-[9px] font-bold text-text-secondary uppercase tracking-wider shrink-0 sticky top-0 bg-background-card z-10">
+            <div>Timestamp</div>
+            <div>Type</div>
+            <div>Asset Pair</div>
+            <div>Execution Detail</div>
+            <div>Price</div>
+            <div className="text-right">Status</div>
+          </div>
 
-        <div className="flex-1 relative min-h-0">
-          <div className="space-y-1 h-full overflow-auto custom-scrollbar pr-2 pb-4">
+          <div className="space-y-1">
             {history.length === 0 ? (
-               <div className="h-full flex flex-col items-center justify-center gap-3 animate-in fade-in zoom-in-95 duration-500">
+               <div className="h-full flex flex-col items-center justify-center gap-3 animate-in fade-in zoom-in-95 duration-500 py-10">
                  <div className="p-4 rounded-full bg-accent-pink/5 border border-accent-pink/20 shadow-[0_0_30px_rgba(255,0,128,0.1)]">
                    <History size={32} strokeWidth={1.5} className="text-accent-pink" />
                  </div>
@@ -73,31 +72,52 @@ export const TradeHistoryWidget = () => {
             ) : (
               history.map((trade) => {
                 const isSuccess = trade.status === 'success'
+                const isInputStable = ['USDC', 'USDT', 'USD'].includes(trade.input)
                 const isOutputStable = ['USDC', 'USDT', 'USD'].includes(trade.output)
-                const targetAmount = isOutputStable ? trade.amount_in : trade.amount_out
-                const impliedPrice = trade.usd_value > 0 && targetAmount > 0 
-                  ? trade.usd_value / targetAmount 
-                  : 0
+                
+                let impliedPrice = 0
+                if (trade.usd_value > 0) {
+                    const targetAmount = isOutputStable ? trade.amount_in : trade.amount_out
+                    if (targetAmount > 0) impliedPrice = trade.usd_value / targetAmount
+                }
+                
+                // Fallback: Use ratio if one side is stable
+                if (impliedPrice === 0 && trade.amount_in > 0 && trade.amount_out > 0) {
+                    if (isInputStable) {
+                        impliedPrice = trade.amount_in / trade.amount_out
+                    } else if (isOutputStable) {
+                        impliedPrice = trade.amount_out / trade.amount_in
+                    }
+                }
                 
                 const source = (trade.source || '').toLowerCase()
-                let txType = 'EXEC'
-                let typeColor = 'text-accent-purple'
+                let txType = 'SWAP'
 
                 if (source.includes('buy')) {
                     txType = 'BUY'
-                    typeColor = 'text-accent-cyan'
                 } else if (source.includes('sell')) {
                     txType = 'SELL'
-                    typeColor = 'text-accent-pink'
                 } else if (source.includes('transfer') || source.includes('send')) {
                     txType = 'SEND'
-                    typeColor = 'text-accent-purple'
                 } else if (source.includes('rebalance')) {
                     txType = 'REBAL'
                 }
                 
-                const inputColor = txType === 'BUY' ? "text-accent-cyan" : txType === 'SELL' ? "text-accent-pink" : "text-accent-purple"
-                const outputColor = txType === 'BUY' ? "text-accent-pink" : txType === 'SELL' ? "text-accent-cyan" : "text-accent-purple"
+                const isStableOutput = ['USDC', 'USDT', 'USD'].includes(trade.output)
+                
+                let effectiveType = txType
+                if (txType === 'SWAP') {
+                    if (isStableOutput) {
+                        effectiveType = 'SELL'
+                    } else {
+                        effectiveType = 'BUY'
+                    }
+                }
+
+                const typeColor = txType === 'SEND' ? "text-white" : (txType === 'BUY' || txType === 'REBAL') ? "text-accent-cyan" : txType === 'SELL' ? "text-accent-pink" : "text-accent-purple"
+                
+                const inputColor = txType === 'SEND' ? "text-white" : (effectiveType === 'BUY' || txType === 'REBAL') ? "text-accent-cyan" : "text-accent-pink"
+                const outputColor = txType === 'SEND' ? "text-white" : (effectiveType === 'BUY' || txType === 'REBAL') ? "text-accent-pink" : "text-accent-cyan"
 
                 const isSend = txType === 'SEND'
 
@@ -142,7 +162,7 @@ export const TradeHistoryWidget = () => {
                     <div className="text-right shrink-0 leading-none">
                        <span className={cn(
                          "uppercase font-black text-[9px] tracking-widest px-2 py-0.5 rounded border leading-none inline-block", 
-                         isSuccess ? "text-accent-green border-accent-green/20 bg-accent-green/5" : "text-accent-red border-accent-red/20 bg-accent-red/5"
+                         isSuccess ? "text-accent-cyan border-accent-cyan/20 bg-accent-cyan/5" : "text-accent-pink border-accent-pink/20 bg-accent-pink/5"
                        )}>
                          {isSuccess ? 'OK' : 'ERR'}
                        </span>

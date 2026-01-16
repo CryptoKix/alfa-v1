@@ -71,7 +71,7 @@ export const LimitOrdersWidget = () => {
       
       <div className="flex items-center justify-between mb-2 border-b border-accent-pink/30 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple">
+          <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
             <Clock size={18} />
           </div>
           <h2 className="text-xs font-bold uppercase tracking-wider text-white">Open Limit Orders</h2>
@@ -80,7 +80,7 @@ export const LimitOrdersWidget = () => {
           onClick={fetchOrders}
           disabled={loading}
           className={cn(
-            "p-1.5 hover:bg-white/5 rounded-lg text-text-muted hover:text-white transition-colors",
+            "p-1.5 hover:bg-white/10 rounded-lg text-white transition-colors",
             loading && "animate-spin"
           )}
         >

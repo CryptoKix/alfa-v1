@@ -33,7 +33,7 @@ export const ArbSettingsWidget = () => {
       
       <div className="flex items-center justify-between mb-1 border-b border-accent-pink/30 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple"><Settings2 size={18} /></div>
+          <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan"><Settings2 size={18} /></div>
           <h2 className="text-xs font-bold text-white uppercase tracking-tight">ARB CONFIG</h2>
         </div>
       </div>
@@ -113,7 +113,7 @@ export const ArbAnalysisWidget = () => {
       
       <div className="flex items-center justify-between mb-1 border-b border-accent-pink/30 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple"><BarChart3 size={18} /></div>
+          <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan"><BarChart3 size={18} /></div>
           <h2 className="text-xs font-bold text-white uppercase tracking-tight">Venue Matrix</h2>
           <button 
             onClick={() => setIsAddPairOpen(true)}
@@ -195,7 +195,7 @@ export const ArbOpportunitiesWidget = () => {
       
       <div className="flex items-center justify-between mb-1 border-b border-accent-pink/30 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple"><Activity size={18} /></div>
+          <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan"><Activity size={18} /></div>
           <h2 className="text-xs font-bold text-white uppercase tracking-tight">OPPORTUNITIES</h2>
         </div>
       </div>

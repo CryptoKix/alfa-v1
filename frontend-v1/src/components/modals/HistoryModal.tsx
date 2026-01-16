@@ -17,13 +17,12 @@ export const HistoryModal = ({ isOpen, onClose, history, formatTimestamp }: Hist
       onClick={onClose}
     >
       <div 
-        className="bg-background-card border border-white/10 rounded-2xl w-full max-w-4xl max-h-[80vh] relative overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col"
+        className="bg-background-card border border-accent-pink/30 rounded-lg w-full max-w-4xl max-h-[80vh] relative overflow-hidden shadow-floating animate-in zoom-in-95 duration-200 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink" />
         
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/5 shrink-0">
+        <div className="flex items-center justify-between p-6 border-b border-accent-pink/30 shrink-0">
           <h2 className="text-xl font-bold flex items-center gap-3 text-white">
             <div className="p-2 bg-accent-cyan/10 rounded-lg text-accent-cyan">
               <ArrowLeftRight size={20} />
@@ -37,6 +36,17 @@ export const HistoryModal = ({ isOpen, onClose, history, formatTimestamp }: Hist
 
         {/* Content - Table View */}
         <div className="flex-1 overflow-auto custom-scrollbar p-6">
+          {history.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center gap-3 animate-in fade-in zoom-in-95 duration-500">
+              <div className="p-5 rounded-full bg-accent-pink/5 border border-accent-pink/20 shadow-[0_0_40px_rgba(255,0,128,0.15)]">
+                <ArrowLeftRight size={48} strokeWidth={1.5} className="text-accent-pink" />
+              </div>
+              <div className="text-center space-y-1">
+                <div className="font-black text-lg text-white uppercase tracking-[0.3em]">No Execution History</div>
+                <div className="text-xs font-bold text-accent-pink/70 uppercase tracking-widest">ledger is empty</div>
+              </div>
+            </div>
+          ) : (
           <table className="w-full text-sm font-mono border-separate border-spacing-y-2">
             <thead>
               <tr className="text-[10px] text-text-secondary uppercase tracking-[0.2em]">
@@ -80,10 +90,11 @@ export const HistoryModal = ({ isOpen, onClose, history, formatTimestamp }: Hist
               })}
             </tbody>
           </table>
+          )}
         </div>
 
         {/* Footer */}
-        <div className="p-4 bg-black/20 border-t border-white/5 flex justify-between items-center text-[10px] text-text-muted shrink-0">
+        <div className="p-4 bg-black/20 border-t border-accent-pink/30 flex justify-between items-center text-[10px] text-text-muted shrink-0">
           <span>Showing {history.length} most recent records</span>
           <span className="font-mono">{new Date().toUTCString()}</span>
         </div>

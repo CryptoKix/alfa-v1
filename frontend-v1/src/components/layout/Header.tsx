@@ -23,26 +23,15 @@ export const Header = () => {
   const timeDiff = now - lastUpdate
   
   // Price Status Logic
-  const priceStatusText = 'Price'
-  let priceColor = 'bg-red-500'
-  let priceTextClass = 'text-red-500'
-  let pricePulse = false
-
-  if (priceConnected) {
-    if (lastUpdate > 0 && timeDiff < 5000) {
-      priceColor = 'bg-accent-green'
-      priceTextClass = 'text-accent-green'
-      pricePulse = true
-    } else {
-      priceColor = 'bg-yellow-500'
-      priceTextClass = 'text-yellow-500'
-    }
-  }
+  const isPriceUp = priceConnected && lastUpdate > 0 && timeDiff < 5000
+  const priceColor = isPriceUp ? 'bg-accent-cyan' : 'bg-accent-pink'
+  const priceTextClass = isPriceUp ? 'text-accent-cyan' : 'text-accent-pink'
+  const pricePulse = isPriceUp
 
   // Web Status Logic
   const webStatusText = 'Web'
-  const webColor = webConnected ? 'bg-accent-cyan' : 'bg-red-500'
-  const webTextClass = webConnected ? 'text-accent-cyan' : 'text-red-500'
+  const webColor = webConnected ? 'bg-accent-cyan' : 'bg-accent-pink'
+  const webTextClass = webConnected ? 'text-accent-cyan' : 'text-accent-pink'
 
   const handleRestart = async () => {
     if (!confirm("Initiate emergency system restart? All active strategy threads will be re-synchronized.")) return;
@@ -85,12 +74,12 @@ export const Header = () => {
               title="System Health: Click to Restart Services"
               className={cn(
                 "flex items-center justify-center gap-2 w-20 h-8 rounded-md border transition-all duration-500 bg-background-elevated/50 hover:bg-white/5 group cursor-pointer",
-                priceConnected && lastUpdate > 0 && timeDiff < 5000 ? "border-accent-green/20 shadow-[0_0_10px_rgba(0,255,157,0.05)]" : "border-border"
+                isPriceUp ? "border-accent-cyan/20 shadow-[0_0_10px_rgba(0,255,234,0.05)]" : "border-accent-pink/20 shadow-[0_0_10px_rgba(255,0,128,0.05)]"
               )}
             >
                <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", priceColor, pricePulse && "animate-pulse shadow-[0_0_8px_currentColor]")} />
                <span className={cn("text-[9px] font-black uppercase tracking-widest transition-colors duration-500", priceTextClass)}>
-                 {priceStatusText}
+                 Price
                </span>
             </button>
             <button 
@@ -98,7 +87,7 @@ export const Header = () => {
               title="API Health: Click to Restart Services"
               className={cn(
                 "flex items-center justify-center gap-2 w-20 h-8 rounded-md border transition-all duration-500 bg-background-elevated/50 hover:bg-white/5 group cursor-pointer",
-                webConnected ? "border-accent-cyan/20 shadow-[0_0_10px_rgba(0,255,255,0.05)]" : "border-border"
+                webConnected ? "border-accent-cyan/20 shadow-[0_0_10px_rgba(0,255,234,0.05)]" : "border-accent-pink/20 shadow-[0_0_10px_rgba(255,0,128,0.05)]"
               )}
             >
                <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", webColor, webConnected && "animate-pulse shadow-[0_0_8px_currentColor]")} />
