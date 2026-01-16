@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { Settings2, Play, Plus, Minus, Layers, Target, ChevronDown, Activity, X, Check } from 'lucide-react'
+import { Settings2, Play, Plus, Minus, Layers, Target, ChevronDown, Activity, X } from 'lucide-react'
 import { useAppSelector, useAppDispatch } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { setMonitorBotId } from '@/features/bots/botsSlice'
@@ -667,17 +667,17 @@ export const GridConfigWidget = () => {
         <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
           <div className="flex-1 overflow-auto custom-scrollbar">
             {/* Sticky Header */}
-            <div className="grid grid-cols-[100px_60px_1fr_12px_1fr_80px_50px] gap-2 px-4 pt-3 pb-2 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 bg-[#0d0d12] sticky top-0 z-10 items-center">
+            <div className="grid grid-cols-[85px_45px_1fr_12px_1fr_65px_50px] gap-2 px-3 pt-3 pb-2 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 bg-[#0d0d12] sticky top-0 z-10 items-center">
               <div>Time</div>
               <div>Type</div>
-              <div>From</div>
+              <div className="pl-1">From</div>
               <div className="text-center opacity-0">|</div>
-              <div>To</div>
-              <div className="text-left">Price</div>
+              <div className="pl-1">To</div>
+              <div className="text-right pr-2">Price</div>
               <div className="text-right">Status</div>
             </div>
 
-            <div className="p-2 space-y-1">
+            <div className="p-1.5 space-y-1">
               {gridTrades.length > 0 ? (
                 gridTrades.map(trade => {
                   const isSuccess = trade.status === 'success'
@@ -693,11 +693,11 @@ export const GridConfigWidget = () => {
                   let rowTypeColor = isRebal ? "text-white" : (isBuy ? "text-accent-cyan" : "text-accent-pink")
                   
                   // Column Specific Colors
-                  let fromAssetColor = isRebal ? "text-white/60" : (isBuy ? "text-accent-cyan/60" : "text-accent-pink/60")
-                  let fromAmountColor = isRebal ? "text-white" : (isBuy ? "text-accent-cyan" : "text-accent-pink")
+                  let fromAssetColor = isRebal ? "text-white/40" : (isBuy ? "text-accent-cyan/60" : "text-accent-pink/60")
+                  let fromAmountColor = isRebal ? "text-white/90" : (isBuy ? "text-accent-cyan" : "text-accent-pink")
                   
-                  let toAssetColor = isRebal ? "text-white/60" : (isBuy ? "text-accent-pink/60" : "text-accent-cyan/60")
-                  let toAmountColor = isRebal ? "text-white" : (isBuy ? "text-accent-pink" : "text-accent-cyan")
+                  let toAssetColor = isRebal ? "text-white/40" : (isBuy ? "text-accent-pink/60" : "text-accent-cyan/60")
+                  let toAmountColor = isRebal ? "text-white/90" : (isBuy ? "text-accent-pink" : "text-accent-cyan")
 
                   const targetAmount = isOutputStable ? trade.amount_in : trade.amount_out
                   const impliedPrice = trade.usd_value > 0 && targetAmount > 0 
@@ -705,10 +705,10 @@ export const GridConfigWidget = () => {
                     : 0
 
                   return (
-                    <div key={trade.id} className="grid grid-cols-[100px_60px_1fr_12px_1fr_80px_50px] gap-2 items-center p-2 rounded-lg bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group font-mono whitespace-nowrap overflow-hidden">
+                    <div key={trade.id} className="grid grid-cols-[85px_45px_1fr_12px_1fr_65px_50px] gap-2 items-center p-2 rounded-lg bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group font-mono whitespace-nowrap overflow-hidden">
                       <div className={cn(
-                        "text-[10px] font-black uppercase tracking-tight shrink-0 transition-colors duration-500",
-                        isRebal ? "text-white/80" : (isSuccess ? "text-white/80" : "text-text-muted")
+                        "text-[9px] font-bold uppercase tracking-tighter shrink-0 transition-colors duration-500",
+                        isRebal ? "text-white/40" : (isSuccess ? "text-white/60" : "text-text-muted")
                       )}>
                         {(() => {
                           if (!trade.timestamp) return '-'
@@ -722,40 +722,33 @@ export const GridConfigWidget = () => {
                         })()}
                       </div>
                       
-                      <div className={cn("font-black uppercase tracking-tight shrink-0 text-[10px]", rowTypeColor)}>
+                      <div className={cn("font-black uppercase tracking-tighter shrink-0 text-[10px]", rowTypeColor)}>
                         {txType}
                       </div>
 
-                      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px] font-black uppercase tracking-tight">
-                        <span className={cn("font-bold w-8 shrink-0", fromAssetColor)}>{trade.input}</span>
-                        <span className="text-white/20 font-thin shrink-0">-</span>
-                        <span className={cn("font-black truncate", fromAmountColor)}>{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      <div className="flex items-center gap-1 min-w-0 overflow-hidden text-[10px] font-bold uppercase tracking-tighter">
+                        <span className={cn("w-6 shrink-0", fromAssetColor)}>{trade.input}</span>
+                        <span className={cn("truncate", fromAmountColor)}>{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                       </div>
 
                       <div className="text-center text-[10px] text-white/10 font-thin shrink-0">|</div>
 
-                      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px] font-black uppercase tracking-tight">
-                        <span className={cn("font-bold w-8 shrink-0", toAssetColor)}>{trade.output}</span>
-                        <span className="text-white/20 font-thin shrink-0">-</span>
-                        <span className={cn("font-black truncate", toAmountColor)}>{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      <div className="flex items-center gap-1 min-w-0 overflow-hidden text-[10px] font-bold uppercase tracking-tighter">
+                        <span className={cn("w-6 shrink-0", toAssetColor)}>{trade.output}</span>
+                        <span className={cn("truncate", toAmountColor)}>{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                       </div>
 
-                      <div className={cn("text-[10px] font-black uppercase tracking-tight leading-none shrink-0", isRebal ? "text-white/60" : "text-white/60")}>
+                      <div className={cn("text-[10px] font-black uppercase tracking-tighter leading-none shrink-0 text-right pr-2", isRebal ? "text-white/30" : "text-white/60")}>
                         {impliedPrice > 0 ? `${impliedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '---'}
                       </div>
 
                       <div className="text-right shrink-0">
                         <span className={cn(
-                          "uppercase font-black text-[9px] tracking-tighter px-1.5 py-0.5 rounded border flex items-center gap-1 justify-center w-[42px] h-[18px] leading-none",
-                          isRebal ? "text-white/40 border-white/10 bg-white/5" : 
+                          "uppercase font-black text-[8px] tracking-tighter px-1 py-0.5 rounded border flex items-center gap-1 justify-center w-[38px] h-[16px] leading-none",
+                          isRebal ? "text-white/20 border-white/10 bg-white/5" : 
                           (isSuccess ? "text-accent-cyan border-accent-cyan/20 bg-accent-cyan/5" : "text-accent-pink border-accent-pink/20 bg-accent-pink/5")
                         )}>
-                          {isRebal ? 'REB' : (
-                            <>
-                              {isSuccess ? <Check size={8} strokeWidth={4} /> : <X size={8} strokeWidth={4} />}
-                              {isSuccess ? 'OK' : 'FAIL'}
-                            </>
-                          )}
+                          {isRebal ? 'REB' : (isSuccess ? 'OK' : 'FAIL')}
                         </span>
                       </div>
                     </div>
