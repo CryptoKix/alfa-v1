@@ -687,7 +687,16 @@ export const GridConfigWidget = () => {
                   const isRebal = txType === 'REBAL'
                   const isBuy = txType === 'BUY'
                   
+                  // Base Row Colors
                   const rowTypeColor = isRebal ? "text-white" : (isBuy ? "text-accent-cyan" : "text-accent-pink")
+                  
+                  // Column Specific Colors
+                  const fromAssetColor = isRebal ? "text-white/30" : (isBuy ? "text-accent-cyan/40" : "text-accent-pink/40")
+                  const fromAmountColor = isRebal ? "text-white/90" : (isBuy ? "text-accent-cyan" : "text-accent-pink")
+                  
+                  const toAssetColor = isRebal ? "text-white/30" : (isBuy ? "text-accent-pink/40" : "text-accent-cyan/40")
+                  const toAmountColor = isRebal ? "text-white/90" : (isBuy ? "text-accent-pink" : "text-accent-cyan")
+
                   const targetAmount = isOutputStable ? trade.amount_in : trade.amount_out
                   const impliedPrice = trade.usd_value > 0 && targetAmount > 0 
                     ? trade.usd_value / targetAmount 
@@ -696,7 +705,7 @@ export const GridConfigWidget = () => {
                   return (
                     <div key={trade.id} className="grid grid-cols-[82px_40px_1fr_1fr_65px_45px] gap-3 items-center p-2 rounded-lg bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group font-mono whitespace-nowrap overflow-hidden">
                       {/* Time */}
-                      <div className="text-[9px] font-bold text-white/40 uppercase tracking-tighter">
+                      <div className="text-[10px] font-bold text-white/40 uppercase tracking-tighter">
                         {(() => {
                           if (!trade.timestamp) return '-'
                           const date = new Date(trade.timestamp.replace(' ', 'T') + (trade.timestamp.includes('Z') ? '' : 'Z'))
@@ -711,19 +720,19 @@ export const GridConfigWidget = () => {
                       </div>
 
                       {/* From */}
-                      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px]">
-                        <span className="text-white font-bold tabular-nums">{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                        <span className="text-text-muted font-black text-[9px]">{trade.input}</span>
+                      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px] font-bold tracking-tighter">
+                        <span className={cn("tabular-nums", fromAmountColor)}>{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                        <span className={cn("text-[10px] uppercase font-black", fromAssetColor)}>{trade.input}</span>
                       </div>
 
                       {/* To */}
-                      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px]">
-                        <span className="text-white font-bold tabular-nums">{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                        <span className="text-text-muted font-black text-[9px]">{trade.output}</span>
+                      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px] font-bold tracking-tighter">
+                        <span className={cn("tabular-nums", toAmountColor)}>{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                        <span className={cn("text-[10px] uppercase font-black", toAssetColor)}>{trade.output}</span>
                       </div>
 
                       {/* Price */}
-                      <div className="text-[10px] font-black tabular-nums text-white/80">
+                      <div className="text-[10px] font-black tabular-nums text-white/80 tracking-tighter">
                         {impliedPrice > 0 ? impliedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'}
                       </div>
 
