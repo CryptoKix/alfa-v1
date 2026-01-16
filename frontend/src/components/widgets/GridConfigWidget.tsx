@@ -176,7 +176,7 @@ export const GridConfigWidget = () => {
           upperBound: parseFloat(upperPrice),
           steps: steps,
           trailingEnabled: trailingEnabled,
-          hysteresis: parseFloat(hysteresis)
+          hysteresisPct: parseFloat(hysteresis)
         })
       })
 
