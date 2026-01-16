@@ -49,8 +49,8 @@ export const TradeHistoryWidget = () => {
           </button>
         </div>
 
-        {/* Table Header */}
-        <div className="grid grid-cols-[82px_100px_1fr_65px_45px] gap-3 px-2 pb-2 mr-[6px] text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 mb-2">
+        {/* Table Header - Strict 16px offset match */}
+        <div className="grid grid-cols-[90px_100px_1fr_80px_60px] gap-4 px-4 py-3 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5">
           <div className="text-left">Timestamp</div>
           <div className="text-left">Asset Pair</div>
           <div className="text-left">Execution Detail</div>
@@ -59,7 +59,7 @@ export const TradeHistoryWidget = () => {
         </div>
 
         <div className="flex-1 relative min-h-0">
-          <div className="space-y-1 h-full overflow-auto custom-scrollbar pr-2 pb-4">
+          <div className="py-2 space-y-1 h-full overflow-auto custom-scrollbar">
             {history.length === 0 ? (
                <div className="h-full flex flex-col items-center justify-center text-text-muted opacity-50 py-20">
                  <Activity size={32} strokeWidth={1} />
@@ -89,20 +89,20 @@ export const TradeHistoryWidget = () => {
                   : 0
                 
                 return (
-                  <div key={trade.id} className="grid grid-cols-[82px_100px_1fr_65px_45px] gap-3 items-center p-2 rounded-lg bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group font-mono whitespace-nowrap overflow-hidden">
-                    {/* Time */}
+                  <div key={trade.id} className="mx-2 grid grid-cols-[90px_100px_1fr_80px_60px] gap-4 items-center px-2 py-2 rounded-lg bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group font-mono whitespace-nowrap overflow-hidden">
+                    {/* 1. Time */}
                     <div className="text-[10px] font-bold text-white/40 uppercase tracking-tighter text-left">
                       {formatTimestamp(trade.timestamp)}
                     </div>
                     
-                    {/* Asset Pair */}
+                    {/* 2. Asset Pair */}
                     <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-tighter text-left">
                       <span className={fromColor}>{trade.input}</span>
                       <span className="text-text-muted opacity-30">/</span>
                       <span className={toColor}>{trade.output}</span>
                     </div>
 
-                    {/* Execution Detail */}
+                    {/* 3. Execution Detail */}
                     <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px] font-bold tracking-tighter text-left">
                        <span className={cn("tabular-nums", fromColor)}>{formatAmount(trade.amount_in)}</span>
                        <span className={cn("uppercase", fromColor)}>{trade.input}</span>
@@ -111,12 +111,12 @@ export const TradeHistoryWidget = () => {
                        <span className={cn("uppercase", toColor)}>{trade.output}</span>
                     </div>
 
-                    {/* Price */}
+                    {/* 4. Price */}
                     <div className="text-[10px] font-black tabular-nums text-white/80 tracking-tighter text-left">
                       {impliedPrice > 0 ? impliedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'}
                     </div>
 
-                    {/* Status */}
+                    {/* 5. Status */}
                     <div className="text-left">
                        <span className={cn(
                          "uppercase font-black text-[8px] tracking-tighter px-1.5 py-0.5 rounded border leading-none inline-block", 

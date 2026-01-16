@@ -588,7 +588,7 @@ export const GridConfigWidget = () => {
                         </div>
                         <div className="text-right flex flex-col items-end">
                           <div className={cn(
-                            "text-[8px] font-black uppercase tracking-widest px-1 py-0.5 rounded border leading-none",
+                            "text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border leading-none",
                             isBelowCurrent 
                               ? "text-accent-cyan border-accent-cyan/20 bg-accent-cyan/10" 
                               : "text-accent-pink border-accent-pink/20 bg-accent-pink/10"
@@ -666,8 +666,8 @@ export const GridConfigWidget = () => {
 
         <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
           <div className="flex-1 overflow-auto custom-scrollbar">
-            {/* Sticky Header - 6 Columns Left Aligned */}
-            <div className="grid grid-cols-[82px_45px_1fr_1fr_65px_45px] gap-3 px-3 pt-3 pb-2 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 bg-background-card sticky top-0 z-10 items-center">
+            {/* Sticky Header - Strict vertical left alignment */}
+            <div className="grid grid-cols-[90px_50px_1fr_1fr_80px_60px] gap-4 px-4 py-3 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 bg-background-card sticky top-0 z-10">
               <div className="text-left">Time</div>
               <div className="text-left">Type</div>
               <div className="text-left">From</div>
@@ -676,7 +676,7 @@ export const GridConfigWidget = () => {
               <div className="text-left">Status</div>
             </div>
 
-            <div className="p-2 space-y-1">
+            <div className="py-2 space-y-1">
               {gridTrades.length > 0 ? (
                 gridTrades.map(trade => {
                   const isSuccess = trade.status === 'success'
@@ -687,18 +687,15 @@ export const GridConfigWidget = () => {
                   const isRebal = txType === 'REBAL'
                   const isBuy = txType === 'BUY'
                   
-                  // Color Logic
                   const rowTypeColor = isRebal ? "text-white" : (isBuy ? "text-accent-cyan" : "text-accent-pink")
                   const amountAssetColor = isRebal ? "text-white/90" : (isBuy ? "text-accent-cyan" : "text-accent-pink")
                   const toAmountAssetColor = isRebal ? "text-white/90" : (isBuy ? "text-accent-pink" : "text-accent-cyan")
 
                   const targetAmount = isOutputStable ? trade.amount_in : trade.amount_out
-                  const impliedPrice = trade.usd_value > 0 && targetAmount > 0 
-                    ? trade.usd_value / targetAmount 
-                    : 0
+                  const impliedPrice = trade.usd_value > 0 && targetAmount > 0 ? trade.usd_value / targetAmount : 0
 
                   return (
-                    <div key={trade.id} className="grid grid-cols-[82px_45px_1fr_1fr_65px_45px] gap-3 items-center p-2 rounded-lg bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group font-mono whitespace-nowrap overflow-hidden">
+                    <div key={trade.id} className="mx-2 grid grid-cols-[90px_50px_1fr_1fr_80px_60px] gap-4 items-center px-2 py-2 rounded-lg bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group font-mono whitespace-nowrap overflow-hidden">
                       {/* 1. Time */}
                       <div className="text-[10px] font-bold text-white/40 uppercase tracking-tighter text-left">
                         {(() => {
@@ -718,13 +715,13 @@ export const GridConfigWidget = () => {
                       </div>
 
                       {/* 3. From */}
-                      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px] font-bold tracking-tighter text-left">
+                      <div className="flex items-center gap-2 min-w-0 overflow-hidden text-[10px] font-bold tracking-tighter text-left">
                         <span className={cn("tabular-nums", amountAssetColor)}>{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                         <span className={cn("uppercase", amountAssetColor)}>{trade.input}</span>
                       </div>
 
                       {/* 4. To */}
-                      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px] font-bold tracking-tighter text-left">
+                      <div className="flex items-center gap-2 min-w-0 overflow-hidden text-[10px] font-bold tracking-tighter text-left">
                         <span className={cn("tabular-nums", toAmountAssetColor)}>{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                         <span className={cn("uppercase", toAmountAssetColor)}>{trade.output}</span>
                       </div>
