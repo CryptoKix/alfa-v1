@@ -49,7 +49,7 @@ export const TradeHistoryWidget = () => {
           </button>
         </div>
 
-        {/* Table Header - Strict 16px offset match */}
+        {/* Table Header - Strict 16px offset match (px-4 = 16px) */}
         <div className="grid grid-cols-[90px_100px_1fr_80px_60px] gap-4 px-4 py-3 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5">
           <div className="text-left">Timestamp</div>
           <div className="text-left">Asset Pair</div>
