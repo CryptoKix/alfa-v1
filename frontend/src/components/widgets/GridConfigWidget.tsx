@@ -667,84 +667,70 @@ export const GridConfigWidget = () => {
         <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
           <div className="flex-1 overflow-auto custom-scrollbar">
             {/* Sticky Header */}
-            <div className="grid grid-cols-[85px_45px_1fr_12px_1fr_65px_50px] gap-2 px-3 pt-3 pb-2 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 bg-background-card sticky top-0 z-10 items-center">
+            <div className="grid grid-cols-[82px_40px_1fr_1fr_65px_45px] gap-3 px-4 pt-3 pb-2 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 bg-background-card sticky top-0 z-10 items-center">
               <div>Time</div>
               <div>Type</div>
-              <div className="text-right pr-1">From</div>
-              <div className="text-center opacity-0">|</div>
-              <div className="text-left pl-1">To</div>
-              <div className="text-right pr-2">Price</div>
+              <div>From</div>
+              <div>To</div>
+              <div>Price</div>
               <div className="text-right">Status</div>
             </div>
 
-            <div className="p-1.5 space-y-1">
+            <div className="p-2 space-y-1">
               {gridTrades.length > 0 ? (
                 gridTrades.map(trade => {
                   const isSuccess = trade.status === 'success'
                   const isOutputStable = ['USDC', 'USDT', 'USD'].includes(trade.output)
-                  
                   const source = (trade.source || '').toLowerCase()
                   const txType = source.includes('buy') ? 'BUY' : source.includes('sell') ? 'SELL' : source.includes('rebalance') ? 'REBAL' : 'EXEC'
                   
                   const isRebal = txType === 'REBAL'
                   const isBuy = txType === 'BUY'
                   
-                  // Base Colors
-                  let rowTypeColor = isRebal ? "text-white" : (isBuy ? "text-accent-cyan" : "text-accent-pink")
-                  
-                  // Column Specific Colors
-                  let fromAssetColor = isRebal ? "text-white/40" : (isBuy ? "text-accent-cyan/60" : "text-accent-pink/60")
-                  let fromAmountColor = isRebal ? "text-white/90" : (isBuy ? "text-accent-cyan" : "text-accent-pink")
-                  
-                  let toAssetColor = isRebal ? "text-white/40" : (isBuy ? "text-accent-pink/60" : "text-accent-cyan/60")
-                  let toAmountColor = isRebal ? "text-white/90" : (isBuy ? "text-accent-pink" : "text-accent-cyan")
-
+                  const rowTypeColor = isRebal ? "text-white" : (isBuy ? "text-accent-cyan" : "text-accent-pink")
                   const targetAmount = isOutputStable ? trade.amount_in : trade.amount_out
                   const impliedPrice = trade.usd_value > 0 && targetAmount > 0 
                     ? trade.usd_value / targetAmount 
                     : 0
 
                   return (
-                    <div key={trade.id} className="grid grid-cols-[85px_45px_1fr_12px_1fr_65px_50px] gap-2 items-center p-2 rounded-lg bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group font-mono whitespace-nowrap overflow-hidden">
-                      <div className={cn(
-                        "text-[9px] font-bold uppercase tracking-tighter shrink-0 transition-colors duration-500",
-                        isRebal ? "text-white/40" : (isSuccess ? "text-white/60" : "text-text-muted")
-                      )}>
+                    <div key={trade.id} className="grid grid-cols-[82px_40px_1fr_1fr_65px_45px] gap-3 items-center p-2 rounded-lg bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group font-mono whitespace-nowrap overflow-hidden">
+                      {/* Time */}
+                      <div className="text-[9px] font-bold text-white/40 uppercase tracking-tighter">
                         {(() => {
                           if (!trade.timestamp) return '-'
-                          const isoStr = trade.timestamp.replace(' ', 'T') + (trade.timestamp.includes('Z') ? '' : 'Z')
-                          const date = new Date(isoStr)
+                          const date = new Date(trade.timestamp.replace(' ', 'T') + (trade.timestamp.includes('Z') ? '' : 'Z'))
                           if (isNaN(date.getTime())) return '-'
-                          const d = date.getDate().toString().padStart(2, '0')
-                          const m = (date.getMonth() + 1).toString().padStart(2, '0')
-                          const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-                          return `${m}/${d} ${time}`
+                          return `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}`
                         })()}
                       </div>
                       
-                      <div className={cn("font-black uppercase tracking-tighter shrink-0 text-[10px]", rowTypeColor)}>
+                      {/* Type */}
+                      <div className={cn("font-black uppercase tracking-tighter text-[10px]", rowTypeColor)}>
                         {txType}
                       </div>
 
-                      <div className="flex items-center justify-end gap-2 min-w-0 overflow-hidden text-[10px] font-bold uppercase tracking-tighter">
-                        <span className={cn("shrink-0", fromAssetColor)}>{trade.input}</span>
-                        <span className={cn("truncate tabular-nums text-white", fromAmountColor)}>{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      {/* From */}
+                      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px]">
+                        <span className="text-white font-bold tabular-nums">{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                        <span className="text-text-muted font-black text-[9px]">{trade.input}</span>
                       </div>
 
-                      <div className="text-center text-[10px] text-white/10 font-thin shrink-0">|</div>
-
-                      <div className="flex items-center justify-start gap-2 min-w-0 overflow-hidden text-[10px] font-bold uppercase tracking-tighter">
-                        <span className={cn("truncate tabular-nums text-white", toAmountColor)}>{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                        <span className={cn("shrink-0", toAssetColor)}>{trade.output}</span>
+                      {/* To */}
+                      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px]">
+                        <span className="text-white font-bold tabular-nums">{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                        <span className="text-text-muted font-black text-[9px]">{trade.output}</span>
                       </div>
 
-                      <div className={cn("text-[10px] font-black uppercase tracking-tighter leading-none shrink-0 text-right pr-2", isRebal ? "text-white/30" : "text-white/60")}>
-                        {impliedPrice > 0 ? `${impliedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '---'}
+                      {/* Price */}
+                      <div className="text-[10px] font-black tabular-nums text-white/80">
+                        {impliedPrice > 0 ? impliedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'}
                       </div>
 
-                      <div className="text-right shrink-0">
+                      {/* Status */}
+                      <div className="text-right">
                         <span className={cn(
-                          "uppercase font-black text-[8px] tracking-tighter px-1 py-0.5 rounded border flex items-center gap-1 justify-center w-[38px] h-[16px] leading-none",
+                          "uppercase font-black text-[8px] tracking-tighter px-1.5 py-0.5 rounded border leading-none inline-block",
                           isRebal ? "text-white/20 border-white/10 bg-white/5" : 
                           (isSuccess ? "text-accent-cyan border-accent-cyan/20 bg-accent-cyan/5" : "text-accent-pink border-accent-pink/20 bg-accent-pink/5")
                         )}>
