@@ -691,11 +691,11 @@ export const GridConfigWidget = () => {
                   const rowTypeColor = isRebal ? "text-white" : (isBuy ? "text-accent-cyan" : "text-accent-pink")
                   
                   // Column Specific Colors
-                  const fromAssetColor = isRebal ? "text-white/30" : (isBuy ? "text-accent-cyan/40" : "text-accent-pink/40")
                   const fromAmountColor = isRebal ? "text-white/90" : (isBuy ? "text-accent-cyan" : "text-accent-pink")
+                  const fromAssetColor = fromAmountColor
                   
-                  const toAssetColor = isRebal ? "text-white/30" : (isBuy ? "text-accent-pink/40" : "text-accent-cyan/40")
                   const toAmountColor = isRebal ? "text-white/90" : (isBuy ? "text-accent-pink" : "text-accent-cyan")
+                  const toAssetColor = toAmountColor
 
                   const targetAmount = isOutputStable ? trade.amount_in : trade.amount_out
                   const impliedPrice = trade.usd_value > 0 && targetAmount > 0 
@@ -722,13 +722,13 @@ export const GridConfigWidget = () => {
                       {/* From */}
                       <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px] font-bold tracking-tighter">
                         <span className={cn("tabular-nums", fromAmountColor)}>{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                        <span className={cn("uppercase font-bold", fromAssetColor)}>{trade.input}</span>
+                        <span className={cn("uppercase", fromAssetColor)}>{trade.input}</span>
                       </div>
 
                       {/* To */}
                       <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px] font-bold tracking-tighter">
                         <span className={cn("tabular-nums", toAmountColor)}>{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                        <span className={cn("uppercase font-bold", toAssetColor)}>{trade.output}</span>
+                        <span className={cn("uppercase", toAssetColor)}>{trade.output}</span>
                       </div>
 
                       {/* Price */}
