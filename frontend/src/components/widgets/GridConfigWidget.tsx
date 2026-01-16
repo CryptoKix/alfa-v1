@@ -722,13 +722,13 @@ export const GridConfigWidget = () => {
                       {/* From */}
                       <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px] font-bold tracking-tighter">
                         <span className={cn("tabular-nums", fromAmountColor)}>{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                        <span className={cn("text-[10px] uppercase font-black", fromAssetColor)}>{trade.input}</span>
+                        <span className={cn("uppercase font-bold", fromAssetColor)}>{trade.input}</span>
                       </div>
 
                       {/* To */}
                       <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px] font-bold tracking-tighter">
                         <span className={cn("tabular-nums", toAmountColor)}>{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                        <span className={cn("text-[10px] uppercase font-black", toAssetColor)}>{trade.output}</span>
+                        <span className={cn("uppercase font-bold", toAssetColor)}>{trade.output}</span>
                       </div>
 
                       {/* Price */}
