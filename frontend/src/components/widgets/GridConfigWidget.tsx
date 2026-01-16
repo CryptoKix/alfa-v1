@@ -670,9 +670,9 @@ export const GridConfigWidget = () => {
             <div className="grid grid-cols-[85px_45px_1fr_12px_1fr_65px_50px] gap-2 px-3 pt-3 pb-2 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 bg-background-card sticky top-0 z-10 items-center">
               <div>Time</div>
               <div>Type</div>
-              <div className="pl-1">From</div>
+              <div className="text-right pr-1">From</div>
               <div className="text-center opacity-0">|</div>
-              <div className="pl-1">To</div>
+              <div className="text-left pl-1">To</div>
               <div className="text-right pr-2">Price</div>
               <div className="text-right">Status</div>
             </div>
@@ -726,16 +726,16 @@ export const GridConfigWidget = () => {
                         {txType}
                       </div>
 
-                      <div className="grid grid-cols-[36px_1fr] gap-2 items-center min-w-0 overflow-hidden text-[10px] font-bold uppercase tracking-tighter">
+                      <div className="flex items-center justify-end gap-2 min-w-0 overflow-hidden text-[10px] font-bold uppercase tracking-tighter">
                         <span className={cn("shrink-0", fromAssetColor)}>{trade.input}</span>
-                        <span className={cn("truncate tabular-nums", fromAmountColor)}>{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                        <span className={cn("truncate tabular-nums text-white", fromAmountColor)}>{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                       </div>
 
                       <div className="text-center text-[10px] text-white/10 font-thin shrink-0">|</div>
 
-                      <div className="grid grid-cols-[36px_1fr] gap-2 items-center min-w-0 overflow-hidden text-[10px] font-bold uppercase tracking-tighter">
+                      <div className="flex items-center justify-start gap-2 min-w-0 overflow-hidden text-[10px] font-bold uppercase tracking-tighter">
+                        <span className={cn("truncate tabular-nums text-white", toAmountColor)}>{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                         <span className={cn("shrink-0", toAssetColor)}>{trade.output}</span>
-                        <span className={cn("truncate tabular-nums", toAmountColor)}>{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                       </div>
 
                       <div className={cn("text-[10px] font-black uppercase tracking-tighter leading-none shrink-0 text-right pr-2", isRebal ? "text-white/30" : "text-white/60")}>
