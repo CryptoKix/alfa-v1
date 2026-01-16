@@ -44,13 +44,13 @@ export default function StrategiesPage() {
 
   return (
     <>
-      <div className="flex flex-col gap-2 h-full overflow-hidden">
+      <div className="flex flex-col gap-0 h-full overflow-visible">
         <StrategyGauges onViewBots={() => setIsBotsModalOpen(true)} />
         
         {selectedStrategy === 'arb' ? (
-          <div className="flex-1 flex gap-2 overflow-hidden">
+          <div className="flex-1 flex gap-6 overflow-hidden pt-6">
             {/* Left Area: Config/Opportunities */}
-            <div className="flex-1 flex gap-2 h-full min-w-0">
+            <div className="flex-1 flex gap-6 h-full min-w-0">
               <ArbSettingsWidget />
               <ArbOpportunitiesWidget />
             </div>
@@ -61,15 +61,14 @@ export default function StrategiesPage() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
+          <div className="flex-1 min-h-0 overflow-auto custom-scrollbar -mx-6 px-6 py-6 -mb-6">
             {selectedStrategy === 'grid' && <GridConfigWidget />}
             {selectedStrategy === 'twap' && <TWAPConfigWidget />}
             {selectedStrategy === 'copy' && <CopyTradeConfigWidget />}
             {selectedStrategy === 'wolf' && <WolfPackWidget />}
             
             {!['grid', 'twap', 'copy', 'arb', 'wolf'].includes(selectedStrategy) && (
-              <div className="h-full flex flex-col items-center justify-center bg-background-card border border-border rounded-lg relative overflow-hidden">
-                 <div className="absolute inset-0 bg-gradient-to-br from-accent-purple/5 to-accent-cyan/5" />
+              <div className="h-full flex flex-col items-center justify-center bg-background-card border border-accent-pink/30 rounded-lg relative overflow-hidden shadow-floating">
                  <div className="p-20 text-center relative z-10">
                     <div className="text-4xl mb-4">🚧</div>
                     <div className="text-text-muted uppercase tracking-[0.5em] font-black opacity-20 text-xl">

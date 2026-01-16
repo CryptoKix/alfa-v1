@@ -108,7 +108,7 @@ export const TWAPConfigWidget = () => {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-2 h-full animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-0">
+    <div className="flex flex-col lg:flex-row gap-6 h-full animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-0 overflow-visible">
       
       {/* COLUMN 1: Parameters */}
       <div className="lg:w-[380px] bg-background-card border border-accent-pink/30 rounded-lg p-4 shadow-floating relative overflow-hidden flex flex-col gap-4 shrink-0 h-full">
