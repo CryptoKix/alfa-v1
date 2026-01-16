@@ -28,9 +28,13 @@ export interface Bot {
   max_runs?: number
   phase?: string
   avg_buy_price?: number
-  total_bought?: number
-  amount_per_level?: number
-  trailing_enabled?: boolean
+  total_bought?: number,
+  amount_per_level?: number,
+  trailing_enabled?: boolean,
+  hysteresis?: number,
+  totalInvestment?: number,
+  investment?: number,
+  grid_count?: number,
   grid_levels?: GridLevel[]
 }
 

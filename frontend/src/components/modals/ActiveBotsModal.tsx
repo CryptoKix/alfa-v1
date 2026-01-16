@@ -274,13 +274,19 @@ export const ActiveBotsModal = ({ isOpen, onClose, bots = [], onDelete, onPause,
 
                   {/* Grid Specific Details */}
                   {isGrid && (
-                     <div className="grid grid-cols-3 gap-4 py-3 border-y border-white/5 bg-black/30 rounded-xl px-4">
+                     <div className="grid grid-cols-4 gap-4 py-3 border-y border-white/5 bg-black/30 rounded-xl px-4">
                         <div>
                            <div className="text-[8px] text-text-muted font-black uppercase tracking-widest mb-1 opacity-50">Range Protocol</div>
                            <div className="text-xs font-black font-mono text-white flex items-center gap-2">
                              <span className="text-accent-cyan">${bot.lower_bound}</span>
                              <span className="text-text-muted text-[10px]">---</span>
                              <span className="text-accent-pink">${bot.upper_bound}</span>
+                           </div>
+                        </div>
+                        <div>
+                           <div className="text-[8px] text-text-muted font-black uppercase tracking-widest mb-1 opacity-50">Hysteresis</div>
+                           <div className="text-xs font-black font-mono text-accent-pink">
+                             {bot.hysteresis || 0}%
                            </div>
                         </div>
                          <div>

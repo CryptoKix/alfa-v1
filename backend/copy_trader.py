@@ -84,6 +84,8 @@ class CopyTraderEngine:
                                     commitment="confirmed"
                                 )
                                 logger.info(f"✅ Subscribed to target {address[:8]}...")
+                                # Add delay to avoid Helius rate limits on subscriptions
+                                await asyncio.sleep(0.5)
                             except Exception as e:
                                 logger.error(f"Subscription failed for {address}: {e}")
                     
@@ -305,6 +307,6 @@ class CopyTraderEngine:
                                         }, namespace='/bots')
                                 except Exception as e:
                                     logger.error(f"❌ Auto-Execute Error: {e}")
-                        return
+                return
 
             await asyncio.sleep(0.3)

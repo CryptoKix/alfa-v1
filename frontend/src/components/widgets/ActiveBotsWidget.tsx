@@ -134,12 +134,17 @@ export const ActiveBotsWidget = ({ onViewAll }: { onViewAll?: () => void }) => {
                     </div>
 
                     {/* Range / Amount */}
-                    <div className="text-text-secondary text-[10px]">
-                        {isGrid && bot.lower_bound && bot.upper_bound
-                            ? `${bot.lower_bound} - ${bot.upper_bound}`
-                            : (bot.type === 'TWAP' || bot.type === 'DCA') && bot.amount
-                                ? `${bot.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${bot.input_symbol}`
-                                : '-'
+                    <div className="text-text-secondary text-[10px] flex flex-col">
+                        {isGrid && bot.lower_bound && bot.upper_bound ? (
+                            <>
+                                <span>{bot.lower_bound} - {bot.upper_bound}</span>
+                                {bot.hysteresis !== undefined && (
+                                    <span className="text-[8px] text-accent-pink/80 font-bold tracking-tighter">HYS: {bot.hysteresis}%</span>
+                                )}
+                            </>
+                        ) : (bot.type === 'TWAP' || bot.type === 'DCA') && bot.amount ? (
+                                `${bot.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${bot.input_symbol}`
+                            ) : '-'
                         }
                     </div>
 

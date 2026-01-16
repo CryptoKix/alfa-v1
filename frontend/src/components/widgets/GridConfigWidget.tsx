@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { Settings2, Play, Plus, Minus, Layers, Target, ChevronDown, Activity, X } from 'lucide-react'
+import { Settings2, Play, Plus, Minus, Layers, Target, ChevronDown, Activity, X, Check } from 'lucide-react'
 import { useAppSelector, useAppDispatch } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { setMonitorBotId } from '@/features/bots/botsSlice'
@@ -90,6 +90,7 @@ export const GridConfigWidget = () => {
   const [investment, setInvestment] = useState('')
   const [alias, setAlias] = useState('')
   const [trailingEnabled, setTrailingEnabled] = useState(false)
+  const [hysteresis, setHysteresis] = useState('0.1')
   const [gridMode, setGridMode] = useState<'market' | 'limit'>('market')
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
@@ -174,7 +175,8 @@ export const GridConfigWidget = () => {
           lowerBound: parseFloat(lowerPrice),
           upperBound: parseFloat(upperPrice),
           steps: steps,
-          trailingEnabled: trailingEnabled
+          trailingEnabled: trailingEnabled,
+          hysteresis: parseFloat(hysteresis)
         })
       })
 
@@ -399,6 +401,27 @@ export const GridConfigWidget = () => {
               </button>
             </div>
           </div>
+
+          {/* Hysteresis Setting */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-end px-1">
+              <label className="text-[9px] uppercase tracking-widest text-text-muted font-bold text-accent-pink">Price Hysteresis (%)</label>
+              <span className="text-[9px] font-mono text-text-muted">{hysteresis}%</span>
+            </div>
+            <div className="bg-background-elevated border border-white/10 rounded-xl p-2 flex items-center gap-3 h-12">
+              <button onClick={() => setHysteresis(prev => Math.max(0, parseFloat(prev) - 0.05).toFixed(2))} className="p-1 hover:bg-white/5 rounded text-text-muted hover:text-accent-pink transition-colors"><Minus size={14} /></button>
+              <input 
+                type="range" 
+                min="0" 
+                max="2" 
+                step="0.01"
+                value={hysteresis}
+                onChange={(e) => setHysteresis(e.target.value)}
+                className="flex-1 accent-accent-pink h-1"
+              />
+              <button onClick={() => setHysteresis(prev => Math.min(2, parseFloat(prev) + 0.05).toFixed(2))} className="p-1 hover:bg-white/5 rounded text-text-muted hover:text-accent-pink transition-colors"><Plus size={14} /></button>
+            </div>
+          </div>
         </div>
 
         {status === 'error' && <div className="p-2 bg-accent-red/10 border border-accent-red/20 rounded-lg text-[8px] text-accent-red font-bold animate-in fade-in">{errorMsg}</div>}
@@ -435,7 +458,7 @@ export const GridConfigWidget = () => {
       <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan to-accent-purple opacity-50" />
         
-        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+        <div className="flex items-center justify-between border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
             <div className={cn(
               "p-1.5 rounded-lg",
@@ -578,7 +601,20 @@ export const GridConfigWidget = () => {
                             {activeBot ? (
                                 level.has_position 
                                     ? `${Number(level.token_amount).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${activeBot.output_symbol}`
-                                    : `$${Number(level.cost_usd).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                                    : (() => {
+                                        // Use cost_usd, or explicitly calculate from total investment
+                                        const cost = Number(level.cost_usd)
+                                        if (cost > 0) return `$${cost.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                                        
+                                        // Fallback to config calculation
+                                        // Some bots use 'amount_per_level', others we calculate
+                                        if (activeBot.amount_per_level) return `$${Number(activeBot.amount_per_level).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                                        
+                                        const botInv = Number(activeBot.totalInvestment || activeBot.investment || 0)
+                                        const botSteps = Number(activeBot.steps || activeBot.grid_count || 1)
+                                        const fallback = botSteps > 1 ? botInv / (botSteps - 1) : botInv
+                                        return `$${fallback.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                                      })()
                             ) : (
                                 isBelowCurrent 
                                     ? `$${amountPerLevel.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -617,7 +653,7 @@ export const GridConfigWidget = () => {
       <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0 h-full">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-pink opacity-50" />
         
-        <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+        <div className="flex items-center justify-between border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple">
               <Activity size={18} />
@@ -629,34 +665,50 @@ export const GridConfigWidget = () => {
         </div>
 
         <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
-          <div className="grid grid-cols-[100px_80px_1fr_80px_50px] gap-2 px-4 pt-3 pb-2 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 bg-white/[0.02]">
-            <div>Time</div>
-            <div>Type</div>
-            <div>Details</div>
-            <div>Price</div>
-            <div className="text-right">Status</div>
-          </div>
+          <div className="flex-1 overflow-auto custom-scrollbar">
+            {/* Sticky Header */}
+            <div className="grid grid-cols-[100px_60px_1fr_12px_1fr_80px_50px] gap-2 px-4 pt-3 pb-2 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 bg-[#0d0d12] sticky top-0 z-10 items-center">
+              <div>Time</div>
+              <div>Type</div>
+              <div>From</div>
+              <div className="text-center opacity-0">|</div>
+              <div>To</div>
+              <div className="text-left">Price</div>
+              <div className="text-right">Status</div>
+            </div>
 
-          <div className="flex-1 overflow-auto custom-scrollbar p-2">
-            {gridTrades.length > 0 ? (
-              <div className="space-y-1">
-                {gridTrades.map(trade => {
+            <div className="p-2 space-y-1">
+              {gridTrades.length > 0 ? (
+                gridTrades.map(trade => {
                   const isSuccess = trade.status === 'success'
                   const isOutputStable = ['USDC', 'USDT', 'USD'].includes(trade.output)
+                  
+                  const source = (trade.source || '').toLowerCase()
+                  const txType = source.includes('buy') ? 'BUY' : source.includes('sell') ? 'SELL' : source.includes('rebalance') ? 'REBAL' : 'EXEC'
+                  
+                  const isRebal = txType === 'REBAL'
+                  const isBuy = txType === 'BUY'
+                  
+                  // Base Colors
+                  let rowTypeColor = isRebal ? "text-white" : (isBuy ? "text-accent-cyan" : "text-accent-pink")
+                  
+                  // Column Specific Colors
+                  let fromAssetColor = isRebal ? "text-white/60" : (isBuy ? "text-accent-cyan/60" : "text-accent-pink/60")
+                  let fromAmountColor = isRebal ? "text-white" : (isBuy ? "text-accent-cyan" : "text-accent-pink")
+                  
+                  let toAssetColor = isRebal ? "text-white/60" : (isBuy ? "text-accent-pink/60" : "text-accent-cyan/60")
+                  let toAmountColor = isRebal ? "text-white" : (isBuy ? "text-accent-pink" : "text-accent-cyan")
+
                   const targetAmount = isOutputStable ? trade.amount_in : trade.amount_out
                   const impliedPrice = trade.usd_value > 0 && targetAmount > 0 
                     ? trade.usd_value / targetAmount 
                     : 0
-                  
-                  const source = (trade.source || '').toLowerCase()
-                  const txType = source.includes('buy') ? 'BUY' : source.includes('sell') ? 'SELL' : source.includes('rebalance') ? 'REBAL' : 'EXEC'
-                  const typeColor = txType === 'BUY' ? "text-accent-cyan" : txType === 'SELL' ? "text-accent-pink" : "text-accent-purple"
 
                   return (
-                    <div key={trade.id} className="grid grid-cols-[100px_80px_1fr_80px_50px] gap-2 items-end p-2 rounded-lg bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group font-mono whitespace-nowrap overflow-hidden">
+                    <div key={trade.id} className="grid grid-cols-[100px_60px_1fr_12px_1fr_80px_50px] gap-2 items-center p-2 rounded-lg bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group font-mono whitespace-nowrap overflow-hidden">
                       <div className={cn(
-                        "text-[10px] font-black uppercase tracking-tight shrink-0 leading-none transition-colors duration-500",
-                        isSuccess ? "text-white/80" : "text-text-muted"
+                        "text-[10px] font-black uppercase tracking-tight shrink-0 transition-colors duration-500",
+                        isRebal ? "text-white/80" : (isSuccess ? "text-white/80" : "text-text-muted")
                       )}>
                         {(() => {
                           if (!trade.timestamp) return '-'
@@ -670,43 +722,55 @@ export const GridConfigWidget = () => {
                         })()}
                       </div>
                       
-                      <div className={cn("font-black uppercase tracking-tight shrink-0 text-[10px] leading-none", typeColor)}>
+                      <div className={cn("font-black uppercase tracking-tight shrink-0 text-[10px]", rowTypeColor)}>
                         {txType}
                       </div>
 
-                      <div className={cn("flex items-end gap-1.5 min-w-0 overflow-hidden text-[10px] font-black uppercase tracking-tight leading-none", typeColor)}>
-                        <span className="shrink-0">{trade.input}</span>
-                        <span className="shrink-0">{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                        <span className="opacity-30 text-[8px] shrink-0 mx-0.5">→</span>
-                        <span className="shrink-0">{trade.output}</span>
-                        <span className="truncate">{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px] font-black uppercase tracking-tight">
+                        <span className={cn("font-bold w-8 shrink-0", fromAssetColor)}>{trade.input}</span>
+                        <span className="text-white/20 font-thin shrink-0">-</span>
+                        <span className={cn("font-black truncate", fromAmountColor)}>{trade.amount_in?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                       </div>
 
-                      <div className="text-[10px] font-black uppercase tracking-tight text-white/60 leading-none shrink-0">
+                      <div className="text-center text-[10px] text-white/10 font-thin shrink-0">|</div>
+
+                      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-[10px] font-black uppercase tracking-tight">
+                        <span className={cn("font-bold w-8 shrink-0", toAssetColor)}>{trade.output}</span>
+                        <span className="text-white/20 font-thin shrink-0">-</span>
+                        <span className={cn("font-black truncate", toAmountColor)}>{trade.amount_out?.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      </div>
+
+                      <div className={cn("text-[10px] font-black uppercase tracking-tight leading-none shrink-0", isRebal ? "text-white/60" : "text-white/60")}>
                         {impliedPrice > 0 ? `${impliedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '---'}
                       </div>
 
-                      <div className="text-right shrink-0 leading-none">
+                      <div className="text-right shrink-0">
                         <span className={cn(
-                          "uppercase font-black text-[10px] tracking-tight px-1.5 py-0.5 rounded border leading-none inline-block",
-                          isSuccess ? "text-accent-green border-accent-green/20 bg-accent-green/5" : "text-accent-red border-accent-red/20 bg-accent-red/5"
+                          "uppercase font-black text-[9px] tracking-tighter px-1.5 py-0.5 rounded border flex items-center gap-1 justify-center w-[42px] h-[18px] leading-none",
+                          isRebal ? "text-white/40 border-white/10 bg-white/5" : 
+                          (isSuccess ? "text-accent-cyan border-accent-cyan/20 bg-accent-cyan/5" : "text-accent-pink border-accent-pink/20 bg-accent-pink/5")
                         )}>
-                          {isSuccess ? 'OK' : 'ERR'}
+                          {isRebal ? 'REB' : (
+                            <>
+                              {isSuccess ? <Check size={8} strokeWidth={4} /> : <X size={8} strokeWidth={4} />}
+                              {isSuccess ? 'OK' : 'FAIL'}
+                            </>
+                          )}
                         </span>
                       </div>
                     </div>
                   )
-                })}
-              </div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-text-muted gap-3 opacity-50">
-                <Activity size={32} strokeWidth={1} />
-                <div className="text-center">
-                  <div className="font-bold text-[10px] uppercase tracking-widest mb-1">No Grid Activity</div>
-                  <div className="text-[9px]">Active bot trades will appear here</div>
+                })
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-text-muted gap-3 opacity-50 py-20">
+                  <Activity size={32} strokeWidth={1} />
+                  <div className="text-center">
+                    <div className="font-bold text-[10px] uppercase tracking-widest mb-1">No Grid Activity</div>
+                    <div className="text-[9px]">Active bot trades will appear here</div>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>

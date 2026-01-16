@@ -202,13 +202,18 @@ def api_dca_add():
         "lower_bound": float(data.get('lowerBound', 0)),
         "upper_bound": float(data.get('upperBound', 0)),
         "steps": int(data.get('steps', 1)),
-        "amount_per_level": (float(data.get('totalInvestment', 0)) / (int(data.get('steps', 1)) - 1)) if int(data.get('steps', 1)) > 1 else float(data.get('totalInvestment', 0)),
-        "trailing_enabled": bool(data.get('trailingEnabled', False))
+        "amount_per_level": 0, # Calculated below
+        "trailing_enabled": bool(data.get('trailingEnabled', False)),
+        "hysteresis_pct": float(data.get('hysteresisPct', 0.05)),
+        "stop_loss_price": float(data.get('stopLossPrice', 0)) or None,
+        "take_profit_yield_usd": float(data.get('takeProfitYield', 0)) or None,
+        "pyramid_factor": float(data.get('pyramidFactor', 1.0)) # 1.0 = equal, 2.0 = 2x more at bottom
     }
 
     state = {
         "status": "active",
         "run_count": 0,
+        "consecutive_failures": 0,
         "total_bought": 0.0,
         "total_cost": 0.0,
         "profit_realized": 0.0,
@@ -223,16 +228,32 @@ def api_dca_add():
             if data['outputMint'] in price_cache:
                 current_price = price_cache[data['outputMint']][0]
         
+        # Calculate Pyramid Weights
+        # Weight for level i: 1 + (N-1-i) * (factor - 1) / (N-1)
+        # Lowest level (i=0) gets factor, highest (i=s-1) gets 1.0
+        total_inv = float(data.get('totalInvestment', 0))
+        weights = []
+        for i in range(s):
+            w = 1.0 + (s - 1 - i) * (config['pyramid_factor'] - 1.0) / (s - 1) if s > 1 else 1.0
+            weights.append(w)
+        
+        total_weight = sum(weights)
+        level_allocations = [(w / total_weight) * total_inv for w in weights]
+        config['amount_per_level'] = total_inv / s # Reference avg
+        
         levels = []
         sell_levels_count = 0
         for i in range(s):
-            price_level = lb + (i * (ub - lb) / (s - 1))
-            is_sell_level = (i > 0) and (price_level > current_price)
+            price_level = lb + (i * (ub - lb) / (s - 1)) if s > 1 else lb
+            is_sell_level = (price_level > current_price)
+            alloc = level_allocations[i]
+            
             levels.append({
                 "price": price_level,
+                "allocation_usd": alloc,
                 "has_position": is_sell_level,
-                "token_amount": config['amount_per_level'] / current_price if is_sell_level and current_price > 0 else 0,
-                "cost_usd": config['amount_per_level'] if is_sell_level else 0,
+                "token_amount": alloc / current_price if is_sell_level and current_price > 0 else 0,
+                "cost_usd": alloc if is_sell_level else 0,
                 "order_id": None
             })
             if is_sell_level: sell_levels_count += 1
@@ -241,16 +262,15 @@ def api_dca_add():
         
         # Initial funding for sell side
         if sell_levels_count > 0:
-            initial_buy_amount = config['amount_per_level'] * sell_levels_count
+            total_initial_buy = sum(l['allocation_usd'] for l in state['grid_levels'] if l['has_position'])
             try:
-                res = execute_trade_logic(data['inputMint'], data['outputMint'], initial_buy_amount, f"{bot_type} Initial Rebalance")
+                res = execute_trade_logic(data['inputMint'], data['outputMint'], total_initial_buy, f"{bot_type} Initial Rebalance")
                 actual_tokens = res.get('amount_out', 0)
                 if actual_tokens > 0:
-                    tokens_per_level = actual_tokens / sell_levels_count
+                    # Distribute tokens proportionally to their allocations
                     for lvl in state['grid_levels']:
                         if lvl['has_position']:
-                            lvl['token_amount'] = tokens_per_level
-                            lvl['cost_usd'] = config['amount_per_level']
+                            lvl['token_amount'] = (lvl['allocation_usd'] / total_initial_buy) * actual_tokens
             except Exception as e:
                 print(f"Initial rebalance failed: {e}")
                 for lvl in state['grid_levels']:
@@ -424,14 +444,17 @@ def internal_webhook():
         
         socketio.emit('price_update', {'mint': mint, 'price': price}, namespace='/prices')
 
-        # Trigger grid bots
-        for bot in db.get_all_bots():
-            if bot['status'] == 'active' and bot['output_mint'] == mint:
-                if bot['type'] == 'GRID':
-                    process_grid_logic(bot, price)
-                    update_bot_performance(bot['id'], price)
-                elif bot['type'] in ['DCA', 'TWAP', 'VWAP']:
-                    update_bot_performance(bot['id'], price)
+        # Trigger relevant grid/DCA bots only
+        # We fetch all active bots once to avoid repeated DB calls inside the loop
+        active_bots = [b for b in db.get_all_bots() if b['status'] == 'active' and b['output_mint'] == mint]
+        
+        for bot in active_bots:
+            if bot['type'] == 'GRID':
+                # Order matters: check triggers first, then update performance
+                process_grid_logic(bot, price)
+                update_bot_performance(bot['id'], price)
+            elif bot['type'] in ['DCA', 'TWAP', 'VWAP']:
+                update_bot_performance(bot['id'], price)
 
     return jsonify({"status": "success"}), 200
 
