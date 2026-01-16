@@ -50,11 +50,11 @@ export const TradeHistoryWidget = () => {
         </div>
 
         {/* Table Header - Preserving original 5 columns but using new layout structure */}
-        <div className="grid grid-cols-[82px_100px_1fr_65px_45px] gap-3 px-2.5 pb-2 mr-[6px] text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 mb-2">
+        <div className="grid grid-cols-[82px_100px_1fr_65px_45px] gap-3 px-2 pb-2 mr-[6px] text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 mb-2">
           <div>Timestamp</div>
           <div>Asset Pair</div>
           <div>Execution Detail</div>
-          <div>Price</div>
+          <div className="text-right">Price</div>
           <div className="text-right">Status</div>
         </div>
 
@@ -112,7 +112,7 @@ export const TradeHistoryWidget = () => {
                     </div>
 
                     {/* Price */}
-                    <div className="text-[10px] font-black tabular-nums text-white/80 tracking-tighter">
+                    <div className="text-[10px] font-black tabular-nums text-white/80 tracking-tighter text-right">
                       {impliedPrice > 0 ? impliedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'}
                     </div>
 

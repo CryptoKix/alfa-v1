@@ -667,12 +667,12 @@ export const GridConfigWidget = () => {
         <div className="flex-1 bg-black/20 rounded-xl border border-white/5 overflow-hidden flex flex-col min-h-0">
           <div className="flex-1 overflow-auto custom-scrollbar">
             {/* Sticky Header */}
-            <div className="grid grid-cols-[82px_40px_1fr_1fr_65px_45px] gap-3 px-4 pt-3 pb-2 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 bg-background-card sticky top-0 z-10 items-center">
+            <div className="grid grid-cols-[82px_40px_1fr_1fr_65px_45px] gap-3 px-2 pt-3 pb-2 text-[8px] font-black text-text-muted uppercase tracking-widest shrink-0 border-b border-white/5 bg-background-card sticky top-0 z-10 items-center">
               <div>Time</div>
               <div>Type</div>
               <div>From</div>
               <div>To</div>
-              <div>Price</div>
+              <div className="text-right">Price</div>
               <div className="text-right">Status</div>
             </div>
 
@@ -732,7 +732,7 @@ export const GridConfigWidget = () => {
                       </div>
 
                       {/* Price */}
-                      <div className="text-[10px] font-black tabular-nums text-white/80 tracking-tighter">
+                      <div className="text-[10px] font-black tabular-nums text-white/80 tracking-tighter text-right">
                         {impliedPrice > 0 ? impliedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '---'}
                       </div>
 
