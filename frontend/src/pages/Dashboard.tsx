@@ -3,7 +3,7 @@ import { PortfolioWidget } from '@/components/widgets/PortfolioWidget'
 import { TradeHistoryWidget } from '@/components/widgets/TradeHistoryWidget'
 import { AlertsWidget } from '@/components/widgets/AlertsWidget'
 import { ActiveBotsWidget } from '@/components/widgets/ActiveBotsWidget'
-import { LimitOrdersWidget } from '@/components/widgets/LimitOrdersWidget'
+import ControlPanelWidget from '@/components/widgets/ControlPanelWidget'
 import { ActiveBotsModal } from '@/components/modals/ActiveBotsModal'
 import { useAppSelector } from '@/app/hooks'
 
@@ -39,15 +39,15 @@ export default function Dashboard() {
   return (
     <>
       <div className="flex flex-col gap-2 h-full min-h-0">
-        {/* Top Row: Portfolio, Limit Orders & Alerts */}
+        {/* Top Row: Portfolio, Control Panel & Alerts */}
         <div className="flex-[4] min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-2">
-          <div className="lg:col-span-6 h-full min-h-0">
+          <div className="lg:col-span-5 h-full min-h-0">
             <PortfolioWidget />
           </div>
           <div className="lg:col-span-3 h-full min-h-0">
-            <LimitOrdersWidget />
+            <ControlPanelWidget />
           </div>
-          <div className="lg:col-span-3 h-full min-h-0">
+          <div className="lg:col-span-4 h-full min-h-0">
             <AlertsWidget />
           </div>
         </div>

@@ -17,6 +17,7 @@ from extensions import db, solana_client, socketio, price_cache, price_cache_loc
 from services.tokens import get_known_tokens, get_token_symbol
 from services.portfolio import broadcast_balance
 from services.notifications import notify_trade
+from services.jito import send_jito_bundle, build_tip_transaction
 
 def create_limit_order(input_mint, output_mint, amount, price, priority_fee=0.001):
     """Create a limit order via Jupiter Limit Order V2."""
@@ -350,4 +351,151 @@ def execute_trade_logic(input_mint, output_mint, amount, source="Manual", slippa
         "signature": sig,
         "amount_out": amount_out,
         "usd_value": usd_value
+    }
+
+
+def execute_trade_with_jito(input_mint, output_mint, amount, source="Manual", slippage_bps=50, tip_lamports=10000):
+    """Execute a swap trade via Jupiter with Jito bundle submission for MEV protection (Issue 7)."""
+    if not KEYPAIR:
+        raise Exception("No private key loaded")
+
+    known = get_known_tokens()
+    input_token = known.get(input_mint, {"decimals": 9})
+    output_token = known.get(output_mint, {"decimals": 9})
+    amount_lamports = int(amount * (10 ** input_token.get("decimals", 9)))
+
+    headers = {'x-api-key': JUPITER_API_KEY} if JUPITER_API_KEY else {}
+
+    # Get quote
+    quote_url = f"{JUPITER_QUOTE_API}?inputMint={input_mint}&outputMint={output_mint}&amount={amount_lamports}&slippageBps={slippage_bps}"
+    quote = requests.get(quote_url, headers=headers, timeout=10).json()
+    if "error" in quote:
+        raise Exception(f"Quote: {quote['error']}")
+
+    # Generate swap transaction WITHOUT priority fee (Jito tip handles MEV protection)
+    swap_payload = {
+        "quoteResponse": quote,
+        "userPublicKey": WALLET_ADDRESS,
+        "wrapAndUnwrapSol": True,
+        "computeUnitPriceMicroLamports": 0  # No priority fee, using Jito tip instead
+    }
+    swap_res = requests.post(JUPITER_SWAP_API, json=swap_payload, headers=headers, timeout=10).json()
+    if "error" in swap_res:
+        raise Exception(f"Swap: {swap_res['error']}")
+
+    # Sign swap transaction
+    try:
+        txn = VersionedTransaction.from_bytes(base64.b64decode(swap_res['swapTransaction']))
+        signature = KEYPAIR.sign_message(to_bytes_versioned(txn.message))
+        signed_txn = VersionedTransaction.populate(txn.message, [signature])
+        swap_tx_b64 = base64.b64encode(bytes(signed_txn)).decode("utf-8")
+    except Exception as e:
+        raise Exception(f"Swap tx signing failed: {e}")
+
+    # Build Jito tip transaction
+    recent_blockhash = solana_client.get_latest_blockhash().value.blockhash
+    tip_tx_b64 = build_tip_transaction(tip_lamports, recent_blockhash)
+    if not tip_tx_b64:
+        raise Exception("Failed to build Jito tip transaction")
+
+    # Submit bundle to Jito
+    bundle = [swap_tx_b64, tip_tx_b64]
+    jito_results = send_jito_bundle(bundle)
+
+    # Check if any Jito endpoint succeeded
+    jito_success = False
+    jito_sig = None
+    for result in jito_results:
+        if "data" in result and "result" in result.get("data", {}):
+            jito_success = True
+            jito_sig = result["data"]["result"]
+            break
+
+    if jito_success:
+        sig = jito_sig if jito_sig else str(signature)
+        print(f"✅ Jito bundle submitted successfully: {sig}")
+    else:
+        # Fallback to regular RPC submission
+        print(f"⚠️ Jito bundle failed, falling back to regular RPC")
+        try:
+            send_res = solana_client.send_raw_transaction(
+                bytes(signed_txn),
+                opts=TxOpts(skip_preflight=False, preflight_commitment="confirmed")
+            )
+            sig = str(send_res.value)
+        except Exception as e:
+            raise Exception(f"Both Jito and regular RPC failed: {e}")
+
+    # Parse output amount and fees
+    amount_out = int(quote.get('outAmount', 0)) / (10 ** output_token.get('decimals', 9))
+    swap_fee = 0
+    swap_fee_currency = ""
+    try:
+        for plan in quote.get('routePlan', []):
+            info = plan.get('swapInfo', {})
+            f_amount = info.get('feeAmount')
+            f_mint = info.get('feeMint')
+            if f_amount and int(f_amount) > 0:
+                decimals = known.get(f_mint, {"decimals": 9}).get("decimals", 9)
+                swap_fee += int(f_amount) / (10 ** decimals)
+                if not swap_fee_currency:
+                    swap_fee_currency = get_token_symbol(f_mint)
+    except:
+        pass
+
+    # Calculate USD Value
+    usd_value = 0
+    with price_cache_lock:
+        if input_mint in price_cache:
+            usd_value = amount * price_cache[input_mint][0]
+        elif output_mint in price_cache:
+            usd_value = amount_out * price_cache[output_mint][0]
+
+    # Log to database
+    db.log_trade({
+        "wallet_address": WALLET_ADDRESS,
+        "source": f"{source} (Jito)" if jito_success else source,
+        "input": get_token_symbol(input_mint),
+        "output": get_token_symbol(output_mint),
+        "input_mint": input_mint,
+        "output_mint": output_mint,
+        "amount_in": amount,
+        "amount_out": amount_out,
+        "usd_value": usd_value,
+        "slippage_bps": slippage_bps,
+        "priority_fee": tip_lamports / 1e9,  # Convert lamports to SOL
+        "swap_fee": swap_fee,
+        "swap_fee_currency": swap_fee_currency,
+        "signature": sig,
+        "status": "success"
+    })
+
+    # Broadcast updates
+    socketio.emit('history_update', {'history': db.get_history(50, wallet_address=WALLET_ADDRESS)}, namespace='/history')
+    broadcast_balance()
+
+    # Discord Notification
+    try:
+        input_sym = get_token_symbol(input_mint)
+        output_sym = get_token_symbol(output_mint)
+        price_per_unit = usd_value / amount_out if amount_out > 0 else 0
+
+        notify_trade(
+            tx_type="BUY" if "sell" not in source.lower() else "SELL",
+            input_sym=input_sym,
+            input_amt=amount,
+            output_sym=output_sym,
+            output_amt=amount_out,
+            price=price_per_unit,
+            source=f"{source} (Jito)" if jito_success else source,
+            signature=sig
+        )
+    except Exception as e:
+        print(f"Discord Trade Notify Error: {e}")
+
+    return {
+        "signature": sig,
+        "amount_out": amount_out,
+        "usd_value": usd_value,
+        "jito_success": jito_success
     }

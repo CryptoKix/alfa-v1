@@ -5,7 +5,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAx
 import { Wallet, PieChart as PieIcon, LineChart as LineIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const COLORS = ['#00ffff', '#ff0080', '#9945FF', '#00ff9d', '#ffaa00', '#ffffff']
+const COLORS = ['#ff00ff', '#00ffff', '#9945FF', '#00ff9d', '#ffaa00', '#ffffff']
 
 export const PortfolioWidget = () => {
   const dispatch = useAppDispatch()
@@ -94,19 +94,19 @@ export const PortfolioWidget = () => {
   if (!holdings) return null;
 
   return (
-    <div className="bg-background-card border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden group flex flex-col h-full">
-      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50" />
+    <div className="bg-background-card border border-accent-pink/10 rounded-2xl p-6 shadow-xl relative overflow-hidden group flex flex-col h-full">
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/80 via-accent-pink/40 to-transparent" />
       
       {/* Header */}
-      <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
+      <div className="flex items-center justify-between mb-2 border-b border-accent-pink/10 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
         <h3 className="text-sm font-bold flex items-center gap-2 shrink-0 uppercase tracking-tight text-white">
-          <Wallet className="text-accent-purple" size={18} />
+          <Wallet className="text-accent-pink" size={18} />
           Portfolio Snapshot
         </h3>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="text-[9px] text-accent-cyan/70 uppercase tracking-[0.2em]">Value</div>
-            <div className="text-xl font-black font-mono text-accent-cyan tracking-tight">
+            <div className="text-[9px] text-accent-pink/70 uppercase tracking-[0.2em]">Value</div>
+            <div className="text-xl font-black font-mono text-accent-pink tracking-tight">
               ${liveTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
@@ -182,20 +182,20 @@ export const PortfolioWidget = () => {
         <div className="h-full w-full lg:w-[240px] relative shrink-0 flex flex-col">
           {/* Chart Toggles */}
           <div className="flex justify-center gap-2 mb-2">
-             <button 
+             <button
                 onClick={() => setViewMode('allocation')}
                 className={cn(
                     "p-1.5 rounded-lg transition-all",
-                    viewMode === 'allocation' ? "bg-accent-cyan text-black" : "bg-white/5 text-text-muted hover:text-white"
+                    viewMode === 'allocation' ? "bg-accent-pink text-black" : "bg-white/5 text-text-muted hover:text-accent-pink"
                 )}
              >
                 <PieIcon size={14} />
              </button>
-             <button 
+             <button
                 onClick={() => setViewMode('performance')}
                 className={cn(
                     "p-1.5 rounded-lg transition-all",
-                    viewMode === 'performance' ? "bg-accent-purple text-white" : "bg-white/5 text-text-muted hover:text-white"
+                    viewMode === 'performance' ? "bg-accent-pink text-black" : "bg-white/5 text-text-muted hover:text-accent-pink"
                 )}
              >
                 <LineIcon size={14} />

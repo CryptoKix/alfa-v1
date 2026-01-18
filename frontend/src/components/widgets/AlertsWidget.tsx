@@ -12,11 +12,11 @@ export const AlertsWidget = () => {
   }
 
   return (
-    <div className="bg-background-card border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden group flex flex-col h-full shrink-0">
-      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-pink via-accent-purple to-accent-cyan opacity-50" />
-      
+    <div className="bg-background-card border border-accent-pink/10 rounded-2xl p-6 shadow-xl relative overflow-hidden group flex flex-col h-full shrink-0">
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/80 via-accent-pink/40 to-transparent" />
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
+      <div className="flex items-center justify-between mb-2 border-b border-accent-pink/10 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
         <h3 className="text-sm font-bold flex items-center gap-2 text-white uppercase tracking-tight">
           <Bell className="text-accent-pink" size={18} />
           System Alerts

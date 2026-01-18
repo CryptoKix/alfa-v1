@@ -4,6 +4,7 @@ import json
 import time
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from flask import Blueprint, render_template, jsonify, request, current_app
 
 from extensions import db, socketio, price_cache, price_cache_lock, last_price_update
@@ -13,6 +14,11 @@ from services.bots import process_grid_logic, update_bot_performance
 from services.notifications import notify_bot_completion
 
 api_bp = Blueprint('api', __name__)
+
+# Issue 17: Rate limiting
+
+# Price sanity check constants (Issue 4)
+PRICE_DEVIATION_THRESHOLD = 0.10  # 10% max deviation
 
 @api_bp.route('/api/system/restart', methods=['POST'])
 def api_system_restart():
@@ -192,28 +198,66 @@ def api_dca_add():
     bot_id = str(uuid.uuid4())[:8]
     bot_type = data.get('strategy', 'DCA')
 
+    # Issue 18: Input validation
+    steps = int(data.get('steps') or 1)
+    lower_bound = float(data.get('lowerBound') or 0)
+    upper_bound = float(data.get('upperBound') or 0)
+    total_investment = float(data.get('totalInvestment') or 0)
+    amount = float(data.get('amount') or 0)
+
+    # Validate steps (2-50 for grid strategies)
+    if bot_type in ['GRID', 'LIMIT_GRID']:
+        if steps < 2 or steps > 50:
+            return jsonify({"success": False, "error": "Steps must be between 2 and 50"}), 400
+        # Validate price range
+        if lower_bound <= 0 or upper_bound <= 0:
+            return jsonify({"success": False, "error": "Price bounds must be greater than 0"}), 400
+        if lower_bound >= upper_bound:
+            return jsonify({"success": False, "error": "Lower bound must be less than upper bound"}), 400
+        # Validate investment amount
+        if total_investment <= 0:
+            return jsonify({"success": False, "error": "Total investment must be greater than 0"}), 400
+    else:
+        # DCA/TWAP/VWAP validation
+        if amount <= 0:
+            return jsonify({"success": False, "error": "Amount must be greater than 0"}), 400
+
+    # Validate floor_price if provided (Issue 1)
+    raw_floor_price = data.get('floorPrice')
+    floor_price = float(raw_floor_price) if raw_floor_price is not None else 0
+    floor_price = floor_price or None
+
+    if floor_price is not None and floor_price <= 0:
+        return jsonify({"success": False, "error": "Floor price must be greater than 0"}), 400
+    if floor_price is not None and floor_price >= lower_bound:
+        return jsonify({"success": False, "error": "Floor price must be below lower bound"}), 400
+
     config = {
         "alias": data.get('alias'),
         "interval": int(data.get('interval', 60)),
-        "max_runs": int(data.get('maxRuns', 0)) or None,
-        "amount": float(data.get('amount', 0)),
-        "total_amount": float(data.get('totalAmount', 0)),
-        "take_profit": float(data.get('takeProfit', 0)) or None,
-        "lower_bound": float(data.get('lowerBound', 0)),
-        "upper_bound": float(data.get('upperBound', 0)),
-        "steps": int(data.get('steps', 1)),
-        "amount_per_level": 0, # Calculated below
+        "max_runs": int(data.get('maxRuns', 0)) if data.get('maxRuns') is not None else None,
+        "amount": amount,
+        "total_amount": float(data.get('totalAmount') or 0),
+        "take_profit": float(data.get('takeProfit') or 0) or None,
+        "lower_bound": lower_bound,
+        "upper_bound": upper_bound,
+        "steps": steps,
+        "amount_per_level": (total_investment / (steps - 1)) if steps > 1 else total_investment,
         "trailing_enabled": bool(data.get('trailingEnabled', False)),
-        "hysteresis_pct": float(data.get('hysteresisPct', 0.05)),
-        "stop_loss_price": float(data.get('stopLossPrice', 0)) or None,
-        "take_profit_yield_usd": float(data.get('takeProfitYield', 0)) or None,
-        "pyramid_factor": float(data.get('pyramidFactor', 1.0)) # 1.0 = equal, 2.0 = 2x more at bottom
+        # Hysteresis: percentage buffer to prevent price jitter triggers (default 0.01% = 0.0001)
+        "hysteresis": float(data.get('hysteresis', 0.0001)),
+        # Issue 1: Floor protection
+        "floor_price": floor_price,
+        "floor_action": data.get('floorAction', 'sell_all'),  # 'sell_all' or 'pause'
+        # Issue 9: Trailing max cycles (0 = unlimited)
+        "trailing_max_cycles": int(data.get('trailingMaxCycles', 0)),
+        # Issue 10: Configurable slippage in basis points (default 50 = 0.5%)
+        "slippage_bps": int(data.get('slippageBps', 50))
     }
 
     state = {
         "status": "active",
         "run_count": 0,
-        "consecutive_failures": 0,
         "total_bought": 0.0,
         "total_cost": 0.0,
         "profit_realized": 0.0,
@@ -228,32 +272,16 @@ def api_dca_add():
             if data['outputMint'] in price_cache:
                 current_price = price_cache[data['outputMint']][0]
         
-        # Calculate Pyramid Weights
-        # Weight for level i: 1 + (N-1-i) * (factor - 1) / (N-1)
-        # Lowest level (i=0) gets factor, highest (i=s-1) gets 1.0
-        total_inv = float(data.get('totalInvestment', 0))
-        weights = []
-        for i in range(s):
-            w = 1.0 + (s - 1 - i) * (config['pyramid_factor'] - 1.0) / (s - 1) if s > 1 else 1.0
-            weights.append(w)
-        
-        total_weight = sum(weights)
-        level_allocations = [(w / total_weight) * total_inv for w in weights]
-        config['amount_per_level'] = total_inv / s # Reference avg
-        
         levels = []
         sell_levels_count = 0
         for i in range(s):
-            price_level = lb + (i * (ub - lb) / (s - 1)) if s > 1 else lb
-            is_sell_level = (price_level > current_price)
-            alloc = level_allocations[i]
-            
+            price_level = lb + (i * (ub - lb) / (s - 1))
+            is_sell_level = (i > 0) and (price_level > current_price)
             levels.append({
                 "price": price_level,
-                "allocation_usd": alloc,
                 "has_position": is_sell_level,
-                "token_amount": alloc / current_price if is_sell_level and current_price > 0 else 0,
-                "cost_usd": alloc if is_sell_level else 0,
+                "token_amount": config['amount_per_level'] / current_price if is_sell_level and current_price > 0 else 0,
+                "cost_usd": config['amount_per_level'] if is_sell_level else 0,
                 "order_id": None
             })
             if is_sell_level: sell_levels_count += 1
@@ -262,15 +290,16 @@ def api_dca_add():
         
         # Initial funding for sell side
         if sell_levels_count > 0:
-            total_initial_buy = sum(l['allocation_usd'] for l in state['grid_levels'] if l['has_position'])
+            initial_buy_amount = config['amount_per_level'] * sell_levels_count
             try:
-                res = execute_trade_logic(data['inputMint'], data['outputMint'], total_initial_buy, f"{bot_type} Initial Rebalance")
+                res = execute_trade_logic(data['inputMint'], data['outputMint'], initial_buy_amount, f"{bot_type} Initial Rebalance")
                 actual_tokens = res.get('amount_out', 0)
                 if actual_tokens > 0:
-                    # Distribute tokens proportionally to their allocations
+                    tokens_per_level = actual_tokens / sell_levels_count
                     for lvl in state['grid_levels']:
                         if lvl['has_position']:
-                            lvl['token_amount'] = (lvl['allocation_usd'] / total_initial_buy) * actual_tokens
+                            lvl['token_amount'] = tokens_per_level
+                            lvl['cost_usd'] = config['amount_per_level']
             except Exception as e:
                 print(f"Initial rebalance failed: {e}")
                 for lvl in state['grid_levels']:
@@ -438,23 +467,51 @@ def internal_webhook():
     mint, price = data.get('mint'), data.get('price')
 
     if mint and price:
-        extensions.last_price_update = time.time()
+        # Issue 4: Price sanity check - reject >10% deviation from last known price
         with price_cache_lock:
+            last_price_entry = price_cache.get(mint)
+            if last_price_entry:
+                last_price, last_time = last_price_entry
+                if last_price > 0:
+                    deviation = abs(price - last_price) / last_price
+                    if deviation > PRICE_DEVIATION_THRESHOLD:
+                        current_app.logger.warning(
+                            f"Price sanity check failed for {mint}: "
+                            f"New price ${price:.4f} deviates {deviation*100:.1f}% from last price ${last_price:.4f}"
+                        )
+                        return jsonify({
+                            "status": "rejected",
+                            "reason": "price_deviation",
+                            "deviation": deviation,
+                            "threshold": PRICE_DEVIATION_THRESHOLD
+                        }), 400
+
+            # Update price cache
             price_cache[mint] = (price, time.time())
-        
+
+        extensions.last_price_update = time.time()
         socketio.emit('price_update', {'mint': mint, 'price': price}, namespace='/prices')
 
-        # Trigger relevant grid/DCA bots only
-        # We fetch all active bots once to avoid repeated DB calls inside the loop
-        active_bots = [b for b in db.get_all_bots() if b['status'] == 'active' and b['output_mint'] == mint]
+        # Trigger grid bots
+        active_bots = db.get_all_bots()
+        bots_changed = False
         
         for bot in active_bots:
-            if bot['type'] == 'GRID':
-                # Order matters: check triggers first, then update performance
-                process_grid_logic(bot, price)
-                update_bot_performance(bot['id'], price)
-            elif bot['type'] in ['DCA', 'TWAP', 'VWAP']:
-                update_bot_performance(bot['id'], price)
+            if bot['status'] == 'active' and bot['output_mint'] == mint:
+                if bot['type'] == 'GRID':
+                    # process_grid_logic returns True if it triggered a trade and saved to DB
+                    # but we want to update performance anyway for unrealized PNL
+                    process_grid_logic(bot, price)
+                    update_bot_performance(bot['id'], price)
+                    bots_changed = True
+                elif bot['type'] in ['DCA', 'TWAP', 'VWAP']:
+                    update_bot_performance(bot['id'], price)
+                    bots_changed = True
+
+        # Ensure UI gets the latest performance metrics immediately
+        if bots_changed:
+            from services.bots import get_formatted_bots
+            socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
 
     return jsonify({"status": "success"}), 200
 

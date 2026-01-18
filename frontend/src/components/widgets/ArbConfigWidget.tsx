@@ -29,10 +29,10 @@ export const ArbSettingsWidget = () => {
   }
 
   return (
-    <div className="lg:w-[400px] bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 h-full shrink-0">
-      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple via-accent-cyan to-accent-pink opacity-50 z-20" />
-      
-      <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+    <div className="lg:w-[400px] bg-background-card border border-accent-pink/10 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 h-full shrink-0">
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/80 via-accent-pink/40 to-transparent" />
+
+      <div className="flex items-center justify-between mb-1 border-b border-accent-pink/10 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple"><Settings2 size={18} /></div>
           <h2 className="text-xs font-bold text-white uppercase tracking-tight">ARB CONFIG</h2>
@@ -110,10 +110,10 @@ export const ArbAnalysisWidget = () => {
   }, [isAddPairOpen])
 
   return (
-    <div className="bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full">
-      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-20" />
-      
-      <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+    <div className="bg-background-card border border-accent-pink/10 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full">
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/80 via-accent-pink/40 to-transparent" />
+
+      <div className="flex items-center justify-between mb-1 border-b border-accent-pink/10 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan"><BarChart3 size={18} /></div>
           <h2 className="text-xs font-bold text-white uppercase tracking-tight">Venue Matrix</h2>
@@ -193,10 +193,10 @@ export const ArbOpportunitiesWidget = () => {
   const formatTime = (ts: number) => new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
 
   return (
-    <div className="flex-1 bg-background-card border border-white/5 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full shrink-0 min-w-0">
-      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-20" />
-      
-      <div className="flex items-center justify-between mb-1 border-b border-white/5 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+    <div className="flex-1 bg-background-card border border-accent-pink/10 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col h-full shrink-0 min-w-0">
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/80 via-accent-pink/40 to-transparent" />
+
+      <div className="flex items-center justify-between mb-1 border-b border-accent-pink/10 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-accent-pink/10 rounded-lg text-accent-pink"><Activity size={18} /></div>
           <h2 className="text-xs font-bold text-white uppercase tracking-tight">OPPORTUNITIES</h2>

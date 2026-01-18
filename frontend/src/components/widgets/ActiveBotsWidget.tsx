@@ -42,19 +42,19 @@ export const ActiveBotsWidget = ({ onViewAll }: { onViewAll?: () => void }) => {
   }
 
   return (
-    <div className="bg-background-card border border-white/5 rounded-2xl p-6 shadow-xl h-full flex flex-col relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-green via-accent-cyan to-accent-purple opacity-50" />
-      
+    <div className="bg-background-card border border-accent-pink/10 rounded-2xl p-6 shadow-xl h-full flex flex-col relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/80 via-accent-pink/40 to-transparent" />
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
+      <div className="flex items-center justify-between mb-2 border-b border-accent-pink/10 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
         <h3 className="text-sm font-bold flex items-center gap-2 uppercase tracking-tight text-white">
-          <Activity className="text-accent-green" size={18} />
+          <Activity className="text-accent-pink" size={18} />
           Active Bots
         </h3>
         <div className="flex items-center gap-3">
-           <button 
+           <button
              onClick={onViewAll}
-             className="text-[9px] uppercase tracking-[0.2em] text-text-muted hover:text-accent-green transition-colors font-bold"
+             className="text-[9px] uppercase tracking-[0.2em] text-text-muted hover:text-accent-pink transition-colors font-bold"
            >
              View All
            </button>
@@ -110,7 +110,7 @@ export const ActiveBotsWidget = ({ onViewAll }: { onViewAll?: () => void }) => {
                     </div>
 
                     {/* Type */}
-                    <div className="text-accent-cyan font-bold uppercase text-[9px] flex items-center gap-1">
+                    <div className="text-accent-pink font-bold uppercase text-[9px] flex items-center gap-1">
                         {bot.type || 'N/A'}
                         {isGrid && (
                             isExpanded ? <ChevronUp size={10} className="text-text-muted" /> : <ChevronDown size={10} className="text-text-muted" />
@@ -149,7 +149,7 @@ export const ActiveBotsWidget = ({ onViewAll }: { onViewAll?: () => void }) => {
                     </div>
 
                     {/* PnL */}
-                    <div className="text-accent-cyan font-bold text-right">
+                    <div className="text-accent-pink font-bold text-right">
                         ${bot.profit_realized?.toLocaleString(undefined, {minimumFractionDigits: 2}) || '0.00'}
                     </div>
 

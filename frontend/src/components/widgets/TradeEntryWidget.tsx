@@ -139,7 +139,7 @@ export const TradeEntryWidget = () => {
           onError={(e) => (e.currentTarget.src = 'https://static.jup.ag/tokens/gen/So11111111111111111111111111111111111111112.png')}
         />
         <div className="text-left">
-          <div className="text-sm font-bold text-white group-hover:text-accent-cyan">{token.symbol}</div>
+          <div className="text-sm font-bold text-white group-hover:text-accent-pink">{token.symbol}</div>
         </div>
       </div>
       <div className="text-right">
@@ -150,24 +150,24 @@ export const TradeEntryWidget = () => {
   )
 
   return (
-    <div className="bg-background-card border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col h-full relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-10" />
-      
+    <div className="bg-background-card border border-accent-pink/10 rounded-2xl p-6 shadow-xl flex flex-col h-full relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/80 via-accent-pink/40 to-transparent z-10" />
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px] z-10 -mx-6 px-6 -mt-6">
+      <div className="flex items-center justify-between mb-2 border-b border-accent-pink/10 shrink-0 h-[55px] z-10 -mx-6 px-6 -mt-6">
         <h3 className="text-sm font-bold flex items-center gap-2 uppercase tracking-tight text-white">
-          <Zap className="text-accent-cyan" size={18} />
+          <Zap className="text-accent-pink" size={18} />
           Execute Trade
         </h3>
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-background-elevated rounded-xl p-1 mb-2 border border-white/5 relative group/tabs shrink-0">
+      <div className="flex bg-background-elevated rounded-xl p-1 mb-2 border border-accent-pink/10 relative group/tabs shrink-0">
         <button
           onClick={() => setSide('buy')}
           className={cn(
             "flex-1 py-1.5 text-xs font-black uppercase tracking-widest rounded-lg transition-all duration-300 relative z-10",
-            side === 'buy' ? "bg-accent-cyan text-black shadow-glow-cyan" : "text-text-muted hover:text-white"
+            side === 'buy' ? "bg-accent-green text-black shadow-[0_0_15px_rgba(0,255,157,0.2)]" : "text-text-muted hover:text-white"
           )}
         >
           BUY
@@ -183,7 +183,7 @@ export const TradeEntryWidget = () => {
         </button>
       </div>
 
-      <div className="flex bg-black/20 rounded-lg p-1 mb-3 border border-white/5 gap-1 shrink-0">
+      <div className="flex bg-black/20 rounded-lg p-1 mb-3 border border-accent-pink/10 gap-1 shrink-0">
         <button
           onClick={() => setOrderType('market')}
           className={cn(
@@ -211,24 +211,27 @@ export const TradeEntryWidget = () => {
         <div className="space-y-1 relative">
           <div className="flex justify-between text-[9px] text-text-secondary uppercase tracking-widest px-1">
             <span>You Pay</span>
-            <span 
-              className="cursor-pointer hover:text-accent-cyan transition-colors"
+            <span
+              className="cursor-pointer hover:text-accent-pink transition-colors"
               onClick={() => setAmount(fromToken.balance.toString())}
             >
               Balance: {fromToken.balance?.toLocaleString()}
             </span>
           </div>
-          <div className="bg-background-elevated border border-white/10 rounded-xl px-3 flex items-center gap-3 focus-within:border-accent-cyan transition-colors relative group/input h-12">
+          <div className="bg-background-elevated border border-white/10 rounded-xl px-3 flex items-center gap-3 focus-within:border-accent-pink/50 transition-colors relative group/input h-12">
             <div className="flex flex-col gap-0.5 pr-2 border-r border-white/5">
-              <button onClick={() => adjustAmount(1)} className="p-0.5 hover:bg-white/5 rounded text-text-muted hover:text-accent-cyan transition-colors"><Plus size={10} /></button>
+              <button onClick={() => adjustAmount(1)} className="p-0.5 hover:bg-white/5 rounded text-text-muted hover:text-accent-pink transition-colors"><Plus size={10} /></button>
               <button onClick={() => adjustAmount(-1)} className="p-0.5 hover:bg-white/5 rounded text-text-muted hover:text-accent-pink transition-colors"><Minus size={10} /></button>
             </div>
             <input
+              id="trade-amount"
+              name="trade-amount"
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"
-              className="bg-transparent text-lg font-mono font-bold text-accent-cyan w-full focus:outline-none placeholder:text-accent-cyan/20"
+              autoComplete="off"
+              className="bg-transparent text-lg font-mono font-bold text-accent-pink w-full focus:outline-none placeholder:text-accent-pink/20"
             />
             <div 
               onClick={() => { setIsFromOpen(!isFromOpen); setIsToOpen(false); }}
@@ -262,9 +265,9 @@ export const TradeEntryWidget = () => {
           <div className="space-y-1 relative">
             <div className="flex justify-between text-[10px] text-text-secondary uppercase tracking-widest px-1">
               <span>Limit Price</span>
-              <span className="text-accent-cyan cursor-pointer hover:underline" onClick={() => setLimitPrice((fromPrice / toPrice).toString())}>Current: {(fromPrice / toPrice).toFixed(6)}</span>
+              <span className="text-accent-pink cursor-pointer hover:underline" onClick={() => setLimitPrice((fromPrice / toPrice).toString())}>Current: {(fromPrice / toPrice).toFixed(6)}</span>
             </div>
-            <div className="bg-background-elevated border border-white/10 rounded-xl px-3 flex items-center gap-3 focus-within:border-accent-cyan transition-colors h-14">
+            <div className="bg-background-elevated border border-white/10 rounded-xl px-3 flex items-center gap-3 focus-within:border-accent-pink/50 transition-colors h-14">
               <input
                 type="number"
                 value={limitPrice}
@@ -279,9 +282,9 @@ export const TradeEntryWidget = () => {
 
         {/* Arrow Divider */}
         <div className="flex justify-center -my-2.5 relative z-10">
-          <button 
+          <button
             onClick={toggleSide}
-            className="bg-background-card border border-white/10 p-1.5 rounded-xl text-accent-cyan hover:text-white hover:border-accent-cyan/50 transition-all shadow-xl active:scale-90 group"
+            className="bg-background-card border border-accent-pink/20 p-1.5 rounded-xl text-accent-pink hover:text-white hover:border-accent-pink/50 transition-all shadow-xl active:scale-90 group"
           >
             <ArrowUpDown size={14} className="group-hover:rotate-180 transition-transform duration-500" />
           </button>
@@ -293,9 +296,9 @@ export const TradeEntryWidget = () => {
             <span>You Receive</span>
             <span>{orderType === 'market' ? 'Est.' : 'Min.'}</span>
           </div>
-          <div className="bg-background-elevated/50 border border-white/5 rounded-xl px-3 flex items-center gap-3 h-14">
+          <div className="bg-background-elevated/50 border border-accent-pink/5 rounded-xl px-3 flex items-center gap-3 h-14">
             <div className="w-[27px] pr-2 border-r border-transparent shrink-0" />
-            <div className="text-xl font-mono font-bold text-accent-cyan w-full truncate">
+            <div className="text-xl font-mono font-bold text-accent-pink w-full truncate">
               {estimatedOut > 0 ? estimatedOut.toLocaleString(undefined, { maximumFractionDigits: 6 }) : '0.00'}
             </div>
             <div 
@@ -341,7 +344,7 @@ export const TradeEntryWidget = () => {
                 <label className="text-[8px] uppercase tracking-[0.2em] text-text-muted font-bold">Priority</label>
                 <div className="flex gap-1">
                   {['0', '0.001', '0.005'].map(val => (
-                    <button key={val} onClick={() => setPriorityFee(val)} className={cn("text-[7px] px-1 rounded border", priorityFee === val ? "bg-accent-cyan/20 border-accent-cyan/40 text-accent-cyan" : "bg-white/5 border-white/5 text-text-muted")}>{val === '0' ? 'N' : val === '0.001' ? 'L' : 'M'}</button>
+                    <button key={val} onClick={() => setPriorityFee(val)} className={cn("text-[7px] px-1 rounded border", priorityFee === val ? "bg-accent-pink/20 border-accent-pink/40 text-accent-pink" : "bg-white/5 border-white/5 text-text-muted")}>{val === '0' ? 'N' : val === '0.001' ? 'L' : 'M'}</button>
                   ))}
                 </div>
               </div>
@@ -357,22 +360,22 @@ export const TradeEntryWidget = () => {
         {status === 'error' && <div className="p-2 bg-accent-red/10 border border-accent-red/20 rounded-lg text-[9px] text-accent-red font-bold animate-in fade-in">{errorMsg}</div>}
         {status === 'success' && <div className="p-2 bg-accent-green/10 border border-accent-green/20 rounded-lg text-[9px] text-accent-green font-bold animate-in fade-in text-center">{orderType === 'market' ? 'TRADE EXECUTED' : 'ORDER PLACED'}</div>}
 
-        <div className="p-2 bg-accent-cyan/5 border border-accent-cyan/10 rounded-lg flex items-start gap-2 shrink-0">
-          <Info className="text-accent-cyan shrink-0 mt-0.5" size={12} />
-          <div className="text-[9px] text-text-secondary leading-relaxed">Best price via <span className="text-accent-cyan font-bold">JUPITER</span></div>
+        <div className="p-2 bg-accent-pink/5 border border-accent-pink/10 rounded-lg flex items-start gap-2 shrink-0">
+          <Info className="text-accent-pink shrink-0 mt-0.5" size={12} />
+          <div className="text-[9px] text-text-secondary leading-relaxed">Best price via <span className="text-accent-pink font-bold">JUPITER</span></div>
         </div>
       </div>
 
-      <button 
+      <button
         onClick={handleTrade}
         disabled={!amount || (orderType === 'limit' && !limitPrice) || status === 'loading'}
         className={cn(
           "w-full py-3.5 mt-2 rounded-2xl font-black text-base uppercase tracking-[0.2em] transition-all duration-500 transform active:scale-95 flex items-center justify-center gap-3 shrink-0",
-          !amount || (orderType === 'limit' && !limitPrice) || status === 'loading' 
-            ? "bg-white/5 text-white/10 cursor-not-allowed border border-white/5 opacity-50" 
-            : side === 'buy' 
-              ? "bg-accent-cyan text-black hover:bg-white shadow-[0_0_25px_rgba(0,255,255,0.2)] hover:shadow-[0_0_45px_rgba(0,255,255,0.35)] border border-accent-cyan" 
-              : "bg-accent-pink text-black hover:bg-white shadow-[0_0_25px_rgba(255,0,128,0.2)] hover:shadow-[0_0_45px_rgba(255,0,128,0.35)] border border-accent-pink"
+          !amount || (orderType === 'limit' && !limitPrice) || status === 'loading'
+            ? "bg-white/5 text-white/10 cursor-not-allowed border border-white/5 opacity-50"
+            : side === 'buy'
+              ? "bg-accent-green text-black hover:bg-white shadow-[0_0_25px_rgba(0,255,157,0.2)] hover:shadow-[0_0_45px_rgba(0,255,157,0.35)] border border-accent-green"
+              : "bg-accent-pink text-black hover:bg-white shadow-[0_0_25px_rgba(255,0,255,0.2)] hover:shadow-[0_0_45px_rgba(255,0,255,0.35)] border border-accent-pink"
         )}
       >
         {status === 'loading' ? (

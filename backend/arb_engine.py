@@ -96,6 +96,11 @@ class ArbEngine:
 
     def stop(self):
         self._running = False
+        self._thread = None
+        print("⚡ Arb Monitor Engine Stopped")
+
+    def is_running(self):
+        return self._running
 
     def main_loop(self):
         print("🔄 Arb Engine Main Loop Started")

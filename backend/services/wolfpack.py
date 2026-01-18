@@ -30,12 +30,20 @@ class WolfPackEngine:
         self.recent_attacks = [] # Log of executed attacks
 
     def start(self):
-        if self._thread: return
+        if self._running: return
         self._running = True
         self.load_config()
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
         logger.info("🐺 Wolf Pack Engine Started")
+
+    def stop(self):
+        self._running = False
+        self._thread = None
+        logger.info("🐺 Wolf Pack Engine Stopped")
+
+    def is_running(self):
+        return self._running
 
     def load_config(self):
         saved = db.get_setting("wolfpack_config")

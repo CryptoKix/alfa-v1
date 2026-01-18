@@ -19,6 +19,7 @@ from extensions import create_app, socketio, helius, db
 from routes import api_bp, copytrade_bp, register_websocket_handlers
 from routes.arb import arb_bp, set_arb_engine
 from routes.copytrade import set_copy_trader
+from routes.services import services_bp, init_services  # Service control routes
 from services.portfolio import balance_poller, broadcast_balance
 from arb_engine import ArbEngine
 from services.bots import dca_scheduler
@@ -32,10 +33,13 @@ from services.wolfpack import wolf_pack
 # Create Flask application
 app = create_app()
 
+# Issue 17: Initialize rate limiter
+
 # Register blueprints
 app.register_blueprint(api_bp)
 app.register_blueprint(copytrade_bp)
 app.register_blueprint(arb_bp)
+app.register_blueprint(services_bp)
 
 # Register WebSocket handlers
 register_websocket_handlers()
@@ -47,11 +51,14 @@ def not_found(e):
         return jsonify({"error": "Not Found"}), 404
     return render_template('index.html')
 
-# Initialize engines
+# Initialize engines (but don't auto-start high-RPS modules)
 copy_trader = CopyTraderEngine(helius, db, socketio, execute_trade_logic)
 arb_engine = ArbEngine(helius, db, socketio)
 set_arb_engine(arb_engine)
 set_copy_trader(copy_trader)
+
+# Initialize service control references
+init_services(copy_trader, arb_engine, wolf_pack, news_service)
 
 def handle_shutdown(signum, frame):
     """Graceful shutdown handler for Discord notification."""
@@ -66,25 +73,20 @@ signal.signal(signal.SIGTERM, handle_shutdown)
 signal.signal(signal.SIGINT, handle_shutdown)
 
 if __name__ == '__main__':
+    # Core services - always run
     threading.Thread(target=dca_scheduler, args=(app,), daemon=True).start()
     threading.Thread(target=balance_poller, args=(app,), daemon=True).start()
-    copy_trader.start()
-    arb_engine.start()
-    # sniper_engine.start() # Replaced by sniper_outrider.py for real-time WebSocket discovery
-    news_service.start()
-    wolf_pack.start()
 
-    # Clear old notifications in UI
-    socketio.emit('system_reset', namespace='/bots')
-    
-    notify_system_status("ONLINE", "TacTix.sol System Core has initialized.")
-    
-    # Send welcome notification to UI
-    socketio.emit('notification', {
-        'title': 'System Online',
-        'message': 'TacTix.sol System Core has initialized.',
-        'type': 'success'
-    }, namespace='/bots')
+    # High-RPS modules - DO NOT auto-start
+    # These are now controlled via /api/services endpoints and ControlPanel UI:
+    # - copy_trader (Helius WebSocket)
+    # - arb_engine (Jupiter quote polling)
+    # - wolf_pack (signal scanning)
+    # - news_service (RSS/API polling)
+    #
+    # Users can enable them via the ControlPanel widget when needed.
+
+    notify_system_status("ONLINE", "TacTix.sol System Core has initialized. Services await manual activation.")
 
     socketio.run(
         app,

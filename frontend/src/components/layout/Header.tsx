@@ -41,8 +41,8 @@ export const Header = () => {
 
   // Web Status Logic
   const webStatusText = 'Web'
-  const webColor = webConnected ? 'bg-accent-cyan' : 'bg-red-500'
-  const webTextClass = webConnected ? 'text-accent-cyan' : 'text-red-500'
+  const webColor = webConnected ? 'bg-accent-pink' : 'bg-red-500'
+  const webTextClass = webConnected ? 'text-accent-pink' : 'text-red-500'
 
   const handleRestart = async () => {
     if (!confirm("Initiate emergency system restart? All active strategy threads will be re-synchronized.")) return;
@@ -93,12 +93,12 @@ export const Header = () => {
                  {priceStatusText}
                </span>
             </button>
-            <button 
+            <button
               onClick={handleRestart}
               title="API Health: Click to Restart Services"
               className={cn(
                 "flex items-center justify-center gap-2 w-20 h-8 rounded-xl border transition-all duration-500 bg-background-elevated/50 hover:bg-white/5 group cursor-pointer",
-                webConnected ? "border-accent-cyan/20 shadow-[0_0_10px_rgba(0,255,255,0.05)]" : "border-white/10"
+                webConnected ? "border-accent-pink/20 shadow-[0_0_10px_rgba(255,0,255,0.05)]" : "border-white/10"
               )}
             >
                <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", webColor, webConnected && "animate-pulse shadow-[0_0_8px_currentColor]")} />
@@ -111,9 +111,9 @@ export const Header = () => {
           <div className="w-px h-6 bg-white/5" />
 
           {/* Send Button */}
-          <button 
+          <button
             onClick={() => setIsSendModalOpen(true)}
-            className="flex items-center gap-2 px-3 h-8 bg-accent-purple/10 border border-accent-purple/20 rounded-lg text-accent-purple hover:bg-accent-purple/20 transition-all group"
+            className="flex items-center gap-2 px-3 h-8 bg-accent-pink/10 border border-accent-pink/20 rounded-lg text-accent-pink hover:bg-accent-pink/20 transition-all group"
           >
             <Send size={14} className="group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform" />
             <span className="text-[10px] font-black uppercase tracking-widest">Send</span>
@@ -128,12 +128,12 @@ export const Header = () => {
           </button>
 
           {/* Wallet Badge */}
-          <button 
+          <button
             onClick={() => setIsWalletModalOpen(true)}
-            className="flex items-center gap-3 pl-2 py-1.5 pr-4 bg-background-elevated border border-white/10 rounded-full hover:bg-white/5 transition-colors group cursor-pointer"
+            className="flex items-center gap-3 pl-2 py-1.5 pr-4 bg-background-elevated border border-accent-pink/10 rounded-full hover:border-accent-pink/30 transition-colors group cursor-pointer"
           >
-            <div className="w-8 h-8 rounded-full bg-accent-purple/20 flex items-center justify-center border border-accent-purple/30 group-hover:border-accent-purple/50 transition-colors">
-              <Wallet size={14} className="text-accent-purple group-hover:text-accent-purple/80 transition-colors" />
+            <div className="w-8 h-8 rounded-full bg-accent-pink/10 flex items-center justify-center border border-accent-pink/20 group-hover:border-accent-pink/40 transition-colors">
+              <Wallet size={14} className="text-accent-pink group-hover:text-accent-pink/80 transition-colors" />
             </div>
             <div className="flex flex-col items-start justify-center">
               <span className="text-[10px] font-bold text-white leading-none">{walletAlias}</span>

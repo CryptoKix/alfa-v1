@@ -6,9 +6,12 @@ from datetime import datetime
 from flask import current_app
 from solders.pubkey import Pubkey
 
-from config import WALLET_ADDRESS
+from config import WALLET_ADDRESS, SOLANA_RPC
 from extensions import db, solana_client, socketio, price_cache, price_cache_lock
 from services.tokens import get_known_tokens, get_token_accounts
+
+# Fallback public RPC for when Helius is rate limited
+PUBLIC_RPC = "https://api.mainnet-beta.solana.com"
 
 last_known_balances = {}
 
@@ -19,12 +22,30 @@ def get_cached_balance(mint):
 def broadcast_balance():
     global last_known_balances
     try:
-        holdings = get_token_accounts()
+        holdings = get_token_accounts(use_fallback=True)
         known = get_known_tokens()
         wallet_alias = db.get_wallet_alias(WALLET_ADDRESS) or (WALLET_ADDRESS[:4] + "..." + WALLET_ADDRESS[-4:])
 
-        sol_res = solana_client.get_balance(Pubkey.from_string(WALLET_ADDRESS))
-        sol_balance = sol_res.value / 1e9
+        # Try primary RPC, fallback to public if rate limited
+        sol_balance = None
+        import requests
+        try:
+            sol_res = solana_client.get_balance(Pubkey.from_string(WALLET_ADDRESS))
+            sol_balance = sol_res.value / 1e9
+        except Exception as e:
+            current_app.logger.warning(f"Helius SOL balance failed ({type(e).__name__}), using public RPC")
+            try:
+                res = requests.post(PUBLIC_RPC, json={
+                    "jsonrpc": "2.0", "id": 1,
+                    "method": "getBalance",
+                    "params": [WALLET_ADDRESS]
+                }, timeout=10).json()
+                sol_balance = res.get("result", {}).get("value", 0) / 1e9
+            except Exception as e2:
+                current_app.logger.error(f"Public RPC SOL balance also failed: {e2}")
+
+        if sol_balance is None:
+            sol_balance = 0.0
         
         if "SOL" in last_known_balances:
             if sol_balance > last_known_balances["SOL"] + 0.0001:
@@ -114,4 +135,4 @@ def balance_poller(app):
             with app.app_context():
                 broadcast_balance()
         except: pass
-        time.sleep(10)
+        time.sleep(30)  # Increased from 10s to reduce RPC load

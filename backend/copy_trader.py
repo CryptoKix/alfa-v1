@@ -44,6 +44,11 @@ class CopyTraderEngine:
         if self.current_ws and self._loop:
              asyncio.run_coroutine_threadsafe(self.current_ws.close(), self._loop)
         if self._loop: self._loop.call_soon_threadsafe(self._loop.stop)
+        self._thread = None
+        print("🛑 Copy Trader Engine Stopped")
+
+    def is_running(self):
+        return self._running
 
     def refresh(self):
         if self.current_ws and self._loop and self.current_ws._running:

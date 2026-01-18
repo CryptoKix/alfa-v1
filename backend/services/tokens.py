@@ -6,6 +6,9 @@ from flask import current_app
 from config import SOLANA_RPC, WALLET_ADDRESS, DEFAULT_TOKENS
 from extensions import db, helius
 
+# Fallback public RPC for when Helius is rate limited
+PUBLIC_RPC = "https://api.mainnet-beta.solana.com"
+
 
 def get_known_tokens():
     """Fetch tokens from DB or return defaults."""
@@ -17,8 +20,12 @@ def get_known_tokens():
     return tokens
 
 
-def get_token_accounts():
-    """Get all token accounts for the wallet."""
+def get_token_accounts(use_fallback=False):
+    """Get all token accounts for the wallet.
+
+    Args:
+        use_fallback: If True, try public RPC when Helius is rate limited
+    """
     accounts = []
     programs = [
         "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # Standard
@@ -39,6 +46,14 @@ def get_token_accounts():
         }
         try:
             res = requests.post(SOLANA_RPC, json=payload, timeout=10).json()
+
+            # Check for rate limiting and use fallback
+            if "error" in res and use_fallback:
+                error_code = res.get("error", {}).get("code", 0)
+                if error_code == -32429 or "rate" in str(res.get("error", {})).lower():
+                    current_app.logger.warning(f"Helius rate limited, using public RPC for token accounts")
+                    res = requests.post(PUBLIC_RPC, json=payload, timeout=10).json()
+
             if "result" not in res:
                 continue
 

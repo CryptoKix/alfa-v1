@@ -67,12 +67,12 @@ export const LimitOrdersWidget = () => {
   }
 
   return (
-    <div className="bg-background-card border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col h-full min-h-0">
-      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-pink opacity-50 z-20" />
-      
-      <div className="flex items-center justify-between mb-2 border-b border-white/5 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
+    <div className="bg-background-card border border-accent-pink/10 rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col h-full min-h-0">
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/80 via-accent-pink/40 to-transparent z-20" />
+
+      <div className="flex items-center justify-between mb-2 border-b border-accent-pink/10 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-accent-purple/10 rounded-lg text-accent-purple">
+          <div className="p-1.5 bg-accent-pink/10 rounded-lg text-accent-pink">
             <Clock size={18} />
           </div>
           <h2 className="text-xs font-bold uppercase tracking-wider text-white">Open Limit Orders</h2>
@@ -103,8 +103,7 @@ export const LimitOrdersWidget = () => {
                   <div className="flex items-center gap-2">
                     <span className={cn(
                       "px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter",
-                      // Detection of buy/sell based on mints would be better here
-                      "bg-accent-cyan/10 text-accent-cyan"
+                      "bg-accent-pink/10 text-accent-pink"
                     )}>
                       Limit Order
                     </span>
@@ -113,11 +112,11 @@ export const LimitOrdersWidget = () => {
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <a 
-                      href={`https://solscan.io/account/${order.publicKey}`} 
-                      target="_blank" 
+                    <a
+                      href={`https://solscan.io/account/${order.publicKey}`}
+                      target="_blank"
                       rel="noreferrer"
-                      className="p-1 hover:bg-white/5 rounded text-text-muted hover:text-accent-cyan transition-colors"
+                      className="p-1 hover:bg-white/5 rounded text-text-muted hover:text-accent-pink transition-colors"
                     >
                       <ExternalLink size={12} />
                     </a>

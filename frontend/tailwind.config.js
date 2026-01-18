@@ -6,23 +6,23 @@ export default {
     extend: {
       colors: {
         background: {
-          primary: '#0a0a0f',
-          card: '#12121a',
-          elevated: '#1a1a2e',
+          primary: '#000000',
+          card: '#0a0a0a',
+          elevated: '#111111',
         },
         accent: {
+          pink: '#ff00ff',
           cyan: '#00ffff',
-          pink: '#ff0080',
           purple: '#9945FF',
           green: '#00ff9d',
           red: '#ff2a6d',
           yellow: '#fbbf24',
         },
-        border: '#2a2a3a',
+        border: '#1a1a1a',
         text: {
           primary: '#ffffff',
-          secondary: '#8a8a9a',
-          muted: '#5a5a6a',
+          secondary: '#888888',
+          muted: '#555555',
         },
       },
       fontFamily: {
@@ -30,8 +30,8 @@ export default {
         sans: ['Inter', 'sans-serif'],
       },
       boxShadow: {
-        'glow-cyan': '0 0 20px rgba(0, 255, 255, 0.3)',
-        'glow-pink': '0 0 20px rgba(255, 0, 128, 0.3)',
+        'glow-pink': '0 0 15px rgba(255, 0, 255, 0.2)',
+        'glow-cyan': '0 0 15px rgba(0, 255, 255, 0.15)',
       },
       animation: {
         'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',

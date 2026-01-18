@@ -35,6 +35,14 @@ class NewsService:
         self._thread.start()
         print("📰 Intel News Service Started (Hybrid RSS/API)")
 
+    def stop(self):
+        self._running = False
+        self._thread = None
+        print("📰 Intel News Service Stopped")
+
+    def is_running(self):
+        return self._running
+
     def _main_loop(self):
         while self._running:
             try:
