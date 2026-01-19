@@ -126,13 +126,22 @@ def process_grid_logic(bot, current_price):
     # Atomic check-and-add using lock
     with bot_processing_lock:
         if bot_id in in_flight_bots:
-            return  # Already processing this bot
+            return  # Already processing in this process
         in_flight_bots.add(bot_id)
 
     try:
+        # Check DB-level flag (survives restarts)
         fresh_bot = db.get_bot(bot_id)
         if not fresh_bot or fresh_bot['status'] != 'active':
             return
+
+        # Check if another process is handling this bot
+        if fresh_bot.get('is_processing', 0) == 1:
+            print(f"⚠️ Bot {bot_id} already processing (DB flag), skipping")
+            return
+
+        # Set DB processing flag BEFORE any operations
+        db.set_bot_processing(bot_id, True)
 
         config = json.loads(fresh_bot['config_json'])
         state = json.loads(fresh_bot['state_json'])
@@ -399,6 +408,11 @@ def process_grid_logic(bot, current_price):
         notify_grid_error(bot_alias, "CRITICAL", str(e))
         print(f"❌ GRID LOGIC CRITICAL ERROR: {e}")
     finally:
+        # Clear DB flag first, then memory
+        try:
+            db.set_bot_processing(bot_id, False)
+        except Exception as e:
+            print(f"Error clearing processing flag: {e}")
         in_flight_bots.discard(bot_id)
 
 def process_twap_logic(bot, current_price):
@@ -446,8 +460,13 @@ def process_twap_logic(bot, current_price):
 def update_bot_performance(bot_id, current_price):
     try:
         fresh_bot = db.get_bot(bot_id)
-        if not fresh_bot: return
-        
+        if not fresh_bot:
+            return
+
+        # Skip if bot is currently processing a trade
+        if fresh_bot.get('is_processing', 0) == 1:
+            return  # Don't update performance during active trade
+
         config, state = json.loads(fresh_bot['config_json']), json.loads(fresh_bot['state_json'])
         if fresh_bot['type'] == 'GRID':
             grid_yield = Decimal(str(state.get('grid_yield', 0)))

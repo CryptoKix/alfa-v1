@@ -33,6 +33,9 @@ from services.wolfpack import wolf_pack
 # Create Flask application
 app = create_app()
 
+# Clear any stale is_processing flags from previous runs
+db.clear_stale_processing_flags()
+
 # Issue 17: Initialize rate limiter
 
 # Register blueprints

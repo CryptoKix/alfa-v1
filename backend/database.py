@@ -87,6 +87,12 @@ class TactixDB:
             except sqlite3.OperationalError:
                 pass  # Column already exists
 
+            # Migration: Add is_processing column if it doesn't exist
+            try:
+                cursor.execute('ALTER TABLE bots ADD COLUMN is_processing INTEGER DEFAULT 0')
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
             # 3. Snapshots Table (Portfolio Analytics)
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS snapshots (
@@ -402,6 +408,19 @@ class TactixDB:
             cursor = conn.execute("SELECT * FROM bots WHERE id = ?", (bot_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
+
+    def set_bot_processing(self, bot_id, is_processing=True):
+        """Set bot processing flag atomically."""
+        with self._get_connection() as conn:
+            conn.execute(
+                "UPDATE bots SET is_processing = ? WHERE id = ?",
+                (1 if is_processing else 0, bot_id)
+            )
+
+    def clear_stale_processing_flags(self):
+        """Clear any stale is_processing flags on startup."""
+        with self._get_connection() as conn:
+            conn.execute("UPDATE bots SET is_processing = 0")
 
     def get_history(self, limit=50, wallet_address=None):
         """Fetch recent trade history."""

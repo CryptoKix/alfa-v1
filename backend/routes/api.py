@@ -271,41 +271,56 @@ def api_dca_add():
         with price_cache_lock:
             if data['outputMint'] in price_cache:
                 current_price = price_cache[data['outputMint']][0]
-        
+
+        if current_price <= 0:
+            return jsonify({"error": "Cannot create grid bot without current price"}), 400
+
         levels = []
-        sell_levels_count = 0
+        # Find which levels should be pre-filled based on current price position
+        # Levels BELOW current price = should have positions (we "would have bought" there)
+        # Levels AT or ABOVE current price = empty (waiting to buy on dips)
         for i in range(s):
             price_level = lb + (i * (ub - lb) / (s - 1))
-            is_sell_level = (i > 0) and (price_level > current_price)
+            # A level has a position if it's BELOW current price (we assume we bought the dip)
+            # Level 0 (lowest) is always a buy entry point, not pre-filled
+            should_have_position = (i > 0) and (price_level < current_price)
+
             levels.append({
                 "price": price_level,
-                "has_position": is_sell_level,
-                "token_amount": config['amount_per_level'] / current_price if is_sell_level and current_price > 0 else 0,
-                "cost_usd": config['amount_per_level'] if is_sell_level else 0,
+                "has_position": should_have_position,
+                "token_amount": 0,  # Will be set after initial rebalance
+                "cost_usd": 0,
                 "order_id": None
             })
-            if is_sell_level: sell_levels_count += 1
-        
+
         state['grid_levels'] = levels
-        
-        # Initial funding for sell side
-        if sell_levels_count > 0:
-            initial_buy_amount = config['amount_per_level'] * sell_levels_count
+
+        # Count levels that need to be filled (positions below current price)
+        fill_levels = [lvl for lvl in levels if lvl['has_position']]
+        fill_count = len(fill_levels)
+
+        if fill_count > 0:
+            # Execute initial rebalance to fill levels below current price
+            initial_buy_amount = config['amount_per_level'] * fill_count
             try:
-                res = execute_trade_logic(data['inputMint'], data['outputMint'], initial_buy_amount, f"{bot_type} Initial Rebalance")
+                res = execute_trade_logic(
+                    data['inputMint'], data['outputMint'],
+                    initial_buy_amount, f"{bot_type} Initial Rebalance"
+                )
                 actual_tokens = res.get('amount_out', 0)
                 if actual_tokens > 0:
-                    tokens_per_level = actual_tokens / sell_levels_count
-                    for lvl in state['grid_levels']:
+                    tokens_per_level = actual_tokens / fill_count
+                    for lvl in levels:
                         if lvl['has_position']:
                             lvl['token_amount'] = tokens_per_level
                             lvl['cost_usd'] = config['amount_per_level']
             except Exception as e:
                 print(f"Initial rebalance failed: {e}")
-                for lvl in state['grid_levels']:
-                    if lvl['has_position']:
-                        lvl['has_position'] = False
-                        lvl['token_amount'] = 0
+                # Don't fail bot creation, just start with empty levels
+                for lvl in levels:
+                    lvl['has_position'] = False
+                    lvl['token_amount'] = 0
+                    lvl['cost_usd'] = 0
 
         # Place initial Limit Orders if mode is LIMIT_GRID
         if bot_type == 'LIMIT_GRID':
