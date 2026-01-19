@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { Settings2, Play, Plus, Minus, Layers, Target, ChevronDown, Activity, X } from 'lucide-react'
+import { Settings2, Play, Plus, Minus, Layers, Target, ChevronDown, Activity, X, Globe, Server } from 'lucide-react'
 import { useAppSelector, useAppDispatch } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { setMonitorBotId } from '@/features/bots/botsSlice'
@@ -9,6 +9,7 @@ export const GridConfigWidget = () => {
   const { holdings, history } = useAppSelector(state => state.portfolio)
   const { bots, monitorBotId } = useAppSelector(state => state.bots)
   const prices = useAppSelector(state => state.prices.prices)
+  const { mode: walletMode, browserWalletAddress, sessionKeyActive } = useAppSelector(state => state.wallet)
 
   // Find the bot being monitored - only if it is still active
   const activeBot = useMemo(() => 
@@ -163,6 +164,11 @@ export const GridConfigWidget = () => {
     setErrorMsg('')
 
     try {
+      // Include userWallet if in browser mode with session key delegation
+      const userWallet = (walletMode === 'browser' && sessionKeyActive && browserWalletAddress)
+        ? browserWalletAddress
+        : undefined
+
       const res = await fetch('/api/dca/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -176,7 +182,8 @@ export const GridConfigWidget = () => {
           upperBound: parseFloat(upperPrice),
           steps: steps,
           trailingEnabled: trailingEnabled,
-          hysteresisPct: parseFloat(hysteresis)
+          hysteresisPct: parseFloat(hysteresis),
+          userWallet
         })
       })
 

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Wallet, Bell, Send } from 'lucide-react'
+import { Wallet, Bell, Send, Server, Globe } from 'lucide-react'
 import { useAppSelector } from '@/app/hooks'
 import { WalletModal } from '@/components/modals/WalletModal'
 import { SendModal } from '@/components/modals/SendModal'
+import { WalletConnectModal } from '@/components/modals/WalletConnectModal'
 import { cn } from '@/lib/utils'
 import { useLocation } from 'react-router-dom'
 import { StrategyTabs } from './StrategyTabs'
@@ -11,8 +12,10 @@ export const Header = () => {
   const location = useLocation()
   const { walletAlias, connected: webConnected } = useAppSelector(state => state.portfolio)
   const { lastUpdate, connected: priceConnected } = useAppSelector(state => state.prices)
+  const { mode: walletMode, browserWalletConnected, sessionKeyActive } = useAppSelector(state => state.wallet)
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false)
   const [isSendModalOpen, setIsSendModalOpen] = useState(false)
+  const [isWalletConnectModalOpen, setIsWalletConnectModalOpen] = useState(false)
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
@@ -127,6 +130,25 @@ export const Header = () => {
             <span className="absolute -top-1 -right-1 w-2 h-2 bg-accent-pink rounded-full" />
           </button>
 
+          {/* Wallet Mode Indicator */}
+          <button
+            onClick={() => setIsWalletConnectModalOpen(true)}
+            className={cn(
+              "flex items-center gap-2 px-3 h-8 rounded-lg border transition-all group",
+              walletMode === 'browser'
+                ? "bg-accent-pink/10 border-accent-pink/20 text-accent-pink hover:bg-accent-pink/20"
+                : "bg-accent-cyan/10 border-accent-cyan/20 text-accent-cyan hover:bg-accent-cyan/20"
+            )}
+          >
+            {walletMode === 'browser' ? <Globe size={14} /> : <Server size={14} />}
+            <span className="text-[9px] font-black uppercase tracking-wider">
+              {walletMode === 'browser' ? 'Browser' : 'Server'}
+            </span>
+            {walletMode === 'browser' && sessionKeyActive && (
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" title="Delegation Active" />
+            )}
+          </button>
+
           {/* Wallet Badge */}
           <button
             onClick={() => setIsWalletModalOpen(true)}
@@ -144,6 +166,7 @@ export const Header = () => {
 
       <WalletModal isOpen={isWalletModalOpen} onClose={() => setIsWalletModalOpen(false)} />
       <SendModal isOpen={isSendModalOpen} onClose={() => setIsSendModalOpen(false)} />
+      <WalletConnectModal isOpen={isWalletConnectModalOpen} onClose={() => setIsWalletConnectModalOpen(false)} />
     </>
   )
 }

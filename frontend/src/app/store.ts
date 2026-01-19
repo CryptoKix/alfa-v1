@@ -7,6 +7,7 @@ import arbReducer from '../features/arb/arbSlice'
 import notificationsReducer from '../features/notifications/notificationsSlice'
 import sniperReducer from '../features/sniper/sniperSlice'
 import intelReducer from '../features/intel/intelSlice'
+import walletReducer from '../features/wallet/walletSlice'
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
     notifications: notificationsReducer,
     sniper: sniperReducer,
     intel: intelReducer,
+    wallet: walletReducer,
   },
 })
 

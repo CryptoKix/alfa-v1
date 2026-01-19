@@ -2,6 +2,7 @@ import ReactDOM from 'react-dom/client'
 import { Provider } from 'react-redux'
 import { store } from './app/store'
 import { initSockets } from './services/socket'
+import { WalletContextProvider } from './contexts/WalletContext'
 import App from './App'
 import './index.css'
 
@@ -14,6 +15,8 @@ try {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <Provider store={store}>
-    <App />
+    <WalletContextProvider>
+      <App />
+    </WalletContextProvider>
   </Provider>,
 )

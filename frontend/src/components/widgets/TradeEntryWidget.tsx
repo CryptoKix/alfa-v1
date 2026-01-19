@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react'
-import { ArrowUpDown, Info, Zap, ChevronDown, Plus, Minus, Activity } from 'lucide-react'
+import { ArrowUpDown, Info, Zap, ChevronDown, Plus, Minus, Activity, Globe, Server } from 'lucide-react'
 import { useAppSelector } from '@/app/hooks'
+import { useWalletMode } from '@/hooks/useWalletMode'
 import { cn } from '@/lib/utils'
 
 export const TradeEntryWidget = () => {
   const { holdings } = useAppSelector(state => state.portfolio)
   const prices = useAppSelector(state => state.prices.prices)
+  const { mode, executeSwap, executeLimitOrder, canUseBrowserWallet } = useWalletMode()
   
   // Available Tokens: Merge current holdings with defaults
   const tokens = useMemo(() => {
@@ -71,41 +73,40 @@ export const TradeEntryWidget = () => {
   const handleTrade = async () => {
     if (!amount) return
     if (orderType === 'limit' && !limitPrice) return
-    
+
     setStatus('loading')
     setErrorMsg('')
 
     try {
-      const endpoint = orderType === 'market' ? '/api/trade' : '/api/limit/create'
-      const payload: any = {
-        inputMint: fromTokenMint,
-        outputMint: toTokenMint,
-        amount: parseFloat(amount),
-        priorityFee: parseFloat(priorityFee)
-      }
+      let result
 
       if (orderType === 'market') {
-        payload.strategy = 'Manual Swap'
-        payload.slippageBps = Math.floor(parseFloat(slippage) * 100)
+        // Use the wallet mode hook for swap execution
+        result = await executeSwap({
+          inputMint: fromTokenMint,
+          outputMint: toTokenMint,
+          amount: parseFloat(amount),
+          slippageBps: Math.floor(parseFloat(slippage) * 100),
+          strategy: 'Manual Swap'
+        })
       } else {
-        payload.price = parseFloat(limitPrice)
+        // Use the wallet mode hook for limit order execution
+        result = await executeLimitOrder({
+          inputMint: fromTokenMint,
+          outputMint: toTokenMint,
+          amount: parseFloat(amount),
+          price: parseFloat(limitPrice)
+        })
       }
 
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-
-      const data = await res.json()
-      if (data.success || data.signature) {
+      if (result.success) {
         setStatus('success')
         setAmount('')
         setLimitPrice('')
         setTimeout(() => setStatus('idle'), 3000)
       } else {
         setStatus('error')
-        setErrorMsg(data.error || 'Execution failed')
+        setErrorMsg(result.error || 'Execution failed')
       }
     } catch (e) {
       setStatus('error')
@@ -360,9 +361,22 @@ export const TradeEntryWidget = () => {
         {status === 'error' && <div className="p-2 bg-accent-red/10 border border-accent-red/20 rounded-lg text-[9px] text-accent-red font-bold animate-in fade-in">{errorMsg}</div>}
         {status === 'success' && <div className="p-2 bg-accent-green/10 border border-accent-green/20 rounded-lg text-[9px] text-accent-green font-bold animate-in fade-in text-center">{orderType === 'market' ? 'TRADE EXECUTED' : 'ORDER PLACED'}</div>}
 
-        <div className="p-2 bg-accent-pink/5 border border-accent-pink/10 rounded-lg flex items-start gap-2 shrink-0">
-          <Info className="text-accent-pink shrink-0 mt-0.5" size={12} />
-          <div className="text-[9px] text-text-secondary leading-relaxed">Best price via <span className="text-accent-pink font-bold">JUPITER</span></div>
+        <div className={cn(
+          "p-2 border rounded-lg flex items-start gap-2 shrink-0",
+          mode === 'browser' ? "bg-accent-pink/5 border-accent-pink/10" : "bg-accent-cyan/5 border-accent-cyan/10"
+        )}>
+          {mode === 'browser' ? (
+            <Globe className="text-accent-pink shrink-0 mt-0.5" size={12} />
+          ) : (
+            <Server className="text-accent-cyan shrink-0 mt-0.5" size={12} />
+          )}
+          <div className="text-[9px] text-text-secondary leading-relaxed">
+            {mode === 'browser' ? (
+              <>Signing via <span className="text-accent-pink font-bold">BROWSER WALLET</span> (manual approval)</>
+            ) : (
+              <>Best price via <span className="text-accent-cyan font-bold">JUPITER</span> (server signed)</>
+            )}
+          </div>
         </div>
       </div>
 

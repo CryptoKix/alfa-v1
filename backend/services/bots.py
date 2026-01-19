@@ -14,6 +14,54 @@ from services.notifications import notify_bot_completion, send_discord_notificat
 # Thread pool for concurrent bot processing (Issue 5)
 BOT_EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
+
+def execute_bot_trade(
+    input_mint: str,
+    output_mint: str,
+    amount: float,
+    source: str,
+    slippage_bps: int = 50,
+    priority_fee: float = 0,
+    user_wallet: str = None
+):
+    """
+    Execute a bot trade, using session key signing if available for browser wallets.
+
+    Args:
+        user_wallet: If provided, attempts to use session key delegation for this browser wallet.
+                    If None or no active session, falls back to server keypair.
+    """
+    # Check if we should use session key signing
+    if user_wallet:
+        try:
+            from services.session_keys import get_session_keypair, execute_trade_with_session_key
+            keypair = get_session_keypair(user_wallet)
+            if keypair:
+                # Use session key for browser wallet user
+                print(f"🔑 Using session key for {user_wallet[:8]}... to execute {source}")
+                return execute_trade_with_session_key(
+                    user_wallet=user_wallet,
+                    input_mint=input_mint,
+                    output_mint=output_mint,
+                    amount=amount,
+                    source=source,
+                    slippage_bps=slippage_bps
+                )
+        except ImportError:
+            print("Session keys module not available, falling back to server keypair")
+        except Exception as e:
+            print(f"Session key trade failed: {e}, falling back to server keypair")
+
+    # Fall back to server keypair (legacy mode)
+    return execute_trade_logic(
+        input_mint=input_mint,
+        output_mint=output_mint,
+        amount=amount,
+        source=source,
+        slippage_bps=slippage_bps,
+        priority_fee=priority_fee
+    )
+
 def decimal_to_float(obj):
     """JSON encoder helper for Decimal types."""
     if isinstance(obj, Decimal):

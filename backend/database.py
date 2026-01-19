@@ -75,10 +75,17 @@ class TactixDB:
                     output_symbol TEXT,
                     config_json TEXT, -- Flexible JSON for strategy-specific params
                     state_json TEXT, -- Flexible JSON for current progress/state
+                    user_wallet TEXT, -- Browser wallet address for session key delegation (NULL = server wallet)
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     last_run DATETIME
                 )
             ''')
+
+            # Migration: Add user_wallet column if it doesn't exist
+            try:
+                cursor.execute('ALTER TABLE bots ADD COLUMN user_wallet TEXT')
+            except sqlite3.OperationalError:
+                pass  # Column already exists
 
             # 3. Snapshots Table (Portfolio Analytics)
             cursor.execute('''
@@ -196,7 +203,22 @@ class TactixDB:
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
-            
+
+            # 13. Session Keys Table (Browser Wallet Delegation)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS session_keys (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_wallet TEXT NOT NULL,
+                    session_pubkey TEXT NOT NULL,
+                    session_secret_encrypted TEXT NOT NULL,
+                    permissions TEXT DEFAULT '{}',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TIMESTAMP NOT NULL,
+                    revoked INTEGER DEFAULT 0,
+                    UNIQUE(user_wallet, session_pubkey)
+                )
+            ''')
+
             conn.commit()
 
     def save_setting(self, key, value):
@@ -352,17 +374,17 @@ class TactixDB:
                 trade_data.get('error')
             ))
 
-    def save_bot(self, bot_id, bot_type, input_m, output_m, in_sym, out_sym, config, state):
+    def save_bot(self, bot_id, bot_type, input_m, output_m, in_sym, out_sym, config, state, user_wallet=None):
         """Create or update a bot strategy."""
         sql = '''
             INSERT OR REPLACE INTO bots (
-                id, type, input_mint, output_mint, input_symbol, output_symbol, config_json, state_json, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id, type, input_mint, output_mint, input_symbol, output_symbol, config_json, state_json, status, user_wallet
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         '''
         with self._get_connection() as conn:
             conn.execute(sql, (
                 bot_id, bot_type, input_m, output_m, in_sym, out_sym,
-                json.dumps(config), json.dumps(state), state.get('status', 'active')
+                json.dumps(config), json.dumps(state), state.get('status', 'active'), user_wallet
             ))
 
     def get_all_bots(self, include_deleted=False):
@@ -496,3 +518,73 @@ class TactixDB:
         """Remove an arb pair from monitoring."""
         with self._get_connection() as conn:
             conn.execute("DELETE FROM arb_pairs WHERE id = ?", (pair_id,))
+
+    # --- Session Key Methods ---
+
+    def save_session_key(self, user_wallet, session_pubkey, session_secret_encrypted, permissions, expires_at):
+        """Store a new session key delegation."""
+        sql = '''
+            INSERT OR REPLACE INTO session_keys (
+                user_wallet, session_pubkey, session_secret_encrypted, permissions, expires_at, revoked
+            ) VALUES (?, ?, ?, ?, ?, 0)
+        '''
+        with self._get_connection() as conn:
+            conn.execute(sql, (
+                user_wallet,
+                session_pubkey,
+                session_secret_encrypted,
+                json.dumps(permissions),
+                expires_at
+            ))
+
+    def get_active_session_key(self, user_wallet):
+        """Get active (non-revoked, non-expired) session key for a wallet."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute('''
+                SELECT * FROM session_keys
+                WHERE user_wallet = ?
+                  AND revoked = 0
+                  AND expires_at > datetime('now')
+                ORDER BY created_at DESC
+                LIMIT 1
+            ''', (user_wallet,))
+            row = cursor.fetchone()
+            if row:
+                result = dict(row)
+                result['permissions'] = json.loads(result['permissions'])
+                return result
+            return None
+
+    def revoke_session_key(self, user_wallet, session_pubkey=None):
+        """Revoke session key(s) for a wallet."""
+        with self._get_connection() as conn:
+            if session_pubkey:
+                conn.execute(
+                    "UPDATE session_keys SET revoked = 1 WHERE user_wallet = ? AND session_pubkey = ?",
+                    (user_wallet, session_pubkey)
+                )
+            else:
+                # Revoke all session keys for this wallet
+                conn.execute(
+                    "UPDATE session_keys SET revoked = 1 WHERE user_wallet = ?",
+                    (user_wallet,)
+                )
+
+    def extend_session_key(self, user_wallet, session_pubkey, new_expires_at):
+        """Extend expiration of a session key."""
+        with self._get_connection() as conn:
+            conn.execute(
+                "UPDATE session_keys SET expires_at = ? WHERE user_wallet = ? AND session_pubkey = ? AND revoked = 0",
+                (new_expires_at, user_wallet, session_pubkey)
+            )
+
+    def get_all_active_session_keys(self):
+        """Get all active session keys (for bot scheduler)."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute('''
+                SELECT * FROM session_keys
+                WHERE revoked = 0 AND expires_at > datetime('now')
+            ''')
+            return [dict(row) for row in cursor.fetchall()]

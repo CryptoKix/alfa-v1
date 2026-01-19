@@ -329,7 +329,9 @@ def api_dca_add():
                 except Exception as e:
                     print(f"Failed to place initial limit order for level {idx}: {e}")
 
-    db.save_bot(bot_id, bot_type, data['inputMint'], data['outputMint'], get_token_symbol(data['inputMint']), get_token_symbol(data['outputMint']), config, state)
+    # user_wallet: If provided, bot uses session key delegation for browser wallet users
+    user_wallet = data.get('userWallet')
+    db.save_bot(bot_id, bot_type, data['inputMint'], data['outputMint'], get_token_symbol(data['inputMint']), get_token_symbol(data['outputMint']), config, state, user_wallet)
     socketio.emit('bots_update', {'bots': get_formatted_bots(), 'timestamp': time.time()}, namespace='/bots')
     return jsonify({"success": True, "id": bot_id})
 
