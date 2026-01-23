@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ArrowUpDown, Info, Zap, ChevronDown, Plus, Minus, Activity, Globe, Server } from 'lucide-react'
+import { ArrowUpDown,  Zap, ChevronDown, Plus, Minus, Activity, Globe, Server } from 'lucide-react'
 import { useAppSelector } from '@/app/hooks'
 import { useWalletMode } from '@/hooks/useWalletMode'
 import { cn } from '@/lib/utils'
@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 export const TradeEntryWidget = () => {
   const { holdings } = useAppSelector(state => state.portfolio)
   const prices = useAppSelector(state => state.prices.prices)
-  const { mode, executeSwap, executeLimitOrder, canUseBrowserWallet } = useWalletMode()
+  const { mode, executeSwap, executeLimitOrder } = useWalletMode()
   
   // Available Tokens: Merge current holdings with defaults
   const tokens = useMemo(() => {

@@ -19,6 +19,10 @@ export interface WalletState {
   sessionKeyActive: boolean
   sessionKeyInfo: SessionKeyInfo | null
   delegationPending: boolean
+  // Jupiter wallet safety features
+  jupiterWalletEnabled: boolean
+  largeTradeThreshold: number  // USD threshold to require Jupiter wallet confirmation
+  requireJupiterForLargeTrades: boolean
 }
 
 const initialState: WalletState = {
@@ -29,6 +33,10 @@ const initialState: WalletState = {
   sessionKeyActive: false,
   sessionKeyInfo: null,
   delegationPending: false,
+  // Jupiter wallet - extra safety layer for large trades
+  jupiterWalletEnabled: true,
+  largeTradeThreshold: 1000,  // Default $1000 USD
+  requireJupiterForLargeTrades: true,
 }
 
 export const walletSlice = createSlice({
@@ -60,6 +68,15 @@ export const walletSlice = createSlice({
       state.sessionKeyActive = false
       state.sessionKeyInfo = null
     },
+    setJupiterWalletEnabled: (state, action: PayloadAction<boolean>) => {
+      state.jupiterWalletEnabled = action.payload
+    },
+    setLargeTradeThreshold: (state, action: PayloadAction<number>) => {
+      state.largeTradeThreshold = action.payload
+    },
+    setRequireJupiterForLargeTrades: (state, action: PayloadAction<boolean>) => {
+      state.requireJupiterForLargeTrades = action.payload
+    },
   },
 })
 
@@ -70,6 +87,9 @@ export const {
   setSessionKeyActive,
   setDelegationPending,
   clearSessionKey,
+  setJupiterWalletEnabled,
+  setLargeTradeThreshold,
+  setRequireJupiterForLargeTrades,
 } = walletSlice.actions
 
 export default walletSlice.reducer

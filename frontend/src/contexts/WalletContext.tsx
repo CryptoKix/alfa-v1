@@ -1,21 +1,15 @@
-import { FC, ReactNode, useMemo, useCallback, useEffect } from 'react'
-import { ConnectionProvider, WalletProvider, useWallet } from '@solana/wallet-adapter-react'
-import { WalletModalProvider } from '@solana/wallet-adapter-react-ui'
-import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets'
-import { Connection, clusterApiUrl } from '@solana/web3.js'
+import { FC, ReactNode, useMemo, useEffect } from 'react'
+import { UnifiedWalletProvider, useUnifiedWallet } from '@jup-ag/wallet-adapter'
 import { useAppDispatch } from '@/app/hooks'
 import { setBrowserWalletConnected, setServerWalletAddress } from '@/features/wallet/walletSlice'
-
-import '@solana/wallet-adapter-react-ui/styles.css'
-
-const HELIUS_RPC = import.meta.env.VITE_HELIUS_RPC || 'https://api.mainnet-beta.solana.com'
 
 interface WalletContextProviderProps {
   children: ReactNode
 }
 
+// Sync Jupiter wallet state to Redux
 const WalletConnectionSync: FC<{ children: ReactNode }> = ({ children }) => {
-  const { connected, publicKey, disconnect } = useWallet()
+  const { connected, publicKey } = useUnifiedWallet()
   const dispatch = useAppDispatch()
 
   useEffect(() => {
@@ -44,25 +38,92 @@ const WalletConnectionSync: FC<{ children: ReactNode }> = ({ children }) => {
 }
 
 export const WalletContextProvider: FC<WalletContextProviderProps> = ({ children }) => {
-  const endpoint = useMemo(() => HELIUS_RPC, [])
-
-  const wallets = useMemo(() => [
-    new PhantomWalletAdapter(),
-    new SolflareWalletAdapter(),
-  ], [])
+  const config = useMemo(() => ({
+    autoConnect: true,
+    env: 'mainnet-beta' as const,
+    metadata: {
+      name: 'TacTix.sol',
+      description: 'Solana Trading Terminal',
+      url: 'https://tactix.sol',
+      iconUrls: ['/logo_concept_5.svg'],
+    },
+    notificationCallback: {
+      onConnect: (props: { publicKey: string; walletName: string }) => {
+        console.log(`[Jupiter Wallet] Connected: ${props.walletName} (${props.publicKey.slice(0, 8)}...)`)
+      },
+      onConnecting: (props: { walletName: string }) => {
+        console.log(`[Jupiter Wallet] Connecting to ${props.walletName}...`)
+      },
+      onDisconnect: (props: { publicKey: string; walletName: string }) => {
+        console.log(`[Jupiter Wallet] Disconnected: ${props.walletName}`)
+      },
+      onNotInstalled: (props: { walletName: string }) => {
+        console.log(`[Jupiter Wallet] ${props.walletName} not installed`)
+      },
+    },
+    walletlistExplanation: {
+      href: 'https://station.jup.ag/docs/additional-topics/wallet-list',
+    },
+    theme: 'jupiter' as const,
+    lang: 'en' as const,
+  }), [])
 
   return (
-    <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>
-          <WalletConnectionSync>
-            {children}
-          </WalletConnectionSync>
-        </WalletModalProvider>
-      </WalletProvider>
-    </ConnectionProvider>
+    <UnifiedWalletProvider wallets={[]} config={config}>
+      <WalletConnectionSync>
+        {children}
+      </WalletConnectionSync>
+    </UnifiedWalletProvider>
   )
 }
 
-export { useWallet, useConnection } from '@solana/wallet-adapter-react'
-export { useWalletModal } from '@solana/wallet-adapter-react-ui'
+// Re-export Jupiter wallet hooks for use throughout the app
+export { useUnifiedWallet, useUnifiedWalletContext } from '@jup-ag/wallet-adapter'
+
+// Helper hook to get the active wallet address based on mode
+import { useAppSelector } from '@/app/hooks'
+
+export const useActiveWallet = () => {
+  const { mode, browserWalletAddress, serverWalletAddress } = useAppSelector(state => state.wallet)
+  const { connected, publicKey, signTransaction, signAllTransactions } = useUnifiedWallet()
+
+  return {
+    // The currently active wallet based on mode
+    address: mode === 'browser' ? browserWalletAddress : serverWalletAddress,
+    // Mode info
+    mode,
+    isServerMode: mode === 'server',
+    isBrowserMode: mode === 'browser',
+    // Browser wallet state (Jupiter)
+    browserConnected: connected,
+    browserAddress: publicKey?.toBase58() || null,
+    // Server wallet state
+    serverAddress: serverWalletAddress,
+    // Signing functions (only available in browser mode)
+    signTransaction: connected ? signTransaction : undefined,
+    signAllTransactions: connected ? signAllTransactions : undefined,
+  }
+}
+
+// Helper to determine if a trade should use Jupiter wallet confirmation
+export const useShouldUseJupiterWallet = (tradeValueUsd: number) => {
+  const {
+    jupiterWalletEnabled,
+    largeTradeThreshold,
+    requireJupiterForLargeTrades,
+    browserWalletConnected
+  } = useAppSelector(state => state.wallet)
+
+  const shouldUseJupiter =
+    jupiterWalletEnabled &&
+    requireJupiterForLargeTrades &&
+    browserWalletConnected &&
+    tradeValueUsd >= largeTradeThreshold
+
+  return {
+    shouldUseJupiter,
+    threshold: largeTradeThreshold,
+    isAboveThreshold: tradeValueUsd >= largeTradeThreshold,
+    jupiterEnabled: jupiterWalletEnabled && browserWalletConnected,
+  }
+}

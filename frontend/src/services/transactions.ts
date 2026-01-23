@@ -2,8 +2,13 @@
  * Transaction building and submission services for browser wallet integration.
  */
 
-import { Transaction, VersionedTransaction, Connection } from '@solana/web3.js'
-import { WalletContextState } from '@solana/wallet-adapter-react'
+import { VersionedTransaction, PublicKey } from '@solana/web3.js'
+
+// Generic wallet interface compatible with Jupiter/Solana adapters
+interface WalletAdapter {
+  publicKey: PublicKey | null
+  signTransaction?: <T extends VersionedTransaction>(transaction: T) => Promise<T>
+}
 
 export interface SwapParams {
   inputMint: string
@@ -135,7 +140,7 @@ export async function buildLimitOrderTransaction(params: LimitOrderParams): Prom
  * Sign and submit a swap transaction using the browser wallet.
  */
 export async function signAndSubmitSwap(
-  wallet: WalletContextState,
+  wallet: WalletAdapter,
   buildResponse: BuildSwapResponse,
   params: SwapParams
 ): Promise<SubmitResult> {
@@ -195,7 +200,7 @@ export async function signAndSubmitSwap(
  * Sign and submit a limit order transaction using the browser wallet.
  */
 export async function signAndSubmitLimitOrder(
-  wallet: WalletContextState,
+  wallet: WalletAdapter,
   buildResponse: BuildLimitResponse,
   params: LimitOrderParams
 ): Promise<SubmitResult> {

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Play, BarChart3, Target, ChevronDown, Activity, TrendingUp } from 'lucide-react'
+import { Play, BarChart3,  ChevronDown, Activity, TrendingUp } from 'lucide-react'
 import { useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 

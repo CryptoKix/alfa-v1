@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { Settings2, Play, Plus, Minus, Layers, Target, ChevronDown, Activity, X, Globe, Server } from 'lucide-react'
+import { Settings2, Play, Plus, Minus, Layers, Target, ChevronDown, Activity, X } from 'lucide-react'
 import { useAppSelector, useAppDispatch } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { setMonitorBotId } from '@/features/bots/botsSlice'

@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Wallet, Server, Globe, CheckCircle, AlertCircle, Unplug, Key, ChevronRight, Loader2 } from 'lucide-react'
-import { useWallet } from '@solana/wallet-adapter-react'
-import { useWalletModal } from '@solana/wallet-adapter-react-ui'
+import { X, Wallet, Server, Globe, CheckCircle, AlertCircle, Unplug, Key, ChevronRight, Loader2, Shield, DollarSign } from 'lucide-react'
+import { useUnifiedWallet, useUnifiedWalletContext } from '@jup-ag/wallet-adapter'
 import { useAppSelector, useAppDispatch } from '@/app/hooks'
-import { setWalletMode, setSessionKeyActive, WalletMode } from '@/features/wallet/walletSlice'
+import { setWalletMode, setSessionKeyActive, setLargeTradeThreshold, setRequireJupiterForLargeTrades, WalletMode } from '@/features/wallet/walletSlice'
 import { createSessionKey, revokeSessionKey, getSessionKeyStatus } from '@/services/delegation'
 import { cn } from '@/lib/utils'
 
@@ -13,9 +12,8 @@ interface WalletConnectModalProps {
 }
 
 export const WalletConnectModal = ({ isOpen, onClose }: WalletConnectModalProps) => {
-  const walletContext = useWallet()
-  const { connected, publicKey, disconnect, wallet } = walletContext
-  const { setVisible } = useWalletModal()
+  const { connected, publicKey, disconnect, wallet } = useUnifiedWallet()
+  const { setShowModal } = useUnifiedWalletContext()
   const dispatch = useAppDispatch()
 
   const {
@@ -23,7 +21,9 @@ export const WalletConnectModal = ({ isOpen, onClose }: WalletConnectModalProps)
     browserWalletAddress,
     serverWalletAddress,
     sessionKeyActive,
-    sessionKeyInfo
+    sessionKeyInfo,
+    largeTradeThreshold,
+    requireJupiterForLargeTrades
   } = useAppSelector(state => state.wallet)
 
   const { walletAlias, totalUsd } = useAppSelector(state => state.portfolio)
@@ -53,7 +53,7 @@ export const WalletConnectModal = ({ isOpen, onClose }: WalletConnectModalProps)
   }
 
   const handleConnectWallet = () => {
-    setVisible(true)
+    setShowModal(true)
   }
 
   const handleDisconnect = async () => {
@@ -62,15 +62,17 @@ export const WalletConnectModal = ({ isOpen, onClose }: WalletConnectModalProps)
     dispatch(setSessionKeyActive({ active: false }))
   }
 
+  const { signMessage } = useUnifiedWallet()
+
   const handleEnableDelegation = async () => {
-    if (!connected || !publicKey) return
+    if (!connected || !publicKey || !signMessage) return
 
     setDelegationLoading(true)
     setDelegationError(null)
 
-    const result = await createSessionKey(walletContext, {
+    const result = await createSessionKey({ publicKey, signMessage }, {
       durationHours: 24,
-      maxTradeSize: 1000
+      maxTradeSize: largeTradeThreshold
     })
 
     setDelegationLoading(false)
@@ -296,6 +298,74 @@ export const WalletConnectModal = ({ isOpen, onClose }: WalletConnectModalProps)
                   sessionKeyActive ? 'Revoke Delegation' : 'Enable Delegation'
                 )}
               </button>
+            </div>
+          )}
+
+          {/* Large Trade Safety Settings */}
+          {connected && (
+            <div className="p-4 bg-background-elevated rounded-xl border border-accent-purple/20 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Shield size={16} className="text-accent-purple" />
+                  <span className="text-xs font-bold uppercase tracking-widest text-white">
+                    Large Trade Safety
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={requireJupiterForLargeTrades}
+                    onChange={(e) => dispatch(setRequireJupiterForLargeTrades(e.target.checked))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent-purple"></div>
+                </label>
+              </div>
+
+              <p className="text-[10px] text-text-secondary leading-relaxed">
+                When enabled, trades above the threshold will require manual wallet confirmation via Jupiter for extra security.
+              </p>
+
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <label className="text-[9px] text-text-muted uppercase tracking-wider mb-1 block">
+                    Threshold (USD)
+                  </label>
+                  <div className="relative">
+                    <DollarSign size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                    <input
+                      type="number"
+                      value={largeTradeThreshold}
+                      onChange={(e) => dispatch(setLargeTradeThreshold(Math.max(0, parseInt(e.target.value) || 0)))}
+                      className="w-full bg-background-dark border border-white/10 rounded-lg pl-8 pr-3 py-2 text-sm font-mono text-white focus:border-accent-purple/50 focus:outline-none"
+                      placeholder="1000"
+                      min="0"
+                      step="100"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-1 pt-5">
+                  {[500, 1000, 5000].map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => dispatch(setLargeTradeThreshold(val))}
+                      className={cn(
+                        "px-2 py-1.5 rounded text-[9px] font-bold transition-all",
+                        largeTradeThreshold === val
+                          ? "bg-accent-purple/20 text-accent-purple border border-accent-purple/30"
+                          : "bg-white/5 text-text-muted hover:text-white border border-transparent"
+                      )}
+                    >
+                      ${val}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="text-[9px] text-accent-purple/80 flex items-center gap-1.5 pt-1">
+                <Shield size={10} />
+                Trades ≥${largeTradeThreshold.toLocaleString()} will require Jupiter wallet approval
+              </div>
             </div>
           )}
 

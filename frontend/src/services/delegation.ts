@@ -2,9 +2,14 @@
  * Session key delegation services for browser wallet bot automation.
  */
 
-import { Keypair } from '@solana/web3.js'
-import { WalletContextState } from '@solana/wallet-adapter-react'
+import { Keypair, PublicKey } from '@solana/web3.js'
 import bs58 from 'bs58'
+
+// Generic wallet interface that works with both Solana and Jupiter adapters
+export interface WalletAdapter {
+  publicKey: PublicKey | null
+  signMessage?: (message: Uint8Array) => Promise<Uint8Array>
+}
 
 export interface SessionKeyInfo {
   sessionPubkey: string
@@ -33,7 +38,7 @@ export interface CreateSessionResult {
  * 3. Send session key info to backend for encrypted storage
  */
 export async function createSessionKey(
-  wallet: WalletContextState,
+  wallet: WalletAdapter,
   options: {
     durationHours?: number
     maxTradeSize?: number

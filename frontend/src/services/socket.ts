@@ -218,7 +218,7 @@ export const initSockets = () => {
     console.log('[Socket] Yield Position Update:', data.action)
     // Trigger a refresh of positions
     const state = store.getState()
-    const wallet = state.wallet.address
+    const wallet = state.wallet.browserWalletAddress
     if (wallet && data.wallet === wallet) {
       yieldSocket.emit('request_positions', { wallet })
     }

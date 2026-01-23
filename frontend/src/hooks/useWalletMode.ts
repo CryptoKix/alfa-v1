@@ -1,9 +1,10 @@
 /**
  * Hook for managing wallet mode (browser vs server) and executing transactions.
+ * Supports Jupiter Unified Wallet for large trade safety.
  */
 
 import { useCallback, useMemo } from 'react'
-import { useWallet } from '@solana/wallet-adapter-react'
+import { useUnifiedWallet } from '@jup-ag/wallet-adapter'
 import { useAppSelector, useAppDispatch } from '@/app/hooks'
 import { setWalletMode, WalletMode } from '@/features/wallet/walletSlice'
 import {
@@ -28,13 +29,18 @@ export interface UseWalletModeReturn {
   activeWalletAddress: string | null
   canUseBrowserWallet: boolean
   canUseSessionKey: boolean
-  executeSwap: (params: Omit<SwapParams, 'userPublicKey'> & { strategy?: string }) => Promise<SubmitResult>
+  // Large trade safety
+  largeTradeThreshold: number
+  requireJupiterForLargeTrades: boolean
+  shouldRequireJupiterWallet: (tradeValueUsd: number) => boolean
+  // Transaction execution
+  executeSwap: (params: Omit<SwapParams, 'userPublicKey'> & { strategy?: string; tradeValueUsd?: number }) => Promise<SubmitResult>
   executeLimitOrder: (params: Omit<LimitOrderParams, 'userPublicKey'>) => Promise<SubmitResult>
   executeTransfer: (params: { recipient: string; amount: number; mint?: string }) => Promise<SubmitResult>
 }
 
 export function useWalletMode(): UseWalletModeReturn {
-  const wallet = useWallet()
+  const wallet = useUnifiedWallet()
   const dispatch = useAppDispatch()
 
   const {
@@ -43,7 +49,9 @@ export function useWalletMode(): UseWalletModeReturn {
     browserWalletAddress,
     serverWalletAddress,
     sessionKeyActive,
-    sessionKeyInfo
+    sessionKeyInfo,
+    largeTradeThreshold,
+    requireJupiterForLargeTrades
   } = useAppSelector(state => state.wallet)
 
   const setMode = useCallback((newMode: WalletMode) => {
@@ -58,6 +66,15 @@ export function useWalletMode(): UseWalletModeReturn {
     return sessionKeyActive && sessionKeyInfo !== null && sessionKeyInfo.expiresAt > Date.now()
   }, [sessionKeyActive, sessionKeyInfo])
 
+  // Check if a trade should require Jupiter wallet confirmation for safety
+  const shouldRequireJupiterWallet = useCallback((tradeValueUsd: number): boolean => {
+    return (
+      requireJupiterForLargeTrades &&
+      browserWalletConnected &&
+      tradeValueUsd >= largeTradeThreshold
+    )
+  }, [requireJupiterForLargeTrades, browserWalletConnected, largeTradeThreshold])
+
   const activeWalletAddress = useMemo(() => {
     if (mode === 'browser' && browserWalletAddress) {
       return browserWalletAddress
@@ -67,13 +84,20 @@ export function useWalletMode(): UseWalletModeReturn {
 
   /**
    * Execute a swap transaction based on the current wallet mode.
+   * For large trades (above threshold), forces Jupiter wallet confirmation for safety.
    */
   const executeSwap = useCallback(async (
-    params: Omit<SwapParams, 'userPublicKey'> & { strategy?: string }
+    params: Omit<SwapParams, 'userPublicKey'> & { strategy?: string; tradeValueUsd?: number }
   ): Promise<SubmitResult> => {
     try {
-      if (mode === 'browser' && canUseBrowserWallet) {
-        // Browser wallet mode - sign with browser extension
+      const tradeValueUsd = params.tradeValueUsd || 0
+
+      // Force browser wallet for large trades (safety feature)
+      const useBrowserWallet = (mode === 'browser' && canUseBrowserWallet) ||
+        (shouldRequireJupiterWallet(tradeValueUsd) && canUseBrowserWallet)
+
+      if (useBrowserWallet) {
+        // Browser wallet mode - sign with Jupiter wallet for extra security
         const buildResponse = await buildSwapTransaction({
           ...params,
           userPublicKey: browserWalletAddress!
@@ -84,7 +108,7 @@ export function useWalletMode(): UseWalletModeReturn {
           userPublicKey: browserWalletAddress!
         })
       } else {
-        // Server wallet mode - sign with server keypair
+        // Server wallet mode - sign with server keypair (for bots/automation)
         const result = await executeServerTrade({
           inputMint: params.inputMint,
           outputMint: params.outputMint,
@@ -106,7 +130,7 @@ export function useWalletMode(): UseWalletModeReturn {
         error: error instanceof Error ? error.message : 'Unknown error'
       }
     }
-  }, [mode, canUseBrowserWallet, browserWalletAddress, wallet])
+  }, [mode, canUseBrowserWallet, browserWalletAddress, wallet, shouldRequireJupiterWallet])
 
   /**
    * Execute a limit order based on the current wallet mode.
@@ -193,6 +217,11 @@ export function useWalletMode(): UseWalletModeReturn {
     activeWalletAddress,
     canUseBrowserWallet,
     canUseSessionKey,
+    // Large trade safety
+    largeTradeThreshold,
+    requireJupiterForLargeTrades,
+    shouldRequireJupiterWallet,
+    // Transaction execution
     executeSwap,
     executeLimitOrder,
     executeTransfer

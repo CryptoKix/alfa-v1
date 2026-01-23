@@ -12,7 +12,7 @@ export const Header = () => {
   const location = useLocation()
   const { walletAlias, connected: webConnected } = useAppSelector(state => state.portfolio)
   const { lastUpdate, connected: priceConnected } = useAppSelector(state => state.prices)
-  const { mode: walletMode, browserWalletConnected, sessionKeyActive } = useAppSelector(state => state.wallet)
+  const { mode: walletMode, sessionKeyActive } = useAppSelector(state => state.wallet)
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false)
   const [isSendModalOpen, setIsSendModalOpen] = useState(false)
   const [isWalletConnectModalOpen, setIsWalletConnectModalOpen] = useState(false)

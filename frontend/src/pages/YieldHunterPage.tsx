@@ -3,7 +3,7 @@ import { useAppSelector, useAppDispatch } from '@/app/hooks'
 import { setOpportunities, setPositions, setFilters, setLoading } from '@/features/yield/yieldSlice'
 import {
   Percent, Shield, TrendingUp, AlertTriangle, DollarSign,
-  ExternalLink, RefreshCw, Filter, ChevronDown, Wallet,
+  RefreshCw, Filter, ChevronDown, Wallet,
   ArrowUpRight, ArrowDownRight, Info
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -46,7 +46,7 @@ const protocolInfo: Record<string, { color: string; description: string }> = {
 export default function YieldHunterPage() {
   const dispatch = useAppDispatch()
   const { opportunities, positions, filters, loading, stats } = useAppSelector(state => state.yield)
-  const wallet = useAppSelector(state => state.wallet.address)
+  const wallet = useAppSelector(state => state.wallet.browserWalletAddress)
 
   const [localOpportunities, setLocalOpportunities] = useState<YieldOpportunity[]>([])
   const [refreshing, setRefreshing] = useState(false)
