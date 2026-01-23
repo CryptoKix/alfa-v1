@@ -21,12 +21,14 @@ SOLANA_TRACKER_API_KEY = os.getenv("SOLANA_TRACKER_API_KEY", "")
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 DISCORD_GIT_WEBHOOK_URL = os.getenv("DISCORD_GIT_WEBHOOK_URL", "")
 DISCORD_SYSTEM_WEBHOOK_URL = os.getenv("DISCORD_SYSTEM_WEBHOOK_URL", "")
+BIRDEYE_API_KEY = os.getenv("BIRDEYE_API_KEY", "")
 
 # RPC & API URLs
 SOLANA_RPC = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
 JUPITER_QUOTE_API = "https://api.jup.ag/swap/v1/quote"
 JUPITER_SWAP_API = "https://api.jup.ag/swap/v1/swap"
 JUPITER_LIMIT_ORDER_API = "https://api.jup.ag/limit/v2"
+BIRDEYE_OHLCV_API = "https://public-api.birdeye.so/defi/ohlcv"
 
 # Keypair Loading
 KEYPAIR = None

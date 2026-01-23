@@ -219,8 +219,26 @@ def api_dca_add():
             return jsonify({"success": False, "error": "Total investment must be greater than 0"}), 400
     else:
         # DCA/TWAP/VWAP validation
-        if amount <= 0:
+        if bot_type != 'VWAP' and amount <= 0:
             return jsonify({"success": False, "error": "Amount must be greater than 0"}), 400
+
+    # VWAP-specific validation
+    if bot_type == 'VWAP':
+        total_amount = float(data.get('totalAmount') or 0)
+        if total_amount <= 0:
+            return jsonify({"success": False, "error": "Total amount must be greater than 0 for VWAP"}), 400
+
+        vwap_window = int(data.get('vwapWindow', 24))
+        if vwap_window not in [1, 4, 24, 168]:
+            return jsonify({"success": False, "error": "VWAP window must be 1, 4, 24, or 168 hours"}), 400
+
+        max_deviation = float(data.get('maxDeviation', 0))
+        if max_deviation < 0 or max_deviation > 50:
+            return jsonify({"success": False, "error": "Max deviation must be between 0 and 50%"}), 400
+
+        duration_hours = int(data.get('durationHours', 24))
+        if duration_hours < 1 or duration_hours > 720:
+            return jsonify({"success": False, "error": "Duration must be between 1 and 720 hours"}), 400
 
     # Validate floor_price if provided (Issue 1)
     raw_floor_price = data.get('floorPrice')
@@ -231,6 +249,14 @@ def api_dca_add():
         return jsonify({"success": False, "error": "Floor price must be greater than 0"}), 400
     if floor_price is not None and floor_price >= lower_bound:
         return jsonify({"success": False, "error": "Floor price must be below lower bound"}), 400
+
+    # Validate stop_loss_pct if provided (for DCA/TWAP)
+    raw_stop_loss = data.get('stopLossPct')
+    stop_loss_pct = float(raw_stop_loss) if raw_stop_loss is not None else None
+
+    if stop_loss_pct is not None:
+        if stop_loss_pct <= 0 or stop_loss_pct >= 100:
+            return jsonify({"success": False, "error": "Stop loss percentage must be between 0 and 100"}), 400
 
     config = {
         "alias": data.get('alias'),
@@ -252,7 +278,14 @@ def api_dca_add():
         # Issue 9: Trailing max cycles (0 = unlimited)
         "trailing_max_cycles": int(data.get('trailingMaxCycles', 0)),
         # Issue 10: Configurable slippage in basis points (default 50 = 0.5%)
-        "slippage_bps": int(data.get('slippageBps', 50))
+        "slippage_bps": int(data.get('slippageBps', 50)),
+        # Stop-loss for DCA/TWAP: percentage below avg_buy_price to trigger exit
+        "stop_loss_pct": stop_loss_pct,
+        "stop_loss_action": data.get('stopLossAction', 'sell_all'),  # 'sell_all' or 'pause'
+        # VWAP-specific config
+        "vwap_window": int(data.get('vwapWindow', 24)),
+        "max_deviation_pct": float(data.get('maxDeviation', 0)),
+        "duration_hours": int(data.get('durationHours', 24)),
     }
 
     state = {
@@ -532,6 +565,41 @@ def internal_webhook():
 
     return jsonify({"status": "success"}), 200
 
+
+@api_bp.route('/api/vwap/data')
+def api_vwap_data():
+    """
+    Get VWAP and volume profile data for a token.
+    Query params: ?mint=<mint>&window=<hours>
+    Returns: { vwap, hourly_weights[24], candle_count, window_hours }
+    """
+    from services.volume import get_vwap_for_token, fetch_ohlcv_data
+
+    mint = request.args.get('mint')
+    window = int(request.args.get('window', 24))
+
+    if not mint:
+        return jsonify({"error": "Missing mint parameter"}), 400
+
+    if window not in [1, 4, 24, 168]:
+        return jsonify({"error": "Window must be 1, 4, 24, or 168 hours"}), 400
+
+    try:
+        vwap, hourly_weights = get_vwap_for_token(mint, window)
+
+        # Get candle count for info
+        timeframe = "1H" if window >= 4 else "15m"
+        candles = fetch_ohlcv_data(mint, timeframe, window)
+
+        return jsonify({
+            "success": True,
+            "vwap": vwap,
+            "hourly_weights": hourly_weights,
+            "candle_count": len(candles),
+            "window_hours": window
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 

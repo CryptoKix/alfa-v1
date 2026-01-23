@@ -40,6 +40,15 @@ export interface Bot {
   investment?: number,
   grid_count?: number,
   grid_levels?: GridLevel[]
+  // VWAP-specific fields
+  vwap_window?: number
+  max_deviation_pct?: number
+  duration_hours?: number
+  current_vwap?: number
+  volume_profile?: number[]
+  price_deviation?: number
+  last_weighted_amount?: number
+  last_hour_weight?: number
 }
 
 export interface BotsState {

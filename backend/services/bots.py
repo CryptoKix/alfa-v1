@@ -98,6 +98,66 @@ def notify_grid_error(bot_alias, error_type, error_msg, level_info=None):
     except Exception as e:
         print(f"Failed to emit grid error socket event: {e}")
 
+def notify_twap_error(bot_alias, error_type, error_msg, run_info=None):
+    """Notify about TWAP/DCA bot errors via Discord and Socket.IO."""
+    try:
+        fields = [
+            {"name": "Bot", "value": str(bot_alias), "inline": True},
+            {"name": "Error Type", "value": error_type, "inline": True},
+        ]
+        if run_info:
+            fields.append({"name": "Run Info", "value": str(run_info), "inline": False})
+
+        send_discord_notification(
+            title=f"⚠️ TWAP ERROR: {bot_alias}",
+            message=str(error_msg)[:500],
+            color=0xFF6600,  # Orange for TWAP
+            fields=fields
+        )
+    except Exception as e:
+        print(f"Failed to send TWAP error notification: {e}")
+
+    try:
+        socketio.emit('bot_error', {
+            'bot_alias': bot_alias,
+            'error_type': error_type,
+            'error_msg': str(error_msg),
+            'run_info': run_info,
+            'timestamp': time.time()
+        }, namespace='/bots')
+    except Exception as e:
+        print(f"Failed to emit TWAP error socket event: {e}")
+
+def notify_vwap_error(bot_alias, error_type, error_msg, run_info=None):
+    """Notify about VWAP bot errors via Discord and Socket.IO."""
+    try:
+        fields = [
+            {"name": "Bot", "value": str(bot_alias), "inline": True},
+            {"name": "Error Type", "value": error_type, "inline": True},
+        ]
+        if run_info:
+            fields.append({"name": "Run Info", "value": str(run_info), "inline": False})
+
+        send_discord_notification(
+            title=f"⚠️ VWAP ERROR: {bot_alias}",
+            message=str(error_msg)[:500],
+            color=0x00CED1,  # Cyan for VWAP
+            fields=fields
+        )
+    except Exception as e:
+        print(f"Failed to send VWAP error notification: {e}")
+
+    try:
+        socketio.emit('bot_error', {
+            'bot_alias': bot_alias,
+            'error_type': error_type,
+            'error_msg': str(error_msg),
+            'run_info': run_info,
+            'timestamp': time.time()
+        }, namespace='/bots')
+    except Exception as e:
+        print(f"Failed to emit VWAP error socket event: {e}")
+
 bot_processing_lock = threading.Lock()
 # In-memory guard to prevent concurrent trades for the same bot
 in_flight_bots = set()
@@ -416,46 +476,396 @@ def process_grid_logic(bot, current_price):
         in_flight_bots.discard(bot_id)
 
 def process_twap_logic(bot, current_price):
+    """Process TWAP/DCA bot logic with proper concurrency control."""
+    bot_id = bot['id']
+
+    # Atomic check-and-add using lock
+    with bot_processing_lock:
+        if bot_id in in_flight_bots:
+            return  # Already processing in this process
+        in_flight_bots.add(bot_id)
+
     try:
-        config = json.loads(bot['config_json'])
-        state = json.loads(bot['state_json'])
+        # Fetch fresh state from DB
+        fresh_bot = db.get_bot(bot_id)
+        if not fresh_bot or fresh_bot['status'] != 'active':
+            return
+
+        # Check DB-level processing flag
+        if fresh_bot.get('is_processing', 0) == 1:
+            print(f"⚠️ Bot {bot_id} already processing (DB flag), skipping")
+            return
+
+        # Set processing flag
+        db.set_bot_processing(bot_id, True)
+
+        config = json.loads(fresh_bot['config_json'])
+        state = json.loads(fresh_bot['state_json'])
+        bot_alias = config.get('alias') or bot_id
+        slippage_bps = config.get('slippage_bps', 50)
+        user_wallet = fresh_bot.get('user_wallet')
+
+        # Validate price
+        if current_price <= 0:
+            print(f"⚠️ TWAP {bot_alias}: Invalid price {current_price}, skipping")
+            return
+
+        # --- STOP-LOSS CHECK ---
+        stop_loss_pct = config.get('stop_loss_pct')
+        if stop_loss_pct and not state.get('stop_triggered'):
+            avg_price = state.get('avg_buy_price', 0)
+            total_tokens = state.get('total_bought', 0)
+
+            if avg_price > 0 and total_tokens > 0:
+                stop_price = avg_price * (1 - (stop_loss_pct / 100))
+
+                if current_price <= stop_price:
+                    print(f"🚨 STOP-LOSS TRIGGERED: {bot_alias} | Price: {current_price:.4f} <= Stop: {stop_price:.4f}")
+                    state['stop_triggered'] = True
+                    stop_action = config.get('stop_loss_action', 'sell_all')
+
+                    if stop_action == 'sell_all':
+                        try:
+                            res = execute_bot_trade(
+                                fresh_bot['output_mint'], fresh_bot['input_mint'],
+                                total_tokens, f"TWAP Stop-Loss @ {current_price:.4f}",
+                                slippage_bps=slippage_bps, priority_fee=0.005,
+                                user_wallet=user_wallet
+                            )
+                            state['status'] = 'stopped'
+                            state['profit_realized'] = res.get('usd_value', 0) - state.get('total_cost', 0)
+                            notify_twap_error(bot_alias, "STOP_LOSS_EXIT",
+                                              f"Liquidated at ${current_price:.4f}. P&L: ${state['profit_realized']:.2f}")
+                        except Exception as e:
+                            notify_twap_error(bot_alias, "STOP_LOSS_FAILED", str(e))
+                    else:  # pause
+                        state['status'] = 'paused'
+                        notify_twap_error(bot_alias, "STOP_LOSS_PAUSE",
+                                          f"Paused at ${current_price:.4f}. Stop: ${stop_price:.4f}")
+
+                    db.save_bot(fresh_bot['id'], fresh_bot['type'],
+                                fresh_bot['input_mint'], fresh_bot['output_mint'],
+                                fresh_bot['input_symbol'], fresh_bot['output_symbol'],
+                                config, state, user_wallet)
+                    socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+                    return
+
+        # --- TAKE-PROFIT MONITORING PHASE ---
         if state.get('phase') == 'monitoring_profit':
             avg_price = state.get('avg_buy_price', 0)
             take_profit_pct = config.get('take_profit')
+
             if avg_price > 0 and take_profit_pct and take_profit_pct > 0:
                 target_price = avg_price * (1 + (take_profit_pct / 100))
+
                 if current_price >= target_price:
                     total_tokens = state.get('total_bought', 0)
                     if total_tokens > 0:
                         try:
-                            res = execute_trade_logic(bot['output_mint'], bot['input_mint'], total_tokens, "TWAP Snipe Exit", priority_fee=0.005)
+                            res = execute_bot_trade(
+                                fresh_bot['output_mint'], fresh_bot['input_mint'],
+                                total_tokens, "TWAP Take-Profit Exit",
+                                slippage_bps=slippage_bps, priority_fee=0.005,
+                                user_wallet=user_wallet
+                            )
                             state['status'] = 'completed'
                             state['phase'] = 'completed'
                             state['profit_realized'] = res.get('usd_value', 0) - state.get('total_cost', 0)
-                            socketio.emit('notification', {'title': 'Snipe Profit Hit', 'message': f"Sold {total_tokens:.4f} {bot['output_symbol']} @ ${current_price:.2f}", 'type': 'success'}, namespace='/bots')
-                            notify_bot_completion("TWAP", bot['output_symbol'], state['profit_realized'])
-                            db.save_bot(bot['id'], bot['type'], bot['input_mint'], bot['output_mint'], bot['input_symbol'], bot['output_symbol'], config, state)
+                            socketio.emit('notification', {
+                                'title': 'Take-Profit Hit',
+                                'message': f"Sold {total_tokens:.4f} {fresh_bot['output_symbol']} @ ${current_price:.2f}",
+                                'type': 'success'
+                            }, namespace='/bots')
+                            notify_bot_completion("TWAP", fresh_bot['output_symbol'], state['profit_realized'])
+                            db.save_bot(fresh_bot['id'], fresh_bot['type'],
+                                        fresh_bot['input_mint'], fresh_bot['output_mint'],
+                                        fresh_bot['input_symbol'], fresh_bot['output_symbol'],
+                                        config, state, user_wallet)
                             socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
-                        except Exception as e: print(f"Snipe Sell Error: {e}")
+                        except Exception as e:
+                            notify_twap_error(bot_alias, "TAKE_PROFIT_EXIT", str(e),
+                                              f"Attempted to sell {total_tokens:.4f} tokens")
             return
+
+        # --- REGULAR EXECUTION PHASE ---
         now = time.time()
         if now >= state.get('next_run', 0):
             try:
-                res = execute_trade_logic(bot['input_mint'], bot['output_mint'], config['amount'], f"{bot['type']} Execution", priority_fee=0)
+                res = execute_bot_trade(
+                    fresh_bot['input_mint'], fresh_bot['output_mint'],
+                    config['amount'], f"{fresh_bot['type']} Execution",
+                    slippage_bps=slippage_bps, priority_fee=0,
+                    user_wallet=user_wallet
+                )
                 state['run_count'] += 1
                 state['total_cost'] += res.get('usd_value', 0)
                 state['total_bought'] += res.get('amount_out', 0)
-                if state['total_bought'] > 0: state['avg_buy_price'] = state['total_cost'] / state['total_bought']
+
+                if state['total_bought'] > 0:
+                    state['avg_buy_price'] = state['total_cost'] / state['total_bought']
+
                 if config.get('max_runs') and state['run_count'] >= config['max_runs']:
-                    if config.get('take_profit') and config['take_profit'] > 0: state['phase'] = 'monitoring_profit'
+                    if config.get('take_profit') and config['take_profit'] > 0:
+                        state['phase'] = 'monitoring_profit'
                     else:
                         state['status'] = 'completed'
-                        notify_bot_completion(bot['type'], bot['output_symbol'], state.get('profit_realized', 0))
-                else: state['next_run'] = now + (config['interval'] * 60)
-                db.save_bot(bot['id'], bot['type'], bot['input_mint'], bot['output_mint'], bot['input_symbol'], bot['output_symbol'], config, state)
+                        notify_bot_completion(fresh_bot['type'], fresh_bot['output_symbol'],
+                                              state.get('profit_realized', 0))
+                else:
+                    state['next_run'] = now + (config['interval'] * 60)
+
+                db.save_bot(fresh_bot['id'], fresh_bot['type'],
+                            fresh_bot['input_mint'], fresh_bot['output_mint'],
+                            fresh_bot['input_symbol'], fresh_bot['output_symbol'],
+                            config, state, user_wallet)
                 socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
-            except Exception as e: state['next_run'] = now + 60
-    except Exception as e: pass
+
+            except Exception as e:
+                notify_twap_error(bot_alias, "EXECUTION", str(e),
+                                  f"Run {state['run_count']+1}/{config.get('max_runs', '∞')}")
+                state['next_run'] = now + 60
+                # Save state so retry delay persists across restarts
+                db.save_bot(fresh_bot['id'], fresh_bot['type'],
+                            fresh_bot['input_mint'], fresh_bot['output_mint'],
+                            fresh_bot['input_symbol'], fresh_bot['output_symbol'],
+                            config, state, user_wallet)
+
+    except Exception as e:
+        bot_alias = bot.get('id', 'unknown')
+        try:
+            config = json.loads(bot.get('config_json', '{}'))
+            bot_alias = config.get('alias') or bot_alias
+        except:
+            pass
+        notify_twap_error(bot_alias, "CRITICAL", str(e))
+        print(f"❌ TWAP LOGIC CRITICAL ERROR: {e}")
+
+    finally:
+        try:
+            db.set_bot_processing(bot_id, False)
+        except Exception as e:
+            print(f"Error clearing processing flag: {e}")
+        in_flight_bots.discard(bot_id)
+
+def process_vwap_logic(bot, current_price):
+    """Process VWAP bot logic with volume-weighted execution amounts."""
+    from datetime import datetime
+    from services.volume import get_vwap_for_token, calculate_vwap_execution_amount
+
+    bot_id = bot['id']
+
+    # Atomic check-and-add using lock
+    with bot_processing_lock:
+        if bot_id in in_flight_bots:
+            return  # Already processing in this process
+        in_flight_bots.add(bot_id)
+
+    try:
+        # Fetch fresh state from DB
+        fresh_bot = db.get_bot(bot_id)
+        if not fresh_bot or fresh_bot['status'] != 'active':
+            return
+
+        # Check DB-level processing flag
+        if fresh_bot.get('is_processing', 0) == 1:
+            print(f"⚠️ VWAP Bot {bot_id} already processing (DB flag), skipping")
+            return
+
+        # Set processing flag
+        db.set_bot_processing(bot_id, True)
+
+        config = json.loads(fresh_bot['config_json'])
+        state = json.loads(fresh_bot['state_json'])
+        bot_alias = config.get('alias') or bot_id
+        slippage_bps = config.get('slippage_bps', 50)
+        user_wallet = fresh_bot.get('user_wallet')
+
+        # VWAP-specific config
+        vwap_window = config.get('vwap_window', 24)
+        max_deviation_pct = config.get('max_deviation_pct', 0)
+        duration_hours = config.get('duration_hours', 24)
+        interval_minutes = config.get('interval', 15)
+        runs_per_hour = 60 // interval_minutes if interval_minutes > 0 else 4
+        total_amount = config.get('total_amount', 0)
+
+        # Validate price
+        if current_price <= 0:
+            print(f"⚠️ VWAP {bot_alias}: Invalid price {current_price}, skipping")
+            return
+
+        # --- FETCH VWAP AND VOLUME PROFILE ---
+        vwap_price, hourly_weights = get_vwap_for_token(fresh_bot['output_mint'], vwap_window)
+
+        # Store VWAP data in state for UI display
+        state['current_vwap'] = vwap_price
+        state['volume_profile'] = hourly_weights
+
+        # --- MAX DEVIATION CHECK ---
+        if max_deviation_pct > 0 and vwap_price > 0:
+            deviation = abs(current_price - vwap_price) / vwap_price * 100
+            state['price_deviation'] = deviation
+
+            if deviation > max_deviation_pct:
+                print(f"⏸️ VWAP {bot_alias}: Price deviation {deviation:.2f}% > max {max_deviation_pct}%, skipping execution")
+                # Save state to persist deviation info
+                db.save_bot(fresh_bot['id'], fresh_bot['type'],
+                            fresh_bot['input_mint'], fresh_bot['output_mint'],
+                            fresh_bot['input_symbol'], fresh_bot['output_symbol'],
+                            config, state, user_wallet)
+                return
+
+        # --- STOP-LOSS CHECK ---
+        stop_loss_pct = config.get('stop_loss_pct')
+        if stop_loss_pct and not state.get('stop_triggered'):
+            avg_price = state.get('avg_buy_price', 0)
+            total_tokens = state.get('total_bought', 0)
+
+            if avg_price > 0 and total_tokens > 0:
+                stop_price = avg_price * (1 - (stop_loss_pct / 100))
+
+                if current_price <= stop_price:
+                    print(f"🚨 VWAP STOP-LOSS TRIGGERED: {bot_alias} | Price: {current_price:.4f} <= Stop: {stop_price:.4f}")
+                    state['stop_triggered'] = True
+                    stop_action = config.get('stop_loss_action', 'sell_all')
+
+                    if stop_action == 'sell_all':
+                        try:
+                            res = execute_bot_trade(
+                                fresh_bot['output_mint'], fresh_bot['input_mint'],
+                                total_tokens, f"VWAP Stop-Loss @ {current_price:.4f}",
+                                slippage_bps=slippage_bps, priority_fee=0.005,
+                                user_wallet=user_wallet
+                            )
+                            state['status'] = 'stopped'
+                            state['profit_realized'] = res.get('usd_value', 0) - state.get('total_cost', 0)
+                            notify_vwap_error(bot_alias, "STOP_LOSS_EXIT",
+                                              f"Liquidated at ${current_price:.4f}. P&L: ${state['profit_realized']:.2f}")
+                        except Exception as e:
+                            notify_vwap_error(bot_alias, "STOP_LOSS_FAILED", str(e))
+                    else:  # pause
+                        state['status'] = 'paused'
+                        notify_vwap_error(bot_alias, "STOP_LOSS_PAUSE",
+                                          f"Paused at ${current_price:.4f}. Stop: ${stop_price:.4f}")
+
+                    db.save_bot(fresh_bot['id'], fresh_bot['type'],
+                                fresh_bot['input_mint'], fresh_bot['output_mint'],
+                                fresh_bot['input_symbol'], fresh_bot['output_symbol'],
+                                config, state, user_wallet)
+                    socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+                    return
+
+        # --- TAKE-PROFIT MONITORING PHASE ---
+        if state.get('phase') == 'monitoring_profit':
+            avg_price = state.get('avg_buy_price', 0)
+            take_profit_pct = config.get('take_profit')
+
+            if avg_price > 0 and take_profit_pct and take_profit_pct > 0:
+                target_price = avg_price * (1 + (take_profit_pct / 100))
+
+                if current_price >= target_price:
+                    total_tokens = state.get('total_bought', 0)
+                    if total_tokens > 0:
+                        try:
+                            res = execute_bot_trade(
+                                fresh_bot['output_mint'], fresh_bot['input_mint'],
+                                total_tokens, "VWAP Take-Profit Exit",
+                                slippage_bps=slippage_bps, priority_fee=0.005,
+                                user_wallet=user_wallet
+                            )
+                            state['status'] = 'completed'
+                            state['phase'] = 'completed'
+                            state['profit_realized'] = res.get('usd_value', 0) - state.get('total_cost', 0)
+                            socketio.emit('notification', {
+                                'title': 'VWAP Take-Profit Hit',
+                                'message': f"Sold {total_tokens:.4f} {fresh_bot['output_symbol']} @ ${current_price:.2f}",
+                                'type': 'success'
+                            }, namespace='/bots')
+                            notify_bot_completion("VWAP", fresh_bot['output_symbol'], state['profit_realized'])
+                            db.save_bot(fresh_bot['id'], fresh_bot['type'],
+                                        fresh_bot['input_mint'], fresh_bot['output_mint'],
+                                        fresh_bot['input_symbol'], fresh_bot['output_symbol'],
+                                        config, state, user_wallet)
+                            socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+                        except Exception as e:
+                            notify_vwap_error(bot_alias, "TAKE_PROFIT_EXIT", str(e),
+                                              f"Attempted to sell {total_tokens:.4f} tokens")
+            return
+
+        # --- REGULAR EXECUTION PHASE ---
+        now = time.time()
+        if now >= state.get('next_run', 0):
+            try:
+                # Calculate volume-weighted execution amount
+                current_hour = datetime.utcnow().hour
+                weighted_amount = calculate_vwap_execution_amount(
+                    total_amount=total_amount,
+                    hourly_weights=hourly_weights,
+                    current_hour=current_hour,
+                    duration_hours=duration_hours,
+                    runs_per_hour=runs_per_hour
+                )
+
+                # Store execution info for logging
+                state['last_weighted_amount'] = weighted_amount
+                state['last_hour_weight'] = hourly_weights[current_hour]
+
+                print(f"📊 VWAP {bot_alias}: Executing {weighted_amount:.6f} (hour {current_hour}, weight {hourly_weights[current_hour]:.4f})")
+
+                res = execute_bot_trade(
+                    fresh_bot['input_mint'], fresh_bot['output_mint'],
+                    weighted_amount, f"VWAP Execution (h{current_hour})",
+                    slippage_bps=slippage_bps, priority_fee=0,
+                    user_wallet=user_wallet
+                )
+                state['run_count'] += 1
+                state['total_cost'] += res.get('usd_value', 0)
+                state['total_bought'] += res.get('amount_out', 0)
+
+                if state['total_bought'] > 0:
+                    state['avg_buy_price'] = state['total_cost'] / state['total_bought']
+
+                if config.get('max_runs') and state['run_count'] >= config['max_runs']:
+                    if config.get('take_profit') and config['take_profit'] > 0:
+                        state['phase'] = 'monitoring_profit'
+                    else:
+                        state['status'] = 'completed'
+                        notify_bot_completion("VWAP", fresh_bot['output_symbol'],
+                                              state.get('profit_realized', 0))
+                else:
+                    state['next_run'] = now + (interval_minutes * 60)
+
+                db.save_bot(fresh_bot['id'], fresh_bot['type'],
+                            fresh_bot['input_mint'], fresh_bot['output_mint'],
+                            fresh_bot['input_symbol'], fresh_bot['output_symbol'],
+                            config, state, user_wallet)
+                socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+
+            except Exception as e:
+                notify_vwap_error(bot_alias, "EXECUTION", str(e),
+                                  f"Run {state['run_count']+1}/{config.get('max_runs', '∞')}")
+                state['next_run'] = now + 60
+                # Save state so retry delay persists across restarts
+                db.save_bot(fresh_bot['id'], fresh_bot['type'],
+                            fresh_bot['input_mint'], fresh_bot['output_mint'],
+                            fresh_bot['input_symbol'], fresh_bot['output_symbol'],
+                            config, state, user_wallet)
+
+    except Exception as e:
+        bot_alias = bot.get('id', 'unknown')
+        try:
+            config = json.loads(bot.get('config_json', '{}'))
+            bot_alias = config.get('alias') or bot_alias
+        except:
+            pass
+        notify_vwap_error(bot_alias, "CRITICAL", str(e))
+        print(f"❌ VWAP LOGIC CRITICAL ERROR: {e}")
+
+    finally:
+        try:
+            db.set_bot_processing(bot_id, False)
+        except Exception as e:
+            print(f"Error clearing processing flag: {e}")
+        in_flight_bots.discard(bot_id)
 
 def update_bot_performance(bot_id, current_price):
     try:
@@ -616,11 +1026,16 @@ def process_bot_safe(app, bot):
         with app.app_context():
             from extensions import price_cache, price_cache_lock
 
-            if bot['type'] in ['DCA', 'TWAP', 'VWAP']:
+            if bot['type'] in ['DCA', 'TWAP']:
                 # Issue 6: Use price_cache_lock for thread safety
                 with price_cache_lock:
                     current_price = price_cache.get(bot['output_mint'], (0,))[0]
                 process_twap_logic(bot, current_price)
+            elif bot['type'] == 'VWAP':
+                # VWAP uses dedicated logic with volume-weighted execution
+                with price_cache_lock:
+                    current_price = price_cache.get(bot['output_mint'], (0,))[0]
+                process_vwap_logic(bot, current_price)
             elif bot['type'] == 'LIMIT_GRID':
                 process_limit_grid_logic(bot)
     except Exception as e:

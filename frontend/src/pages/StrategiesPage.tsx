@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { GridConfigWidget } from '@/components/widgets/GridConfigWidget'
 import { TWAPConfigWidget } from '@/components/widgets/TWAPConfigWidget'
+import { VWAPConfigWidget } from '@/components/widgets/VWAPConfigWidget'
 import { CopyTradeConfigWidget } from '@/components/widgets/CopyTradeConfigWidget'
 import { WolfPackWidget } from '@/components/widgets/WolfPackWidget'
 import { ArbSettingsWidget, ArbAnalysisWidget, ArbOpportunitiesWidget } from '@/components/widgets/ArbConfigWidget'
@@ -64,10 +65,11 @@ export default function StrategiesPage() {
           <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
             {selectedStrategy === 'grid' && <GridConfigWidget />}
             {selectedStrategy === 'twap' && <TWAPConfigWidget />}
+            {selectedStrategy === 'vwap' && <VWAPConfigWidget />}
             {selectedStrategy === 'copy' && <CopyTradeConfigWidget />}
             {selectedStrategy === 'wolf' && <WolfPackWidget />}
-            
-            {!['grid', 'twap', 'copy', 'arb', 'wolf'].includes(selectedStrategy) && (
+
+            {!['grid', 'twap', 'vwap', 'copy', 'arb', 'wolf'].includes(selectedStrategy) && (
               <div className="h-full flex flex-col items-center justify-center bg-background-card border border-accent-pink/10 rounded-2xl relative overflow-hidden">
                  <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/80 via-accent-pink/40 to-transparent" />
                  <div className="absolute inset-0 bg-gradient-to-br from-accent-pink/5 to-accent-purple/5" />
