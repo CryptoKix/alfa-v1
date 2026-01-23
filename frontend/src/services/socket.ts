@@ -9,6 +9,7 @@ import { addOpportunity, updateMatrix, clearMatrix } from '../features/arb/arbSl
 import { addNotification, clearAll } from '../features/notifications/notificationsSlice'
 import { setTrackedTokens, addTrackedToken } from '../features/sniper/sniperSlice'
 import { setNews } from '../features/intel/intelSlice'
+import { setOpportunities, setPositions } from '../features/yield/yieldSlice'
 
 export let portfolioSocket: any
 export let priceSocket: any
@@ -18,6 +19,7 @@ export let copytradeSocket: any
 export let arbSocket: any
 export let sniperSocket: any
 export let intelSocket: any
+export let yieldSocket: any
 
 export const initSockets = () => {
   portfolioSocket = io('/portfolio', { transports: ['websocket', 'polling'] })
@@ -28,6 +30,7 @@ export const initSockets = () => {
   arbSocket = io('/arb', { transports: ['websocket', 'polling'] })
   sniperSocket = io('/sniper', { transports: ['websocket', 'polling'] })
   intelSocket = io('/intel', { transports: ['websocket', 'polling'] })
+  yieldSocket = io('/yield', { transports: ['websocket', 'polling'] })
   
   console.log('[Socket] Initializing Sockets...')
 
@@ -195,5 +198,31 @@ export const initSockets = () => {
     store.dispatch(setNews(data.news))
   })
 
-  return { portfolioSocket, priceSocket, historySocket, botsSocket, copytradeSocket, arbSocket, sniperSocket, intelSocket }
+  // Yield listeners
+  yieldSocket.on('connect', () => {
+    console.log('[Socket] Yield Connected | SID:', yieldSocket.id)
+    yieldSocket.emit('request_opportunities')
+  })
+
+  yieldSocket.on('opportunities_update', (data: any) => {
+    console.log('[Socket] Received Yield Opportunities:', data.opportunities?.length)
+    store.dispatch(setOpportunities(data.opportunities))
+  })
+
+  yieldSocket.on('positions_update', (data: any) => {
+    console.log('[Socket] Received Yield Positions:', data.positions?.length)
+    store.dispatch(setPositions(data.positions))
+  })
+
+  yieldSocket.on('position_update', (data: any) => {
+    console.log('[Socket] Yield Position Update:', data.action)
+    // Trigger a refresh of positions
+    const state = store.getState()
+    const wallet = state.wallet.address
+    if (wallet && data.wallet === wallet) {
+      yieldSocket.emit('request_positions', { wallet })
+    }
+  })
+
+  return { portfolioSocket, priceSocket, historySocket, botsSocket, copytradeSocket, arbSocket, sniperSocket, intelSocket, yieldSocket }
 }

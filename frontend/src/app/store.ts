@@ -8,6 +8,7 @@ import notificationsReducer from '../features/notifications/notificationsSlice'
 import sniperReducer from '../features/sniper/sniperSlice'
 import intelReducer from '../features/intel/intelSlice'
 import walletReducer from '../features/wallet/walletSlice'
+import yieldReducer from '../features/yield/yieldSlice'
 
 export const store = configureStore({
   reducer: {
@@ -20,6 +21,7 @@ export const store = configureStore({
     sniper: sniperReducer,
     intel: intelReducer,
     wallet: walletReducer,
+    yield: yieldReducer,
   },
 })
 

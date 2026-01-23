@@ -5,6 +5,7 @@ import StrategiesPage from './pages/StrategiesPage'
 import SniperPage from './pages/SniperPage'
 import CopyTradePage from './pages/CopyTrade'
 import NewsPage from './pages/NewsPage'
+import YieldHunterPage from './pages/YieldHunterPage'
 import { MainLayout } from './components/layout/MainLayout'
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
           <Route path="/copytrade" element={<CopyTradePage />} />
           <Route path="/sniper" element={<SniperPage />} />
           <Route path="/news" element={<NewsPage />} />
+          <Route path="/yield" element={<YieldHunterPage />} />
         </Routes>
       </MainLayout>
     </Router>

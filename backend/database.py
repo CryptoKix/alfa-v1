@@ -225,6 +225,48 @@ class TactixDB:
                 )
             ''')
 
+            # 14. OHLCV Cache Table (VWAP Volume Data)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS ohlcv_cache (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    mint TEXT NOT NULL,
+                    timestamp INTEGER NOT NULL,
+                    timeframe TEXT NOT NULL,
+                    open REAL,
+                    high REAL,
+                    low REAL,
+                    close REAL,
+                    volume REAL,
+                    fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(mint, timestamp, timeframe)
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_ohlcv_mint_time ON ohlcv_cache(mint, timestamp DESC)')
+
+            # 15. Yield Positions Table (DeFi Yield Tracking)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS yield_positions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    wallet_address TEXT NOT NULL,
+                    protocol TEXT NOT NULL,
+                    vault_address TEXT NOT NULL,
+                    vault_name TEXT,
+                    deposit_mint TEXT NOT NULL,
+                    deposit_symbol TEXT,
+                    deposit_amount REAL NOT NULL,
+                    shares_received REAL,
+                    entry_apy REAL,
+                    deposit_signature TEXT,
+                    deposit_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    withdraw_amount REAL,
+                    withdraw_signature TEXT,
+                    withdraw_timestamp DATETIME,
+                    status TEXT DEFAULT 'active',
+                    UNIQUE(wallet_address, vault_address, deposit_signature)
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_yield_wallet ON yield_positions(wallet_address, status)')
+
             conn.commit()
 
     def save_setting(self, key, value):
@@ -607,3 +649,53 @@ class TactixDB:
                 WHERE revoked = 0 AND expires_at > datetime('now')
             ''')
             return [dict(row) for row in cursor.fetchall()]
+
+    # --- Yield Position Methods ---
+
+    def save_yield_position(self, wallet_address, protocol, vault_address, vault_name,
+                           deposit_token, deposit_symbol, amount, shares, apy_at_deposit,
+                           deposit_signature):
+        """Record a new yield deposit position."""
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                INSERT INTO yield_positions (
+                    wallet_address, protocol, vault_address, vault_name,
+                    deposit_mint, deposit_symbol, deposit_amount, shares_received,
+                    entry_apy, deposit_signature, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+            ''', (
+                wallet_address, protocol, vault_address, vault_name,
+                deposit_token, deposit_symbol, amount, shares,
+                apy_at_deposit, deposit_signature
+            ))
+            return cursor.lastrowid
+
+    def get_yield_positions(self, wallet_address, status='active'):
+        """Get yield positions for a wallet."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute('''
+                SELECT * FROM yield_positions
+                WHERE wallet_address = ? AND status = ?
+                ORDER BY deposit_timestamp DESC
+            ''', (wallet_address, status))
+            return [dict(row) for row in cursor.fetchall()]
+
+    def update_yield_position_withdraw(self, wallet_address, vault_address,
+                                       withdraw_amount, withdraw_signature):
+        """Update a yield position with withdrawal info."""
+        with self._get_connection() as conn:
+            conn.execute('''
+                UPDATE yield_positions
+                SET withdraw_amount = ?, withdraw_signature = ?,
+                    withdraw_timestamp = datetime('now'), status = 'closed'
+                WHERE wallet_address = ? AND vault_address = ? AND status = 'active'
+            ''', (withdraw_amount, withdraw_signature, wallet_address, vault_address))
+
+    def get_yield_position_by_id(self, position_id):
+        """Get a specific yield position by ID."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute('SELECT * FROM yield_positions WHERE id = ?', (position_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None

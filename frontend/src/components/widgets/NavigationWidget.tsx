@@ -1,4 +1,4 @@
-import { LayoutDashboard, Zap, Bot, Users, Crosshair, Newspaper } from 'lucide-react'
+import { LayoutDashboard, Zap, Bot, Users, Crosshair, Newspaper, Percent } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
@@ -8,6 +8,7 @@ const navItems = [
   { icon: Bot, label: 'Strategies', path: '/strategies' },
   { icon: Users, label: 'Copy Trade', path: '/copytrade' },
   { icon: Crosshair, label: 'Sniper', path: '/sniper' },
+  { icon: Percent, label: 'Yield Hunter', path: '/yield' },
   { icon: Newspaper, label: 'Intel', path: '/news' },
   { image: '/cherry.jpg', label: 'Cherry', path: '/cherry', disabled: true },
 ]

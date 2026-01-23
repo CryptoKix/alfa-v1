@@ -16,7 +16,7 @@ logger = logging.getLogger("tactix")
 
 from config import SERVER_HOST, SERVER_PORT, WALLET_ADDRESS
 from extensions import create_app, socketio, helius, db
-from routes import api_bp, copytrade_bp, wallet_bp, register_websocket_handlers
+from routes import api_bp, copytrade_bp, wallet_bp, yield_bp, register_websocket_handlers
 from routes.arb import arb_bp, set_arb_engine
 from routes.copytrade import set_copy_trader
 from routes.services import services_bp, init_services  # Service control routes
@@ -44,6 +44,7 @@ app.register_blueprint(copytrade_bp)
 app.register_blueprint(arb_bp)
 app.register_blueprint(services_bp)
 app.register_blueprint(wallet_bp)
+app.register_blueprint(yield_bp)
 
 # Register WebSocket handlers
 register_websocket_handlers()
