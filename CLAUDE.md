@@ -46,8 +46,8 @@ pip install -r requirements.txt
 ## Architecture
 
 ### Frontend (React + TypeScript)
-- **State Management:** Redux Toolkit with 8 slices: `portfolio`, `prices`, `bots`, `copytrade`, `arb`, `sniper`, `notifications`, `intel`
-- **Real-time:** Socket.IO with 8 namespaces matching Redux slices (`/portfolio`, `/prices`, `/bots`, `/copytrade`, `/arb`, `/sniper`, `/history`, `/intel`)
+- **State Management:** Redux Toolkit with 10 slices: `portfolio`, `prices`, `bots`, `copytrade`, `arb`, `sniper`, `notifications`, `intel`, `wallet`, `yield`
+- **Real-time:** Socket.IO with 9 namespaces matching Redux slices (`/portfolio`, `/prices`, `/bots`, `/copytrade`, `/arb`, `/sniper`, `/history`, `/intel`, `/yield`)
 - **Socket initialization:** `frontend/src/services/socket.ts` - connects all namespaces and dispatches to Redux
 - **Store config:** `frontend/src/app/store.ts`
 - **Styling:** Tailwind CSS v4 with custom cyberpunk colors in `tailwind.config.js`
@@ -55,7 +55,7 @@ pip install -r requirements.txt
 ### Backend (Python Flask)
 - **Entry point:** `backend/app.py` - Flask app, blueprint registration, engine initialization
 - **Config:** `backend/config.py` - loads `.env`, API keys, keypair, RPC URLs
-- **Database:** SQLite via `backend/database.py` - tables for trades, bots, copytrade_targets, arb_pairs, sniper_tracked
+- **Database:** SQLite via `backend/database.py` - tables for trades, bots, copytrade_targets, arb_pairs, sniper_tracked, yield_positions
 - **Routes:** `backend/routes/` - REST API blueprints
 - **Services:** `backend/services/` - background engines (bots, trading, portfolio, notifications)
 
@@ -65,6 +65,7 @@ pip install -r requirements.txt
 - `backend/sniper_outrider.py` - New token discovery
 - `backend/helius_infrastructure.py` - Unified Helius API client (RPC, WebSocket, DAS)
 - `backend/services/jito.py` - Jito bundle signing for MEV-resistant execution
+- `backend/services/yield_hunter/` - DeFi yield aggregation across Kamino, Jupiter Lend, Loopscale, HyLo protocols
 
 ### Data Flow Pattern
 1. Backend service detects event (whale swap, arb opportunity, price update)
