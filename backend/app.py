@@ -14,9 +14,9 @@ from flask import request, render_template, jsonify
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s.%(msecs)03d] [%(levelname)s] %(name)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger("tactix")
 
-from config import SERVER_HOST, SERVER_PORT, WALLET_ADDRESS
+from config import SERVER_HOST, SERVER_PORT, WALLET_ADDRESS, HELIUS_API_KEY
 from extensions import create_app, socketio, helius, db
-from routes import api_bp, copytrade_bp, wallet_bp, yield_bp, register_websocket_handlers
+from routes import api_bp, copytrade_bp, wallet_bp, yield_bp, dlmm_bp, register_websocket_handlers, init_dlmm_services
 from routes.arb import arb_bp, set_arb_engine
 from routes.copytrade import set_copy_trader
 from routes.services import services_bp, init_services  # Service control routes
@@ -29,6 +29,7 @@ from services.notifications import send_discord_notification, notify_system_stat
 from services.sniper import sniper_engine
 from services.news import news_service
 from services.wolfpack import wolf_pack
+from services.meteora_dlmm import init_dlmm_sniper, get_dlmm_sniper
 
 # Create Flask application
 app = create_app()
@@ -45,6 +46,10 @@ app.register_blueprint(arb_bp)
 app.register_blueprint(services_bp)
 app.register_blueprint(wallet_bp)
 app.register_blueprint(yield_bp)
+app.register_blueprint(dlmm_bp)
+
+# Initialize DLMM services with socketio
+init_dlmm_services(socketio)
 
 # Register WebSocket handlers
 register_websocket_handlers()
@@ -62,8 +67,11 @@ arb_engine = ArbEngine(helius, db, socketio)
 set_arb_engine(arb_engine)
 set_copy_trader(copy_trader)
 
+# Initialize DLMM sniper (detection-only by default)
+dlmm_sniper = init_dlmm_sniper(db, socketio, HELIUS_API_KEY)
+
 # Initialize service control references
-init_services(copy_trader, arb_engine, wolf_pack, news_service)
+init_services(copy_trader, arb_engine, wolf_pack, news_service, dlmm_sniper)
 
 def handle_shutdown(signum, frame):
     """Graceful shutdown handler for Discord notification."""

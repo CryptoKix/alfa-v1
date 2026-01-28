@@ -29,6 +29,13 @@ SERVICES = [
         "restart_delay": 2
     },
     {
+        "name": "Meteora Sidecar",
+        "command": ["npm", "start"],
+        "log": "backend/meteora_sidecar.log",
+        "cwd": "backend/meteora_sidecar",
+        "restart_delay": 3
+    },
+    {
         "name": "Frontend",
         "command": ["npm", "run", "dev"],
         "log": "frontend/frontend.log",

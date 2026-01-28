@@ -267,6 +267,84 @@ class TactixDB:
             ''')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_yield_wallet ON yield_positions(wallet_address, status)')
 
+            # 16. DLMM Positions Table (Meteora DLMM)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS dlmm_positions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    position_pubkey TEXT UNIQUE NOT NULL,
+                    pool_address TEXT NOT NULL,
+                    pool_name TEXT,
+                    token_x_mint TEXT NOT NULL,
+                    token_y_mint TEXT NOT NULL,
+                    token_x_symbol TEXT,
+                    token_y_symbol TEXT,
+                    wallet_address TEXT NOT NULL,
+                    risk_profile TEXT,
+                    strategy_type TEXT,
+                    min_bin_id INTEGER,
+                    max_bin_id INTEGER,
+                    bin_step INTEGER,
+                    deposit_x_amount REAL,
+                    deposit_y_amount REAL,
+                    deposit_usd_value REAL,
+                    current_x_amount REAL,
+                    current_y_amount REAL,
+                    current_usd_value REAL,
+                    unclaimed_fees_x REAL DEFAULT 0,
+                    unclaimed_fees_y REAL DEFAULT 0,
+                    total_fees_claimed_x REAL DEFAULT 0,
+                    total_fees_claimed_y REAL DEFAULT 0,
+                    create_signature TEXT,
+                    close_signature TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    status TEXT DEFAULT 'active'
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_dlmm_wallet ON dlmm_positions(wallet_address, status)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_dlmm_pool ON dlmm_positions(pool_address)')
+
+            # 17. DLMM Sniper Settings Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS dlmm_sniper_settings (
+                    id INTEGER PRIMARY KEY,
+                    enabled BOOLEAN DEFAULT 0,
+                    risk_profile_filter TEXT DEFAULT 'all',
+                    min_bin_step INTEGER DEFAULT 1,
+                    max_bin_step INTEGER DEFAULT 100,
+                    auto_create_position BOOLEAN DEFAULT 0,
+                    default_strategy_type TEXT DEFAULT 'spot',
+                    default_range_width_pct REAL DEFAULT 20.0,
+                    deposit_amount_sol REAL DEFAULT 0.1,
+                    max_positions INTEGER DEFAULT 5
+                )
+            ''')
+            # Initialize default settings row if not exists
+            cursor.execute('''
+                INSERT OR IGNORE INTO dlmm_sniper_settings (id) VALUES (1)
+            ''')
+
+            # 18. DLMM Sniped Pools Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS dlmm_sniped_pools (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    pool_address TEXT UNIQUE NOT NULL,
+                    token_x_mint TEXT,
+                    token_y_mint TEXT,
+                    token_x_symbol TEXT,
+                    token_y_symbol TEXT,
+                    bin_step INTEGER,
+                    base_fee_bps INTEGER,
+                    initial_price REAL,
+                    detected_signature TEXT,
+                    detected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    sniped BOOLEAN DEFAULT 0,
+                    snipe_position_pubkey TEXT,
+                    status TEXT DEFAULT 'detected'
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_dlmm_sniped_status ON dlmm_sniped_pools(status)')
+
             conn.commit()
 
     def save_setting(self, key, value):
@@ -699,3 +777,191 @@ class TactixDB:
             cursor = conn.execute('SELECT * FROM yield_positions WHERE id = ?', (position_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
+
+    # --- DLMM Position Methods ---
+
+    def save_dlmm_position(self, position_data):
+        """Create a new DLMM position record."""
+        sql = '''
+            INSERT INTO dlmm_positions (
+                position_pubkey, pool_address, pool_name,
+                token_x_mint, token_y_mint, token_x_symbol, token_y_symbol,
+                wallet_address, risk_profile, strategy_type,
+                min_bin_id, max_bin_id, bin_step,
+                deposit_x_amount, deposit_y_amount, deposit_usd_value,
+                current_x_amount, current_y_amount, current_usd_value,
+                create_signature, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        '''
+        with self._get_connection() as conn:
+            cursor = conn.execute(sql, (
+                position_data['position_pubkey'],
+                position_data['pool_address'],
+                position_data.get('pool_name'),
+                position_data['token_x_mint'],
+                position_data['token_y_mint'],
+                position_data.get('token_x_symbol'),
+                position_data.get('token_y_symbol'),
+                position_data['wallet_address'],
+                position_data.get('risk_profile'),
+                position_data.get('strategy_type'),
+                position_data.get('min_bin_id'),
+                position_data.get('max_bin_id'),
+                position_data.get('bin_step'),
+                position_data.get('deposit_x_amount', 0),
+                position_data.get('deposit_y_amount', 0),
+                position_data.get('deposit_usd_value', 0),
+                position_data.get('current_x_amount', 0),
+                position_data.get('current_y_amount', 0),
+                position_data.get('current_usd_value', 0),
+                position_data.get('create_signature'),
+                position_data.get('status', 'active')
+            ))
+            return cursor.lastrowid
+
+    def get_dlmm_positions(self, wallet_address, status='active'):
+        """Get DLMM positions for a wallet."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute('''
+                SELECT * FROM dlmm_positions
+                WHERE wallet_address = ? AND status = ?
+                ORDER BY created_at DESC
+            ''', (wallet_address, status))
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_dlmm_position_by_pubkey(self, position_pubkey):
+        """Get a DLMM position by its public key."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                'SELECT * FROM dlmm_positions WHERE position_pubkey = ?',
+                (position_pubkey,)
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def update_dlmm_position(self, position_pubkey, updates):
+        """Update a DLMM position."""
+        allowed_fields = [
+            'current_x_amount', 'current_y_amount', 'current_usd_value',
+            'unclaimed_fees_x', 'unclaimed_fees_y',
+            'total_fees_claimed_x', 'total_fees_claimed_y',
+            'status', 'close_signature', 'last_updated'
+        ]
+        fields = []
+        values = []
+        for key, val in updates.items():
+            if key in allowed_fields:
+                fields.append(f"{key} = ?")
+                values.append(val)
+
+        if not fields:
+            return
+
+        values.append(position_pubkey)
+        sql = f"UPDATE dlmm_positions SET {', '.join(fields)} WHERE position_pubkey = ?"
+
+        with self._get_connection() as conn:
+            conn.execute(sql, values)
+
+    def close_dlmm_position(self, position_pubkey, close_signature):
+        """Mark a DLMM position as closed."""
+        with self._get_connection() as conn:
+            conn.execute('''
+                UPDATE dlmm_positions
+                SET status = 'closed', close_signature = ?, last_updated = datetime('now')
+                WHERE position_pubkey = ?
+            ''', (close_signature, position_pubkey))
+
+    # --- DLMM Sniper Settings Methods ---
+
+    def get_dlmm_sniper_settings(self):
+        """Get DLMM sniper settings."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute('SELECT * FROM dlmm_sniper_settings WHERE id = 1')
+            row = cursor.fetchone()
+            return dict(row) if row else {}
+
+    def update_dlmm_sniper_settings(self, settings):
+        """Update DLMM sniper settings."""
+        allowed_fields = [
+            'enabled', 'risk_profile_filter', 'min_bin_step', 'max_bin_step',
+            'auto_create_position', 'default_strategy_type', 'default_range_width_pct',
+            'deposit_amount_sol', 'max_positions'
+        ]
+        fields = []
+        values = []
+        for key, val in settings.items():
+            if key in allowed_fields:
+                fields.append(f"{key} = ?")
+                values.append(val)
+
+        if not fields:
+            return
+
+        sql = f"UPDATE dlmm_sniper_settings SET {', '.join(fields)} WHERE id = 1"
+
+        with self._get_connection() as conn:
+            conn.execute(sql, values)
+
+    # --- DLMM Sniped Pools Methods ---
+
+    def save_dlmm_sniped_pool(self, pool_data):
+        """Record a newly detected DLMM pool."""
+        sql = '''
+            INSERT OR REPLACE INTO dlmm_sniped_pools (
+                pool_address, token_x_mint, token_y_mint,
+                token_x_symbol, token_y_symbol, bin_step,
+                base_fee_bps, initial_price, detected_signature, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        '''
+        with self._get_connection() as conn:
+            cursor = conn.execute(sql, (
+                pool_data['pool_address'],
+                pool_data.get('token_x_mint'),
+                pool_data.get('token_y_mint'),
+                pool_data.get('token_x_symbol'),
+                pool_data.get('token_y_symbol'),
+                pool_data.get('bin_step'),
+                pool_data.get('base_fee_bps'),
+                pool_data.get('initial_price'),
+                pool_data.get('detected_signature'),
+                pool_data.get('status', 'detected')
+            ))
+            return cursor.lastrowid
+
+    def get_dlmm_sniped_pools(self, status=None, limit=50):
+        """Get detected DLMM pools."""
+        query = "SELECT * FROM dlmm_sniped_pools"
+        params = []
+        if status:
+            query += " WHERE status = ?"
+            params.append(status)
+        query += " ORDER BY detected_at DESC LIMIT ?"
+        params.append(limit)
+
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def update_dlmm_sniped_pool(self, pool_address, updates):
+        """Update a sniped pool record."""
+        allowed_fields = ['sniped', 'snipe_position_pubkey', 'status']
+        fields = []
+        values = []
+        for key, val in updates.items():
+            if key in allowed_fields:
+                fields.append(f"{key} = ?")
+                values.append(val)
+
+        if not fields:
+            return
+
+        values.append(pool_address)
+        sql = f"UPDATE dlmm_sniped_pools SET {', '.join(fields)} WHERE pool_address = ?"
+
+        with self._get_connection() as conn:
+            conn.execute(sql, values)

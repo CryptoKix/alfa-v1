@@ -9,20 +9,23 @@ _copy_trader = None
 _arb_engine = None
 _wolf_pack = None
 _news_service = None
+_dlmm_sniper = None
 
-def init_services(copy_trader, arb_engine, wolf_pack, news_service):
+def init_services(copy_trader, arb_engine, wolf_pack, news_service, dlmm_sniper=None):
     """Initialize service references from app.py"""
-    global _copy_trader, _arb_engine, _wolf_pack, _news_service
+    global _copy_trader, _arb_engine, _wolf_pack, _news_service, _dlmm_sniper
     _copy_trader = copy_trader
     _arb_engine = arb_engine
     _wolf_pack = wolf_pack
     _news_service = news_service
+    _dlmm_sniper = dlmm_sniper
 
 SERVICE_MAP = {
     'copy_trader': lambda: _copy_trader,
     'arb_engine': lambda: _arb_engine,
     'wolf_pack': lambda: _wolf_pack,
-    'news': lambda: _news_service
+    'news': lambda: _news_service,
+    'dlmm_sniper': lambda: _dlmm_sniper
 }
 
 SERVICE_INFO = {
@@ -49,6 +52,12 @@ SERVICE_INFO = {
         'description': 'News & social aggregation',
         'icon': 'Newspaper',
         'color': 'pink'
+    },
+    'dlmm_sniper': {
+        'name': 'DLMM Sniper',
+        'description': 'Meteora pool detection',
+        'icon': 'Layers',
+        'color': 'purple'
     }
 }
 
