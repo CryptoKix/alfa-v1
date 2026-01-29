@@ -14,12 +14,16 @@ from flask import request, render_template, jsonify
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s.%(msecs)03d] [%(levelname)s] %(name)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger("tactix")
 
-from config import SERVER_HOST, SERVER_PORT, WALLET_ADDRESS, HELIUS_API_KEY
+from config import SERVER_HOST, SERVER_PORT, WALLET_ADDRESS, HELIUS_API_KEY, BASE_DIR
 from extensions import create_app, socketio, helius, db
-from routes import api_bp, copytrade_bp, wallet_bp, yield_bp, dlmm_bp, register_websocket_handlers, init_dlmm_services
+from routes import api_bp, copytrade_bp, wallet_bp, yield_bp, dlmm_bp, liquidity_bp, register_websocket_handlers, init_dlmm_services, init_liquidity_services
 from routes.arb import arb_bp, set_arb_engine
 from routes.copytrade import set_copy_trader
 from routes.services import services_bp, init_services  # Service control routes
+from routes.auth import auth_bp  # Authentication routes
+from middleware.auth import init_auth  # Authentication middleware
+from middleware.rate_limit import init_rate_limiter, add_rate_limit_headers  # Rate limiting
+from services.audit import audit_logger, AuditEventType  # Audit logging
 from services.portfolio import balance_poller, broadcast_balance
 from arb_engine import ArbEngine
 from services.bots import dca_scheduler
@@ -37,9 +41,19 @@ app = create_app()
 # Clear any stale is_processing flags from previous runs
 db.clear_stale_processing_flags()
 
-# Issue 17: Initialize rate limiter
+# SECURITY: Initialize authentication middleware (defense in depth)
+init_auth(app, BASE_DIR)
+
+# SECURITY: Initialize rate limiter
+init_rate_limiter(app)
+
+# SECURITY: Add rate limit headers to all responses
+@app.after_request
+def after_request_rate_limit(response):
+    return add_rate_limit_headers(response)
 
 # Register blueprints
+app.register_blueprint(auth_bp)  # Auth routes first
 app.register_blueprint(api_bp)
 app.register_blueprint(copytrade_bp)
 app.register_blueprint(arb_bp)
@@ -47,9 +61,13 @@ app.register_blueprint(services_bp)
 app.register_blueprint(wallet_bp)
 app.register_blueprint(yield_bp)
 app.register_blueprint(dlmm_bp)
+app.register_blueprint(liquidity_bp)
 
 # Initialize DLMM services with socketio
 init_dlmm_services(socketio)
+
+# Initialize unified Liquidity services with socketio
+init_liquidity_services(socketio)
 
 # Register WebSocket handlers
 register_websocket_handlers()
@@ -100,6 +118,9 @@ if __name__ == '__main__':
     # Users can enable them via the ControlPanel widget when needed.
 
     notify_system_status("ONLINE", "TacTix.sol System Core has initialized. Services await manual activation.")
+
+    # SECURITY: Log system startup
+    audit_logger.log_system_start()
 
     socketio.run(
         app,

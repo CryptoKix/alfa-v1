@@ -3,7 +3,7 @@ import { Activity, Play, Pause, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { addNotification } from '@/features/notifications/notificationsSlice'
 import { useAppDispatch } from '@/app/hooks'
-import { botsSocket } from '@/services/socket'
+import { socketManager } from '@/services/socket'
 
 export const WolfPackWidget = () => {
   const dispatch = useAppDispatch()
@@ -17,16 +17,17 @@ export const WolfPackWidget = () => {
   })
   const [consensus, setConsensus] = useState<any[]>([])
   const [attacks, setAttacks] = useState<any[]>([])
-  
+
   useEffect(() => {
     fetchStatus()
-    
+
     const handleUpdate = (data: any) => {
         if (data.config) setConfig(data.config)
         if (data.consensus) setConsensus(data.consensus)
         if (data.attacks) setAttacks(data.attacks)
     }
-    
+
+    const botsSocket = socketManager.getSocket('bots')
     if (botsSocket) {
         botsSocket.on('wolfpack_update', handleUpdate)
         return () => { botsSocket.off('wolfpack_update', handleUpdate) }

@@ -1,0 +1,166 @@
+@import 'tailwindcss';
+@import './glass.css';
+
+@theme {
+  /* Pure black backgrounds */
+  --color-background-primary: #000000;
+  --color-background-secondary: #050505;
+  --color-background-card: #0a0a0a;
+  --color-background-elevated: #111111;
+
+  /* Electric accent colors */
+  --color-accent-cyan: #00ffff;
+  --color-accent-pink: #ff00ff;
+  --color-accent-purple: #9945FF;
+  --color-accent-green: #00ff9d;
+  --color-accent-red: #ff2a6d;
+  --color-accent-yellow: #fbbf24;
+  --color-accent-orange: #ff6b35;
+
+  /* Border colors */
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.1);
+  --color-border-strong: rgba(255, 255, 255, 0.15);
+
+  /* Text colors */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.7);
+  --color-text-tertiary: rgba(255, 255, 255, 0.5);
+  --color-text-muted: rgba(255, 255, 255, 0.35);
+
+  /* Fonts */
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'Inter', system-ui, sans-serif;
+
+  /* Glow shadows */
+  --shadow-glow-cyan: 0 0 20px rgba(0, 255, 255, 0.15);
+  --shadow-glow-pink: 0 0 20px rgba(255, 0, 255, 0.15);
+  --shadow-glow-green: 0 0 20px rgba(0, 255, 157, 0.15);
+  --shadow-glow-red: 0 0 20px rgba(255, 42, 109, 0.15);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+  }
+
+  /* Selection styling */
+  ::selection {
+    background: rgba(0, 255, 255, 0.3);
+    color: white;
+  }
+}
+
+@layer utilities {
+  /* Number input spinners hidden */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+
+  /* Prevent text selection on interactive elements */
+  .no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Safe area padding for mobile */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* Touch-friendly tap targets */
+  @media (hover: none) {
+    .touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Custom animation keyframes */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-down {
+  from { transform: translateY(-10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slide-out-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes scale-in {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 15px rgba(0, 255, 255, 0.2); }
+  50% { box-shadow: 0 0 30px rgba(0, 255, 255, 0.4); }
+}
+
+/* Animation utility classes */
+.animate-fade-in { animation: fade-in 200ms ease-out; }
+.animate-fade-out { animation: fade-out 200ms ease-out; }
+.animate-slide-up { animation: slide-up 300ms ease-out; }
+.animate-slide-down { animation: slide-down 300ms ease-out; }
+.animate-slide-in-right { animation: slide-in-right 300ms ease-out; }
+.animate-scale-in { animation: scale-in 200ms ease-out; }
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }

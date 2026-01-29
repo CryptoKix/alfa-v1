@@ -345,6 +345,54 @@ class TactixDB:
             ''')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_dlmm_sniped_status ON dlmm_sniped_pools(status)')
 
+            # 19. Unified Liquidity Positions Table (Meteora + Orca)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS liquidity_positions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    protocol TEXT NOT NULL,
+                    position_pubkey TEXT UNIQUE NOT NULL,
+                    position_nft_mint TEXT,
+                    pool_address TEXT NOT NULL,
+                    user_wallet TEXT NOT NULL,
+                    risk_profile TEXT,
+                    range_min INTEGER,
+                    range_max INTEGER,
+                    price_spacing INTEGER,
+                    deposit_x REAL,
+                    deposit_y REAL,
+                    deposit_usd REAL,
+                    auto_rebalance BOOLEAN DEFAULT 0,
+                    create_signature TEXT,
+                    close_signature TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    closed_at DATETIME,
+                    status TEXT DEFAULT 'active'
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_liq_wallet ON liquidity_positions(user_wallet, protocol, status)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_liq_pool ON liquidity_positions(pool_address)')
+
+            # 20. Rebalance History Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS rebalance_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    old_position_pubkey TEXT NOT NULL,
+                    new_position_pubkey TEXT NOT NULL,
+                    protocol TEXT NOT NULL,
+                    pool_address TEXT,
+                    user_wallet TEXT,
+                    old_range_min INTEGER,
+                    old_range_max INTEGER,
+                    new_range_min INTEGER,
+                    new_range_max INTEGER,
+                    close_signature TEXT,
+                    open_signature TEXT,
+                    reason TEXT,
+                    triggered_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_rebal_wallet ON rebalance_history(user_wallet)')
+
             conn.commit()
 
     def save_setting(self, key, value):
@@ -965,3 +1013,138 @@ class TactixDB:
 
         with self._get_connection() as conn:
             conn.execute(sql, values)
+
+    # --- Unified Liquidity Position Methods ---
+
+    def save_liquidity_position(self, position_data):
+        """Save a new liquidity position (Meteora or Orca)."""
+        sql = '''
+            INSERT INTO liquidity_positions (
+                protocol, position_pubkey, position_nft_mint, pool_address,
+                user_wallet, risk_profile, range_min, range_max, price_spacing,
+                deposit_x, deposit_y, deposit_usd, auto_rebalance,
+                create_signature, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        '''
+        with self._get_connection() as conn:
+            cursor = conn.execute(sql, (
+                position_data['protocol'],
+                position_data['position_pubkey'],
+                position_data.get('position_nft_mint'),
+                position_data['pool_address'],
+                position_data['user_wallet'],
+                position_data.get('risk_profile'),
+                position_data.get('range_min'),
+                position_data.get('range_max'),
+                position_data.get('price_spacing'),
+                position_data.get('deposit_x', 0),
+                position_data.get('deposit_y', 0),
+                position_data.get('deposit_usd', 0),
+                position_data.get('auto_rebalance', False),
+                position_data.get('create_signature'),
+                position_data.get('status', 'active')
+            ))
+            return cursor.lastrowid
+
+    def get_liquidity_positions(self, user_wallet, protocol=None, status='active'):
+        """Get liquidity positions for a wallet, optionally filtered by protocol."""
+        query = 'SELECT * FROM liquidity_positions WHERE user_wallet = ? AND status = ?'
+        params = [user_wallet, status]
+
+        if protocol:
+            query += ' AND protocol = ?'
+            params.append(protocol)
+
+        query += ' ORDER BY created_at DESC'
+
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_all_active_liquidity_positions(self):
+        """Get all active positions across all users (for rebalance monitoring)."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute('''
+                SELECT * FROM liquidity_positions WHERE status = 'active'
+            ''')
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_liquidity_position_by_pubkey(self, position_pubkey):
+        """Get a liquidity position by its public key."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                'SELECT * FROM liquidity_positions WHERE position_pubkey = ?',
+                (position_pubkey,)
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def update_liquidity_position(self, position_pubkey, updates):
+        """Update a liquidity position."""
+        allowed_fields = [
+            'auto_rebalance', 'status', 'close_signature', 'closed_at',
+            'range_min', 'range_max'
+        ]
+        fields = []
+        values = []
+        for key, val in updates.items():
+            if key in allowed_fields:
+                fields.append(f"{key} = ?")
+                values.append(val)
+
+        if not fields:
+            return
+
+        values.append(position_pubkey)
+        sql = f"UPDATE liquidity_positions SET {', '.join(fields)} WHERE position_pubkey = ?"
+
+        with self._get_connection() as conn:
+            conn.execute(sql, values)
+
+    # --- Rebalance History Methods ---
+
+    def record_rebalance(self, rebalance_data):
+        """Record a rebalance event."""
+        sql = '''
+            INSERT INTO rebalance_history (
+                old_position_pubkey, new_position_pubkey, protocol,
+                pool_address, user_wallet, old_range_min, old_range_max,
+                new_range_min, new_range_max, close_signature, open_signature, reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        '''
+        with self._get_connection() as conn:
+            cursor = conn.execute(sql, (
+                rebalance_data['old_position_pubkey'],
+                rebalance_data['new_position_pubkey'],
+                rebalance_data.get('protocol'),
+                rebalance_data.get('pool_address'),
+                rebalance_data.get('user_wallet'),
+                rebalance_data.get('old_range_min'),
+                rebalance_data.get('old_range_max'),
+                rebalance_data.get('new_range_min'),
+                rebalance_data.get('new_range_max'),
+                rebalance_data.get('close_signature'),
+                rebalance_data.get('open_signature'),
+                rebalance_data.get('reason')
+            ))
+            return cursor.lastrowid
+
+    def get_rebalance_history(self, user_wallet=None, limit=50):
+        """Get rebalance history, optionally filtered by wallet."""
+        query = 'SELECT * FROM rebalance_history'
+        params = []
+
+        if user_wallet:
+            query += ' WHERE user_wallet = ?'
+            params.append(user_wallet)
+
+        query += ' ORDER BY triggered_at DESC LIMIT ?'
+        params.append(limit)
+
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]

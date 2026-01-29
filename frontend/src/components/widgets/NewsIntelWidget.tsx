@@ -1,7 +1,8 @@
 import React from 'react'
-import { Newspaper, ExternalLink, Zap, TrendingUp, TrendingDown, Clock } from 'lucide-react'
+import { Newspaper, ExternalLink, Zap, TrendingUp, TrendingDown, Clock, Bitcoin, BarChart3, Globe, DollarSign } from 'lucide-react'
 import { useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
+import type { NewsCategory } from '@/features/intel/intelSlice'
 
 export const NewsIntelWidget: React.FC = () => {
   const { news } = useAppSelector(state => state.intel)
@@ -21,6 +22,16 @@ export const NewsIntelWidget: React.FC = () => {
       case 'bearish': return <TrendingDown size={10} />
       case 'urgent': return <Zap size={10} />
       default: return <Clock size={10} />
+    }
+  }
+
+  const getCategoryIcon = (category: NewsCategory) => {
+    switch (category) {
+      case 'crypto': return <Bitcoin size={8} className="text-accent-cyan" />
+      case 'stocks': return <BarChart3 size={8} className="text-green-400" />
+      case 'forex': return <Globe size={8} className="text-yellow-400" />
+      case 'macro': return <DollarSign size={8} className="text-accent-purple" />
+      default: return null
     }
   }
 
@@ -65,6 +76,11 @@ export const NewsIntelWidget: React.FC = () => {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
+                      {item.category && (
+                        <span className="p-1 rounded bg-white/5">
+                          {getCategoryIcon(item.category)}
+                        </span>
+                      )}
                       <span className={cn(
                         "px-1.5 py-0.5 rounded border text-[8px] font-black uppercase flex items-center gap-1",
                         getSentimentStyles(item.sentiment)
@@ -84,6 +100,19 @@ export const NewsIntelWidget: React.FC = () => {
                     <h4 className="text-[11px] font-bold text-white/90 leading-relaxed group-hover/item:text-accent-cyan transition-colors line-clamp-2">
                       {item.title}
                     </h4>
+                    {/* Ticker chips for stock news */}
+                    {item.tickers && item.tickers.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {item.tickers.slice(0, 3).map(ticker => (
+                          <span
+                            key={ticker}
+                            className="px-1 py-0.5 rounded bg-green-500/10 text-green-400 text-[7px] font-black"
+                          >
+                            ${ticker}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <a 
                     href={item.url} 

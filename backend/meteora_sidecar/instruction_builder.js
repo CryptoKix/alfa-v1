@@ -4,7 +4,7 @@
  */
 
 const { Connection, PublicKey, VersionedTransaction, TransactionMessage } = require('@solana/web3.js');
-const DLMM = require('@meteora-ag/dlmm').default;
+const DLMM = require('@meteora-ag/dlmm');
 const BN = require('bn.js');
 
 // RPC endpoint (can be overridden via env)
@@ -322,6 +322,43 @@ class MeteoraInstructionBuilder {
       feeX: positionInfo.positionData.feeX.toString(),
       feeY: positionInfo.positionData.feeY.toString(),
       inRange: activeBin.binId >= positionInfo.lowerBinId && activeBin.binId <= positionInfo.upperBinId
+    };
+  }
+
+  /**
+   * Get bin liquidity data around the active bin
+   * Returns actual liquidity distribution for visualization
+   */
+  async getBinsAroundActive(poolAddress, numBinsLeft = 35, numBinsRight = 35) {
+    const dlmm = await this.getDLMM(poolAddress);
+
+    // Use SDK method to get bins around active bin
+    const { activeBin, bins } = await dlmm.getBinsAroundActiveBin(numBinsLeft, numBinsRight);
+
+    // Format bin data for frontend
+    const formattedBins = bins.map(bin => ({
+      binId: bin.binId,
+      price: parseFloat(bin.price || bin.pricePerToken || '0'),
+      xAmount: bin.xAmount?.toString() || '0',
+      yAmount: bin.yAmount?.toString() || '0',
+      supply: bin.supply?.toString() || '0',
+      // Calculate total liquidity value (simplified - assumes equal weight)
+      liquidity: parseFloat(bin.xAmount?.toString() || '0') + parseFloat(bin.yAmount?.toString() || '0')
+    }));
+
+    // Find max liquidity for normalization
+    const maxLiquidity = Math.max(...formattedBins.map(b => b.liquidity), 1);
+
+    // Add normalized height for visualization
+    const binsWithHeight = formattedBins.map(bin => ({
+      ...bin,
+      normalizedHeight: bin.liquidity / maxLiquidity
+    }));
+
+    return {
+      activeBinId: activeBin,
+      bins: binsWithHeight,
+      binStep: dlmm.lbPair.binStep
     };
   }
 

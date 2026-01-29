@@ -159,7 +159,19 @@ export const GridConfigWidget = () => {
   const gridTrades = useMemo(() => history.filter(t => t && t.source?.toLowerCase()?.includes('grid')), [history])
 
   const handleDeploy = async () => {
-    if (!investment || !lowerPrice || !upperPrice || !gridCount || hasInsufficientBalance) return
+    const debugInfo = { investment, lowerPrice, upperPrice, gridCount, hasInsufficientBalance, totalInv, fromTokenBalance: fromToken.balance }
+    console.log('handleDeploy called:', debugInfo)
+
+    if (!investment || !lowerPrice || !upperPrice || !gridCount || hasInsufficientBalance) {
+      const missing = []
+      if (!investment) missing.push('investment')
+      if (!lowerPrice) missing.push('lowerPrice')
+      if (!upperPrice) missing.push('upperPrice')
+      if (!gridCount) missing.push('gridCount')
+      if (hasInsufficientBalance) missing.push('hasInsufficientBalance=true')
+      alert(`Cannot deploy - missing/invalid: ${missing.join(', ')}\n\nDebug: ${JSON.stringify(debugInfo, null, 2)}`)
+      return
+    }
     setStatus('loading')
     setErrorMsg('')
 

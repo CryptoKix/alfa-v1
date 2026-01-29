@@ -33,6 +33,13 @@ export interface PortfolioSnapshot {
   wallet_address: string
 }
 
+export interface UserWallet {
+  address: string
+  alias: string
+  totalUsd: number
+  holdings: TokenHolding[]
+}
+
 export interface PortfolioState {
   holdings: TokenHolding[]
   holdings24hAgo: TokenHolding[]
@@ -44,6 +51,8 @@ export interface PortfolioState {
   walletAlias: string
   loading: boolean
   connected: boolean
+  wallets: UserWallet[]
+  selectedWallet: string | null
 }
 
 const initialState: PortfolioState = {
@@ -57,6 +66,8 @@ const initialState: PortfolioState = {
   walletAlias: 'Loading...',
   loading: false,
   connected: false,
+  wallets: [],
+  selectedWallet: null,
 }
 
 export const portfolioSlice = createSlice({
@@ -93,8 +104,26 @@ export const portfolioSlice = createSlice({
     updateHistory: (state, action: PayloadAction<Trade[]>) => {
       state.history = action.payload
     },
+    setWallets: (state, action: PayloadAction<UserWallet[]>) => {
+      state.wallets = action.payload
+    },
+    setSelectedWallet: (state, action: PayloadAction<string | null>) => {
+      state.selectedWallet = action.payload
+    },
+    updatePortfolioForWallet: (state, action: PayloadAction<{ address: string; totalUsd: number; holdings: TokenHolding[] }>) => {
+      const idx = state.wallets.findIndex(w => w.address === action.payload.address)
+      if (idx !== -1) {
+        state.wallets[idx].totalUsd = action.payload.totalUsd
+        state.wallets[idx].holdings = action.payload.holdings
+      }
+      // If this is the currently selected wallet, also update main state
+      if (state.selectedWallet === action.payload.address || state.wallet === action.payload.address) {
+        state.totalUsd = action.payload.totalUsd
+        state.holdings = action.payload.holdings
+      }
+    },
   },
 })
 
-export const { updatePortfolio, updateHistory, setWebConnection, setSnapshots } = portfolioSlice.actions
+export const { updatePortfolio, updateHistory, setWebConnection, setSnapshots, setWallets, setSelectedWallet, updatePortfolioForWallet } = portfolioSlice.actions
 export default portfolioSlice.reducer

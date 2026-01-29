@@ -1,15 +1,19 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
+export type NewsCategory = 'crypto' | 'stocks' | 'forex' | 'macro'
+
 export interface NewsItem {
   id: string
   title: string
   url: string
   source: string
   type: 'news' | 'social'
+  category: NewsCategory
   published_at: string
   sentiment: 'bullish' | 'bearish' | 'neutral' | 'urgent'
   is_relevant: boolean
   currencies?: string[]
+  tickers?: string[]
 }
 
 export interface IntelState {

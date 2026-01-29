@@ -22,10 +22,12 @@ class SniperEngine:
             "Pump.fun": "6EF8rLSqY78dq396uA9D8S5WvAnX6k98TqQ29P9f77fM"
         }
         self.seen_signatures = set()
+        # SECURITY: Reduced default slippage from 15% to 5% to limit sandwich attack exposure
+        # SECURITY: Reduced default buy amount to 0.1 SOL max per snipe
         self.settings = db.get_setting('sniper_settings', {
             "autoSnipe": False,
             "buyAmount": 0.1,
-            "slippage": 15,
+            "slippage": 5,  # 5% max slippage (was 15%)
             "priorityFee": 0.005,
             "minLiquidity": 0.5,
             "requireMintRenounced": True,
@@ -155,20 +157,40 @@ class SniperEngine:
             pass
 
     def attempt_auto_snipe(self, token_data):
-        """Execute automated trade."""
+        """Execute automated trade with safety guards."""
         try:
             from services.trading import execute_trade_logic
+            from services.trade_guard import trade_guard, TradeGuardError
+
             buy_amount = float(self.settings.get('buyAmount', 0.1))
-            logger.info(f"🤖 AUTO-BUY INITIATED: {token_data['symbol']} for {buy_amount} SOL")
-            
+            slippage_pct = float(self.settings.get('slippage', 5))
+
+            # SECURITY: Validate sniper trade against safety limits
+            try:
+                trade_guard.validate_sniper_trade(
+                    amount_sol=buy_amount,
+                    slippage_pct=slippage_pct,
+                    token_mint=token_data['mint']
+                )
+            except TradeGuardError as e:
+                logger.warning(f"⚠️ Sniper trade blocked by guard: {e}")
+                socketio.emit('notification', {
+                    'title': 'Auto-Snipe Blocked',
+                    'message': str(e),
+                    'type': 'warning'
+                }, namespace='/bots')
+                return
+
+            logger.info(f"🤖 AUTO-BUY INITIATED: {token_data['symbol']} for {buy_amount} SOL (slippage: {slippage_pct}%)")
+
             socketio.start_background_task(
                 execute_trade_logic,
-                "So11111111111111111111111111111111111111112", 
-                token_data['mint'], 
+                "So11111111111111111111111111111111111111112",
+                token_data['mint'],
                 buy_amount,
-                strategy=f"Auto-Snipe: {token_data['symbol']}",
-                slippageBps=int(float(self.settings.get('slippage', 15)) * 100),
-                priorityFee=float(self.settings.get('priorityFee', 0.005))
+                source=f"Auto-Snipe: {token_data['symbol']}",
+                slippage_bps=int(slippage_pct * 100),
+                priority_fee=float(self.settings.get('priorityFee', 0.005))
             )
 
             socketio.emit('notification', {

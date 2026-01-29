@@ -74,19 +74,19 @@ export default function ControlPanelWidget() {
 
   if (initialLoading) {
     return (
-      <div className="bg-background-card border border-white/10 rounded-2xl p-4 shadow-xl flex items-center justify-center h-full">
+      <div className="bg-background-card border border-accent-cyan/10 rounded-2xl p-4 shadow-xl flex items-center justify-center h-full">
         <Loader2 className="animate-spin text-text-muted" size={24} />
       </div>
     )
   }
 
   return (
-    <div className="bg-background-card border border-white/10 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-3 h-full">
+    <div className="bg-background-card border border-accent-cyan/10 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-3 h-full">
       {/* Header accent */}
-      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-cyan/80 via-accent-purple/40 to-transparent" />
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-cyan/60 via-accent-cyan/20 to-transparent" />
 
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-3 -mx-4 px-4 -mt-1">
+      <div className="flex items-center justify-between border-b border-accent-cyan/10 pb-3 -mx-4 px-4 -mt-1">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-accent-cyan/10 text-accent-cyan">
             <Power size={16} />

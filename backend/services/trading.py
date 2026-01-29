@@ -236,8 +236,13 @@ def execute_transfer(recipient_address, amount, mint="So111111111111111111111111
 
     return sig
 
-def execute_trade_logic(input_mint, output_mint, amount, source="Manual", slippage_bps=50, priority_fee=0.001):
-    """Execute a swap trade via Jupiter Aggregator."""
+def execute_trade_logic(input_mint, output_mint, amount, source="Manual", slippage_bps=50, priority_fee=0.001, skip_guard=False):
+    """
+    Execute a swap trade via Jupiter Aggregator.
+
+    SECURITY: Trade guard validation is applied by default.
+    Set skip_guard=True only for internal system trades that have already been validated.
+    """
     if not KEYPAIR:
         raise Exception("No private key loaded")
 
@@ -248,11 +253,46 @@ def execute_trade_logic(input_mint, output_mint, amount, source="Manual", slippa
 
     headers = {'x-api-key': JUPITER_API_KEY} if JUPITER_API_KEY else {}
 
-    # Get quote
+    # Get quote FIRST for USD value estimation
     quote_url = f"{JUPITER_QUOTE_API}?inputMint={input_mint}&outputMint={output_mint}&amount={amount_lamports}&slippageBps={slippage_bps}"
     quote = requests.get(quote_url, headers=headers, timeout=10).json()
     if "error" in quote:
         raise Exception(f"Quote: {quote['error']}")
+
+    # SECURITY: Trade Guard validation
+    if not skip_guard:
+        from services.trade_guard import trade_guard, TradeGuardError
+
+        # Calculate USD value for guard
+        estimated_usd = 0
+        with price_cache_lock:
+            if input_mint in price_cache:
+                estimated_usd = amount * price_cache[input_mint][0]
+            elif output_mint in price_cache:
+                amount_out_est = int(quote.get('outAmount', 0)) / (10 ** output_token.get('decimals', 9))
+                estimated_usd = amount_out_est * price_cache[output_mint][0]
+
+        # Validate trade (raises TradeGuardError if invalid)
+        # Bot/automated sources don't require confirmation
+        require_confirm = source == "Manual"
+        is_valid, confirm_id = trade_guard.validate_trade(
+            input_mint=input_mint,
+            output_mint=output_mint,
+            amount=amount,
+            usd_value=estimated_usd,
+            slippage_bps=slippage_bps,
+            source=source,
+            require_confirmation=require_confirm
+        )
+
+        # If confirmation required, return early with confirmation ID
+        if confirm_id:
+            return {
+                "requires_confirmation": True,
+                "confirmation_id": confirm_id,
+                "usd_value": estimated_usd,
+                "message": f"Trade of ${estimated_usd:.2f} requires confirmation"
+            }
 
     # Generate swap transaction
     compute_unit_price = int(priority_fee * 10**15 / 1400000)
@@ -322,6 +362,14 @@ def execute_trade_logic(input_mint, output_mint, amount, source="Manual", slippa
         "signature": sig,
         "status": "success"
     })
+
+    # SECURITY: Record trade with trade guard for daily volume tracking
+    if not skip_guard:
+        try:
+            from services.trade_guard import trade_guard
+            trade_guard.record_trade(input_mint, output_mint, usd_value)
+        except Exception as e:
+            print(f"Trade guard record error (non-fatal): {e}")
 
     # Broadcast updates
     socketio.emit('history_update', {'history': db.get_history(50, wallet_address=WALLET_ADDRESS)}, namespace='/history')

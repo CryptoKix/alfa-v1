@@ -1,16 +1,47 @@
 import React, { useState } from 'react'
-import { Newspaper, TrendingUp, TrendingDown, Zap, Clock, ExternalLink, Twitter, Filter } from 'lucide-react'
+import { Newspaper, TrendingUp, TrendingDown, Zap, Clock, ExternalLink, Twitter, Filter, Bitcoin, DollarSign, Globe, BarChart3 } from 'lucide-react'
 import { useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
+import type { NewsCategory } from '@/features/intel/intelSlice'
+
+type CategoryFilter = 'all' | 'crypto' | 'tradfi'
+type TypeFilter = 'all' | 'news' | 'social'
 
 const NewsPage: React.FC = () => {
   const { news } = useAppSelector(state => state.intel)
-  const [filter, setFilter] = useState<'all' | 'news' | 'social'>('all')
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
 
   const filteredNews = news.filter(item => {
-    if (filter === 'all') return true
-    return item.type === filter
+    // Type filter
+    if (typeFilter !== 'all' && item.type !== typeFilter) return false
+
+    // Category filter
+    if (categoryFilter === 'crypto') return item.category === 'crypto'
+    if (categoryFilter === 'tradfi') return ['stocks', 'forex', 'macro'].includes(item.category)
+
+    return true
   })
+
+  const getCategoryStyles = (category: NewsCategory) => {
+    switch (category) {
+      case 'crypto': return 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan/30'
+      case 'stocks': return 'bg-green-500/10 text-green-400 border-green-500/30'
+      case 'forex': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
+      case 'macro': return 'bg-accent-purple/10 text-accent-purple border-accent-purple/30'
+      default: return 'bg-white/5 text-text-muted border-white/10'
+    }
+  }
+
+  const getCategoryIcon = (category: NewsCategory) => {
+    switch (category) {
+      case 'crypto': return <Bitcoin size={10} />
+      case 'stocks': return <BarChart3 size={10} />
+      case 'forex': return <Globe size={10} />
+      case 'macro': return <DollarSign size={10} />
+      default: return <Newspaper size={10} />
+    }
+  }
 
   const getSentimentStyles = (sentiment: string) => {
     switch (sentiment) {
@@ -42,36 +73,68 @@ const NewsPage: React.FC = () => {
         </div>
         
         {/* Center Filter Controls */}
-        <div className="flex justify-center">
+        <div className="flex justify-center gap-2">
+          {/* Category Filter */}
           <div className="flex bg-background-card border border-white/5 rounded-xl p-1 gap-1">
-            <button 
-              onClick={() => setFilter('all')}
+            <button
+              onClick={() => setCategoryFilter('all')}
               className={cn(
                 "px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
-                filter === 'all' ? "bg-white/10 text-white shadow-glow-white" : "text-text-muted hover:text-white"
+                categoryFilter === 'all' ? "bg-white/10 text-white shadow-glow-white" : "text-text-muted hover:text-white"
               )}
             >
               All
             </button>
-            <button 
-              onClick={() => setFilter('news')}
+            <button
+              onClick={() => setCategoryFilter('crypto')}
               className={cn(
                 "px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center gap-2",
-                filter === 'news' ? "bg-accent-purple/20 text-accent-purple border border-accent-purple/20" : "text-text-muted hover:text-white"
+                categoryFilter === 'crypto' ? "bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/20" : "text-text-muted hover:text-white"
               )}
             >
-              <Newspaper size={12} />
-              News
+              <Bitcoin size={12} />
+              Crypto
             </button>
-            <button 
-              onClick={() => setFilter('social')}
+            <button
+              onClick={() => setCategoryFilter('tradfi')}
               className={cn(
                 "px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center gap-2",
-                filter === 'social' ? "bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/20" : "text-text-muted hover:text-white"
+                categoryFilter === 'tradfi' ? "bg-green-500/20 text-green-400 border border-green-500/20" : "text-text-muted hover:text-white"
               )}
             >
-              <Twitter size={12} />
-              Social
+              <DollarSign size={12} />
+              TradFi
+            </button>
+          </div>
+
+          {/* Type Filter */}
+          <div className="flex bg-background-card border border-white/5 rounded-xl p-1 gap-1">
+            <button
+              onClick={() => setTypeFilter('all')}
+              className={cn(
+                "px-2 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                typeFilter === 'all' ? "bg-white/10 text-white" : "text-text-muted hover:text-white"
+              )}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setTypeFilter('news')}
+              className={cn(
+                "px-2 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center gap-1",
+                typeFilter === 'news' ? "bg-accent-purple/20 text-accent-purple" : "text-text-muted hover:text-white"
+              )}
+            >
+              <Newspaper size={10} />
+            </button>
+            <button
+              onClick={() => setTypeFilter('social')}
+              className={cn(
+                "px-2 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center gap-1",
+                typeFilter === 'social' ? "bg-accent-cyan/20 text-accent-cyan" : "text-text-muted hover:text-white"
+              )}
+            >
+              <Twitter size={10} />
             </button>
           </div>
         </div>
@@ -89,7 +152,9 @@ const NewsPage: React.FC = () => {
           {filteredNews.length === 0 ? (
             <div className="col-span-full h-64 flex flex-col items-center justify-center text-text-muted opacity-50 italic border border-white/5 rounded-2xl bg-background-card">
               <Filter size={48} strokeWidth={1} className="mb-4" />
-              <span className="text-sm uppercase tracking-widest">No signals found for filter: {filter}</span>
+              <span className="text-sm uppercase tracking-widest">
+                No signals found for {categoryFilter !== 'all' ? categoryFilter : ''} {typeFilter !== 'all' ? typeFilter : 'selected filters'}
+              </span>
             </div>
           ) : (
             filteredNews.map((item) => (
@@ -117,6 +182,13 @@ const NewsPage: React.FC = () => {
                       </div>
                       <span className={cn(
                         "px-2 py-0.5 rounded border text-[9px] font-black uppercase flex items-center gap-1.5",
+                        getCategoryStyles(item.category)
+                      )}>
+                        {getCategoryIcon(item.category)}
+                        {item.category}
+                      </span>
+                      <span className={cn(
+                        "px-2 py-0.5 rounded border text-[9px] font-black uppercase flex items-center gap-1.5",
                         getSentimentStyles(item.sentiment)
                       )}>
                         {getSentimentIcon(item.sentiment)}
@@ -131,6 +203,20 @@ const NewsPage: React.FC = () => {
                   <h3 className="text-sm font-black text-white leading-relaxed group-hover:text-accent-cyan transition-colors">
                     {item.title}
                   </h3>
+
+                  {/* Ticker chips for stock news */}
+                  {item.tickers && item.tickers.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {item.tickers.map(ticker => (
+                        <span
+                          key={ticker}
+                          className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 text-[9px] font-black"
+                        >
+                          ${ticker}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between mt-auto pt-4 border-t border-white/5">

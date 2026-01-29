@@ -1,27 +1,60 @@
+import { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { AppShell } from './components/layout'
+import { useAppDispatch } from './app/hooks'
+import { setServerWalletAddress } from './features/wallet/walletSlice'
 import Dashboard from './pages/Dashboard'
-import TradePage from './pages/Trade'
-import StrategiesPage from './pages/StrategiesPage'
+import TradePage from './pages/TradePage'
+import BotsPage from './pages/BotsPage'
+import CopyTradePage from './pages/CopyTradePage'
+import ArbPage from './pages/ArbPage'
 import SniperPage from './pages/SniperPage'
-import CopyTradePage from './pages/CopyTrade'
+import DLMMPage from './pages/DLMMPage'
+import LiquidityPage from './pages/LiquidityPage'
+import YieldPage from './pages/YieldPage'
 import NewsPage from './pages/NewsPage'
-import YieldHunterPage from './pages/YieldHunterPage'
-import { MainLayout } from './components/layout/MainLayout'
+import ControlPanel from './pages/ControlPanel'
 
 function App() {
+  const dispatch = useAppDispatch()
+
+  // Fetch server wallet address on mount (for server mode)
+  useEffect(() => {
+    const fetchServerWallet = async () => {
+      try {
+        const res = await fetch('/api/wallet/server-address')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.address) {
+            dispatch(setServerWalletAddress(data.address))
+            console.log('[Wallet] Server wallet loaded:', data.address.slice(0, 8) + '...')
+          }
+        }
+      } catch (e) {
+        console.error('[Wallet] Failed to fetch server wallet:', e)
+      }
+    }
+    fetchServerWallet()
+  }, [dispatch])
+
   return (
     <Router>
-      <MainLayout>
+      <AppShell>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/trade" element={<TradePage />} />
-          <Route path="/strategies" element={<StrategiesPage />} />
+          <Route path="/strategies" element={<BotsPage />} />
+          <Route path="/bots" element={<BotsPage />} />
           <Route path="/copytrade" element={<CopyTradePage />} />
+          <Route path="/arb" element={<ArbPage />} />
           <Route path="/sniper" element={<SniperPage />} />
-          <Route path="/news" element={<NewsPage />} />
-          <Route path="/yield" element={<YieldHunterPage />} />
+          <Route path="/dlmm" element={<DLMMPage />} />
+          <Route path="/liquidity" element={<LiquidityPage />} />
+          <Route path="/yield" element={<YieldPage />} />
+          <Route path="/intel" element={<NewsPage />} />
+          <Route path="/control" element={<ControlPanel />} />
         </Routes>
-      </MainLayout>
+      </AppShell>
     </Router>
   )
 }

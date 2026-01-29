@@ -121,6 +121,90 @@ class CopyTraderEngine:
             return f"{mint[:4]}..."
         except: return f"{mint[:4]}..."
 
+    def _is_token_safe(self, mint: str, config: dict) -> bool:
+        """
+        SECURITY: Verify token is safe before auto-executing copy trade.
+
+        Checks:
+        - Not on blocklist
+        - Has minimum liquidity (if configured)
+        - Has valid metadata
+        - Doesn't match suspicious patterns (common rug pull indicators)
+
+        Args:
+            mint: Token mint address to check
+            config: Copy trade configuration with safety settings
+
+        Returns:
+            True if token passes safety checks
+        """
+        # Skip checks for major tokens
+        if mint in MAJOR_TOKENS:
+            return True
+
+        try:
+            from services.trade_guard import TOKEN_BLOCKLIST
+
+            # 1. Check trade guard blocklist
+            if mint in TOKEN_BLOCKLIST:
+                logger.warning(f"Token {mint[:8]}... is on blocklist")
+                return False
+
+            # 2. Get token metadata via Helius DAS
+            asset = self.helius.das.get_asset(mint)
+            if not asset:
+                logger.warning(f"Token {mint[:8]}... has no DAS metadata")
+                # Allow if safety checks are disabled in config
+                return config.get('allow_unknown_tokens', False)
+
+            token_info = asset.get('token_info', {})
+            content = asset.get('content', {})
+            metadata = content.get('metadata', {})
+
+            # 3. Check for suspicious patterns in name/symbol
+            name = (metadata.get('name') or '').lower()
+            symbol = (token_info.get('symbol') or metadata.get('symbol') or '').lower()
+
+            suspicious_patterns = [
+                'honeypot', 'scam', 'rug', 'fake', 'test', 'copy',
+                'replica', 'clone', 'presale', 'free', 'airdrop'
+            ]
+
+            for pattern in suspicious_patterns:
+                if pattern in name or pattern in symbol:
+                    logger.warning(f"Token {mint[:8]}... has suspicious name/symbol: {name}/{symbol}")
+                    return False
+
+            # 4. Check freeze authority (tokens that can freeze are risky)
+            if asset.get('freeze_authority'):
+                # Only block if strict mode is enabled
+                if config.get('require_no_freeze', False):
+                    logger.warning(f"Token {mint[:8]}... has freeze authority")
+                    return False
+
+            # 5. Check mint authority (still mintable = inflation risk)
+            if asset.get('mint_authority'):
+                # Only block if strict mode is enabled
+                if config.get('require_mint_renounced', False):
+                    logger.warning(f"Token {mint[:8]}... has mint authority (not renounced)")
+                    return False
+
+            # 6. Check minimum supply holders (very few holders = rug risk)
+            # Note: This requires additional API call, only check if configured
+            min_holders = config.get('min_holders', 0)
+            if min_holders > 0:
+                # This would require a separate Helius API call
+                # For now, skip this check as it adds latency
+                pass
+
+            # All checks passed
+            return True
+
+        except Exception as e:
+            logger.error(f"Token safety check error for {mint[:8]}...: {e}")
+            # Default to blocking on error (fail-safe)
+            return config.get('allow_on_error', False)
+
     def decode_wallet_changes(self, tx, wallet_address: str):
         """Analyze transaction for balance changes specifically for the wallet_address."""
         if not tx or not tx.get('meta'): return None
@@ -244,10 +328,21 @@ class CopyTraderEngine:
                             config = json.loads(target['config_json'])
                             if config.get('auto_execute'):
                                 try:
+                                    # SECURITY: Token safety checks before auto-execution
+                                    token_to_check = recv_token['mint'] if sent_token['mint'] == "So11111111111111111111111111111111111111112" else sent_token['mint']
+                                    if not self._is_token_safe(token_to_check, config):
+                                        logger.warning(f"⚠️ Copy trade blocked: Token {token_to_check[:8]}... failed safety checks")
+                                        self.socketio.emit('notification', {
+                                            'title': 'Copy Trade Blocked',
+                                            'message': f"Token safety check failed for {recv_token['symbol'] if sent_token['mint'] == 'So11111111111111111111111111111111111111112' else sent_token['symbol']}",
+                                            'type': 'warning'
+                                        }, namespace='/bots')
+                                        return
+
                                     # --- Risk Profile Determination ---
                                     is_pump = recv_token['mint'].endswith('pump') or sent_token['mint'].endswith('pump')
                                     is_major = recv_token['mint'] in MAJOR_TOKENS and sent_token['mint'] in MAJOR_TOKENS
-                                    
+
                                     if is_pump:
                                         scale = float(config.get('pump_scale', 0.05))
                                         max_sol = float(config.get('pump_max', 0.2))

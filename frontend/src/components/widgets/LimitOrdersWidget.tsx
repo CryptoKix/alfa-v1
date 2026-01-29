@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Clock, X, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react'
+import { Clock, X, ExternalLink, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { addNotification } from '@/features/notifications/notificationsSlice'
 import { useAppDispatch } from '@/app/hooks'
+import { WidgetContainer } from './base/WidgetContainer'
 
 export const LimitOrdersWidget = () => {
   const dispatch = useAppDispatch()
@@ -19,7 +20,7 @@ export const LimitOrdersWidget = () => {
         setOrders(data)
       }
     } catch (e) {
-      console.error("Failed to fetch limit orders", e)
+      console.error('Failed to fetch limit orders', e)
     } finally {
       setLoading(false)
     }
@@ -27,7 +28,7 @@ export const LimitOrdersWidget = () => {
 
   useEffect(() => {
     fetchOrders()
-    const interval = setInterval(fetchOrders, 30000) // Auto-refresh every 30s
+    const interval = setInterval(fetchOrders, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -38,113 +39,135 @@ export const LimitOrdersWidget = () => {
       const res = await fetch('/api/limit/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderAddress })
+        body: JSON.stringify({ orderAddress }),
       })
       const data = await res.json()
       if (data.success) {
-        dispatch(addNotification({
-          title: 'Order Cancelled',
-          message: 'Limit order cancellation broadcasted.',
-          type: 'success'
-        }))
+        dispatch(
+          addNotification({
+            title: 'Order Cancelled',
+            message: 'Limit order cancellation broadcasted.',
+            type: 'success',
+          })
+        )
         fetchOrders()
       } else {
-        dispatch(addNotification({
-          title: 'Cancellation Failed',
-          message: data.error || 'Unknown error',
-          type: 'error'
-        }))
+        dispatch(
+          addNotification({
+            title: 'Cancellation Failed',
+            message: data.error || 'Unknown error',
+            type: 'error',
+          })
+        )
       }
-    } catch (e) {
-      dispatch(addNotification({
-        title: 'Network Error',
-        message: 'Could not connect to backend.',
-        type: 'error'
-      }))
+    } catch {
+      dispatch(
+        addNotification({
+          title: 'Network Error',
+          message: 'Could not connect to backend.',
+          type: 'error',
+        })
+      )
     } finally {
       setCancelling(null)
     }
   }
 
-  return (
-    <div className="bg-background-card border border-accent-pink/10 rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col h-full min-h-0">
-      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/80 via-accent-pink/40 to-transparent z-20" />
+  const shortenMint = (mint: string) => {
+    if (!mint || mint.length < 12) return mint
+    return `${mint.slice(0, 4)}...${mint.slice(-4)}`
+  }
 
-      <div className="flex items-center justify-between mb-2 border-b border-accent-pink/10 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-accent-pink/10 rounded-lg text-accent-pink">
-            <Clock size={18} />
-          </div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-white">Open Limit Orders</h2>
-        </div>
-        <button 
+  return (
+    <WidgetContainer
+      id="limit-orders"
+      title="Limit Orders"
+      icon={<Clock className="w-4 h-4" />}
+      badge={orders.length > 0 ? `${orders.length}` : undefined}
+      actions={
+        <button
           onClick={fetchOrders}
           disabled={loading}
           className={cn(
-            "p-1.5 hover:bg-white/5 rounded-lg text-text-muted hover:text-white transition-colors",
-            loading && "animate-spin"
+            'p-1.5 hover:bg-white/5 rounded-lg text-white/40 hover:text-white transition-colors',
+            loading && 'animate-spin'
           )}
         >
-          <RefreshCw size={16} />
+          <RefreshCw size={14} />
         </button>
+      }
+      noPadding
+    >
+      {/* Table Header */}
+      <div className="grid grid-cols-[60px_1fr_1fr_50px] gap-2 px-4 py-2 bg-white/[0.02] border-b border-white/[0.06] text-[10px] text-white/40 uppercase tracking-wider font-bold shrink-0">
+        <div>Type</div>
+        <div>Input</div>
+        <div>Output</div>
+        <div className="text-right"></div>
       </div>
 
-      <div className="flex-1 overflow-auto custom-scrollbar pr-1 -mr-1">
+      {/* Orders List */}
+      <div className="flex-1 overflow-auto glass-scrollbar">
         {orders.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-text-muted gap-2 opacity-50 italic py-10">
-            <AlertCircle size={24} strokeWidth={1} />
-            <span className="text-[10px] uppercase tracking-widest font-bold">No active orders</span>
+          <div className="flex flex-col items-center justify-center h-24 text-white/30">
+            <Clock size={20} strokeWidth={1} />
+            <span className="text-xs mt-2">No active orders</span>
           </div>
         ) : (
-          <div className="space-y-2">
-            {orders.map((order) => (
-              <div key={order.publicKey} className="bg-white/[0.02] border border-white/5 rounded-xl p-3 group hover:border-white/15 transition-all">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter",
-                      "bg-accent-pink/10 text-accent-pink"
-                    )}>
-                      Limit Order
-                    </span>
-                    <span className="text-[10px] font-bold text-white uppercase tracking-tight">
-                      {order.account.makingAmount / (10**9)} → {order.account.takingAmount / (10**9)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <a
-                      href={`https://solscan.io/account/${order.publicKey}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="p-1 hover:bg-white/5 rounded text-text-muted hover:text-accent-pink transition-colors"
-                    >
-                      <ExternalLink size={12} />
-                    </a>
-                    <button 
-                      onClick={() => handleCancel(order.publicKey)}
-                      disabled={cancelling === order.publicKey}
-                      className="p-1 hover:bg-white/5 rounded text-text-muted hover:text-accent-pink transition-colors"
-                    >
-                      {cancelling === order.publicKey ? <RefreshCw size={12} className="animate-spin" /> : <X size={12} />}
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <div className="flex flex-col">
-                    <span className="text-[7px] text-text-muted uppercase font-bold tracking-[0.2em]">In</span>
-                    <span className="text-[9px] font-mono text-white truncate max-w-[120px]">{order.account.inputMint}</span>
-                  </div>
-                  <div className="flex flex-col text-right">
-                    <span className="text-[7px] text-text-muted uppercase font-bold tracking-[0.2em]">Out</span>
-                    <span className="text-[9px] font-mono text-white truncate max-w-[120px]">{order.account.outputMint}</span>
-                  </div>
-                </div>
+          orders.map((order, index) => (
+            <div
+              key={order.publicKey}
+              className={cn(
+                'grid grid-cols-[60px_1fr_1fr_50px] gap-2 px-4 py-2.5 items-center group transition-all',
+                'hover:bg-accent-cyan/[0.03] border-l-2 border-l-transparent hover:border-l-accent-cyan/50',
+                index % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.01]'
+              )}
+            >
+              {/* Type */}
+              <div>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-accent-cyan/10 text-accent-cyan">
+                  Limit
+                </span>
               </div>
-            ))}
-          </div>
+
+              {/* Input */}
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono text-white/70">
+                  {(order.account.makingAmount / 10 ** 9).toLocaleString()}
+                </p>
+                <p className="text-[8px] font-mono text-white/30 truncate">{shortenMint(order.account.inputMint)}</p>
+              </div>
+
+              {/* Output */}
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono text-accent-cyan font-bold">
+                  {(order.account.takingAmount / 10 ** 9).toLocaleString()}
+                </p>
+                <p className="text-[8px] font-mono text-white/30 truncate">{shortenMint(order.account.outputMint)}</p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <a
+                  href={`https://solscan.io/account/${order.publicKey}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-1 rounded hover:bg-white/10 text-white/40 hover:text-accent-cyan transition-colors"
+                >
+                  <ExternalLink size={12} />
+                </a>
+                <button
+                  onClick={() => handleCancel(order.publicKey)}
+                  disabled={cancelling === order.publicKey}
+                  className="p-1 rounded hover:bg-accent-red/20 text-white/40 hover:text-accent-red transition-colors"
+                >
+                  {cancelling === order.publicKey ? <RefreshCw size={12} className="animate-spin" /> : <X size={12} />}
+                </button>
+              </div>
+            </div>
+          ))
         )}
       </div>
-    </div>
+    </WidgetContainer>
   )
 }

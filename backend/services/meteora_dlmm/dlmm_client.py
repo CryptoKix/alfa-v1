@@ -77,21 +77,22 @@ class DLMMClient:
             pools = []
             for item in data:
                 try:
+                    name = item.get('name', '')
                     pool = DLMMPool(
                         address=item.get('address', ''),
-                        name=item.get('name', ''),
+                        name=name,
                         token_x_mint=item.get('mint_x', ''),
                         token_y_mint=item.get('mint_y', ''),
-                        token_x_symbol=item.get('name', '').split('-')[0] if item.get('name') else '',
-                        token_y_symbol=item.get('name', '').split('-')[1] if item.get('name') and '-' in item.get('name', '') else '',
-                        bin_step=int(item.get('bin_step', 0)),
-                        base_fee_bps=int(item.get('base_fee_percentage', 0) * 100),
-                        protocol_fee_bps=int(item.get('protocol_fee_percentage', 0) * 100),
-                        liquidity=float(item.get('liquidity', 0)),
-                        volume_24h=float(item.get('trade_volume_24h', 0)),
-                        fees_24h=float(item.get('fees_24h', 0)),
-                        apr=float(item.get('apr', 0)),
-                        price=float(item.get('current_price', 0))
+                        token_x_symbol=name.split('-')[0] if name and '-' in name else '',
+                        token_y_symbol=name.split('-')[1] if name and '-' in name else '',
+                        bin_step=self._safe_int(item.get('bin_step', 0)),
+                        base_fee_bps=self._safe_int(self._safe_float(item.get('base_fee_percentage', 0)) * 100),
+                        protocol_fee_bps=self._safe_int(self._safe_float(item.get('protocol_fee_percentage', 0)) * 100),
+                        liquidity=self._safe_float(item.get('liquidity', 0)),
+                        volume_24h=self._safe_float(item.get('trade_volume_24h', 0)),
+                        fees_24h=self._safe_float(item.get('fees_24h', 0)),
+                        apr=self._safe_float(item.get('apr', 0)),
+                        price=self._safe_float(item.get('current_price', 0))
                     )
                     pools.append(pool)
                     self._pools_cache[pool.address] = pool
@@ -107,6 +108,30 @@ class DLMMClient:
             logger.error(f"[DLMM] Failed to fetch pools: {e}")
             return list(self._pools_cache.values()) if self._pools_cache else []
 
+    def _safe_int(self, value, default: int = 0) -> int:
+        """Safely convert value to int."""
+        try:
+            if isinstance(value, (int, float)):
+                return int(value)
+            if isinstance(value, str):
+                # Handle malformed strings like "0.040.04..."
+                clean = value.split('.')[0] if '.' in value else value
+                return int(clean) if clean else default
+            return default
+        except (ValueError, TypeError):
+            return default
+
+    def _safe_float(self, value, default: float = 0.0) -> float:
+        """Safely convert value to float."""
+        try:
+            if isinstance(value, (int, float)):
+                return float(value)
+            if isinstance(value, str):
+                return float(value)
+            return default
+        except (ValueError, TypeError):
+            return default
+
     def get_pool(self, address: str) -> Optional[DLMMPool]:
         """Get a specific pool by address."""
         if address in self._pools_cache:
@@ -118,27 +143,31 @@ class DLMMClient:
             response.raise_for_status()
             item = response.json()
 
+            name = item.get('name', '')
             pool = DLMMPool(
                 address=item.get('address', address),
-                name=item.get('name', ''),
+                name=name,
                 token_x_mint=item.get('mint_x', ''),
                 token_y_mint=item.get('mint_y', ''),
-                token_x_symbol=item.get('name', '').split('-')[0] if item.get('name') else '',
-                token_y_symbol=item.get('name', '').split('-')[1] if item.get('name') and '-' in item.get('name', '') else '',
-                bin_step=int(item.get('bin_step', 0)),
-                base_fee_bps=int(item.get('base_fee_percentage', 0) * 100),
-                protocol_fee_bps=int(item.get('protocol_fee_percentage', 0) * 100),
-                liquidity=float(item.get('liquidity', 0)),
-                volume_24h=float(item.get('trade_volume_24h', 0)),
-                fees_24h=float(item.get('fees_24h', 0)),
-                apr=float(item.get('apr', 0)),
-                price=float(item.get('current_price', 0))
+                token_x_symbol=name.split('-')[0] if name and '-' in name else '',
+                token_y_symbol=name.split('-')[1] if name and '-' in name else '',
+                bin_step=self._safe_int(item.get('bin_step', 0)),
+                base_fee_bps=self._safe_int(self._safe_float(item.get('base_fee_percentage', 0)) * 100),
+                protocol_fee_bps=self._safe_int(self._safe_float(item.get('protocol_fee_percentage', 0)) * 100),
+                liquidity=self._safe_float(item.get('liquidity', 0)),
+                volume_24h=self._safe_float(item.get('trade_volume_24h', 0)),
+                fees_24h=self._safe_float(item.get('fees_24h', 0)),
+                apr=self._safe_float(item.get('apr', 0)),
+                price=self._safe_float(item.get('current_price', 0))
             )
             self._pools_cache[address] = pool
             return pool
 
         except requests.RequestException as e:
             logger.error(f"[DLMM] Failed to fetch pool {address}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"[DLMM] Error parsing pool {address}: {e}")
             return None
 
     def get_pool_info_from_sidecar(self, address: str) -> Optional[Dict]:
@@ -152,6 +181,27 @@ class DLMMClient:
             return None
         except requests.RequestException as e:
             logger.error(f"[DLMM] Sidecar pool info error: {e}")
+            return None
+
+    def get_bin_liquidity(self, address: str, bins_left: int = 35, bins_right: int = 35) -> Optional[Dict]:
+        """Get actual bin liquidity distribution from sidecar."""
+        try:
+            response = requests.get(
+                f"{self.sidecar_url}/pool/{address}/bins",
+                params={'left': bins_left, 'right': bins_right},
+                timeout=30
+            )
+            response.raise_for_status()
+            data = response.json()
+            if data.get('success'):
+                return {
+                    'activeBinId': data.get('activeBinId'),
+                    'bins': data.get('bins', []),
+                    'binStep': data.get('binStep')
+                }
+            return None
+        except requests.RequestException as e:
+            logger.error(f"[DLMM] Sidecar bin liquidity error: {e}")
             return None
 
     def get_position_info(self, pool_address: str, position_pubkey: str) -> Optional[Dict]:

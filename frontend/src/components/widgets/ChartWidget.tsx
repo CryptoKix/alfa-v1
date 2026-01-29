@@ -99,35 +99,35 @@ export const ChartWidget = memo(() => {
             textColor: '#888888',
           },
           grid: {
-            vertLines: { color: 'rgba(255, 0, 255, 0.05)' },
-            horzLines: { color: 'rgba(255, 0, 255, 0.05)' },
+            vertLines: { color: 'rgba(0, 255, 255, 0.05)' },
+            horzLines: { color: 'rgba(0, 255, 255, 0.05)' },
           },
           crosshair: {
             vertLine: {
-              color: 'rgba(255, 0, 255, 0.5)',
-              labelBackgroundColor: '#ff00ff',
+              color: 'rgba(0, 255, 255, 0.5)',
+              labelBackgroundColor: '#00ffff',
             },
             horzLine: {
-              color: 'rgba(255, 0, 255, 0.5)',
-              labelBackgroundColor: '#ff00ff',
+              color: 'rgba(0, 255, 255, 0.5)',
+              labelBackgroundColor: '#00ffff',
             },
           },
           rightPriceScale: {
-            borderColor: 'rgba(255, 0, 255, 0.2)',
+            borderColor: 'rgba(0, 255, 255, 0.2)',
           },
           timeScale: {
-            borderColor: 'rgba(255, 0, 255, 0.2)',
+            borderColor: 'rgba(0, 255, 255, 0.2)',
             timeVisible: true,
           },
         })
 
         series = chart.addCandlestickSeries({
           upColor: '#00ff9d',
-          downColor: '#ff00ff',
+          downColor: '#00ffff',
           borderUpColor: '#00ff9d',
-          borderDownColor: '#ff00ff',
+          borderDownColor: '#00ffff',
           wickUpColor: '#00ff9d',
-          wickDownColor: '#ff00ff',
+          wickDownColor: '#00ffff',
         })
 
         chartRef.current = chart
@@ -185,18 +185,18 @@ export const ChartWidget = memo(() => {
   const isPositive = priceChange.percent >= 0
 
   return (
-    <div className="bg-background-card border border-accent-pink/10 rounded-2xl p-6 shadow-xl flex flex-col relative overflow-hidden h-full">
-      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/80 via-accent-pink/40 to-transparent z-10" />
+    <div className="bg-background-card border border-accent-cyan/10 rounded-2xl p-6 shadow-xl flex flex-col relative overflow-hidden h-full">
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-cyan/80 via-accent-cyan/40 to-transparent z-10" />
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-2 border-b border-accent-pink/10 shrink-0 h-[55px] z-10 -mx-6 px-6 -mt-6">
+      <div className="flex items-center justify-between border-b border-accent-cyan/10 shrink-0 h-[55px] z-10 -mx-6 px-6 -mt-6">
         <div className="flex items-center gap-4">
           <h3 className="text-sm font-bold flex items-center gap-2 uppercase tracking-tight text-white">
-            <TrendingUp className="text-accent-pink" size={18} />
+            <TrendingUp className="text-accent-cyan" size={18} />
             SOL/USD
           </h3>
           <div className="flex items-center gap-2">
-            <div className="text-xl font-black font-mono text-accent-pink tracking-tight">
+            <div className="text-xl font-black font-mono text-accent-cyan tracking-tight">
               ${currentPrice?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '---'}
             </div>
             <div className={cn(
@@ -209,7 +209,7 @@ export const ChartWidget = memo(() => {
         </div>
 
         {/* Interval Selector */}
-        <div className="flex items-center gap-1 bg-black/30 rounded-lg p-1 border border-accent-pink/10">
+        <div className="flex items-center gap-1 bg-black/30 rounded-lg p-1 border border-accent-cyan/10">
           {INTERVALS.map((i) => (
             <button
               key={i.value}
@@ -218,8 +218,8 @@ export const ChartWidget = memo(() => {
               className={cn(
                 "px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded transition-all",
                 selectedInterval === i.value
-                  ? "bg-accent-pink text-black"
-                  : "text-text-muted hover:text-accent-pink",
+                  ? "bg-accent-cyan text-black"
+                  : "text-text-muted hover:text-accent-cyan",
                 loading && "opacity-50"
               )}
             >
@@ -230,10 +230,10 @@ export const ChartWidget = memo(() => {
       </div>
 
       {/* Chart Container */}
-      <div className="flex-1 w-full relative rounded-lg overflow-hidden border border-accent-pink/5" style={{ minHeight: '300px' }}>
+      <div className="flex-1 w-full relative rounded-lg overflow-hidden border border-accent-cyan/5" style={{ minHeight: '300px' }}>
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-30">
-            <div className="flex items-center gap-2 text-accent-pink">
+            <div className="flex items-center gap-2 text-accent-cyan">
               <RefreshCw size={16} className="animate-spin" />
               <span className="text-xs font-bold uppercase tracking-widest">Loading...</span>
             </div>
@@ -246,7 +246,7 @@ export const ChartWidget = memo(() => {
               <div className="text-accent-red text-xs font-bold uppercase mb-2">{error}</div>
               <button
                 onClick={() => window.location.reload()}
-                className="text-[10px] text-accent-pink hover:underline"
+                className="text-[10px] text-accent-cyan hover:underline"
               >
                 Reload Page
               </button>

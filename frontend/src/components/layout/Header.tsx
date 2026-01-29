@@ -1,172 +1,255 @@
-import { useState, useEffect } from 'react'
-import { Wallet, Bell, Send, Server, Globe } from 'lucide-react'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { cn, shortenAddress } from '@/lib/utils'
 import { useAppSelector } from '@/app/hooks'
-import { WalletModal } from '@/components/modals/WalletModal'
-import { SendModal } from '@/components/modals/SendModal'
-import { WalletConnectModal } from '@/components/modals/WalletConnectModal'
-import { cn } from '@/lib/utils'
-import { useLocation } from 'react-router-dom'
-import { StrategyTabs } from './StrategyTabs'
+import { useUIStore } from '@/stores/uiStore'
+import { useLayoutStore } from '@/stores/layoutStore'
+import {
+  Bell,
+  Search,
+  LayoutGrid,
+  RotateCcw,
+  Copy,
+  ExternalLink,
+  Wallet,
+  LogOut,
+  Signal,
+  SignalZero,
+} from 'lucide-react'
+import { Tooltip } from '@/components/ui'
 
-export const Header = () => {
-  const location = useLocation()
-  const { walletAlias, connected: webConnected } = useAppSelector(state => state.portfolio)
-  const { lastUpdate, connected: priceConnected } = useAppSelector(state => state.prices)
-  const { mode: walletMode, sessionKeyActive } = useAppSelector(state => state.wallet)
-  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false)
-  const [isSendModalOpen, setIsSendModalOpen] = useState(false)
-  const [isWalletConnectModalOpen, setIsWalletConnectModalOpen] = useState(false)
-  const [now, setNow] = useState(Date.now())
+// Widget container styles - exact same as other widgets
+const widgetStyles: React.CSSProperties = {
+  backgroundColor: '#0a0a0a',
+  border: '1px solid rgba(0, 255, 255, 0.1)',
+  borderRadius: '16px',
+  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+  position: 'relative',
+  overflow: 'hidden',
+}
 
-  useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(interval)
-  }, [])
+export function Header() {
+  const { connected: portfolioConnected } = useAppSelector((state) => state.portfolio)
+  const { connected: pricesConnected } = useAppSelector((state) => state.prices)
+  const { notifications } = useAppSelector((state) => state.notifications)
+  const unreadCount = notifications.filter((n) => !n.read).length
 
-  const timeDiff = now - lastUpdate
-  
-  // Price Status Logic
-  const priceStatusText = 'Price'
-  let priceColor = 'bg-red-500'
-  let priceTextClass = 'text-red-500'
-  let pricePulse = false
+  const { setNotificationPanelOpen, setCommandPaletteOpen } = useUIStore()
+  const { isEditMode, setEditMode, resetLayout, currentPage } = useLayoutStore()
 
-  if (priceConnected) {
-    if (lastUpdate > 0 && timeDiff < 5000) {
-      priceColor = 'bg-accent-green'
-      priceTextClass = 'text-accent-green'
-      pricePulse = true
-    } else {
-      priceColor = 'bg-yellow-500'
-      priceTextClass = 'text-yellow-500'
-    }
-  }
+  const [showWalletMenu, setShowWalletMenu] = useState(false)
 
-  // Web Status Logic
-  const webStatusText = 'Web'
-  const webColor = webConnected ? 'bg-accent-pink' : 'bg-red-500'
-  const webTextClass = webConnected ? 'text-accent-pink' : 'text-red-500'
+  const { mode, browserWalletConnected, browserWalletAddress, serverWalletAddress } = useAppSelector((state) => state.wallet)
 
-  const handleRestart = async () => {
-    if (!confirm("Initiate emergency system restart? All active strategy threads will be re-synchronized.")) return;
-    try {
-      await fetch('/api/system/restart', { method: 'POST' });
-      alert("Restart signal broadcasted. System will go offline briefly.");
-    } catch (e) {
-      console.error("Restart failed", e);
-    }
-  }
+  // Use server wallet when in server mode, browser wallet when in browser mode
+  const isServerMode = mode === 'server'
+  const connected = isServerMode ? !!serverWalletAddress : browserWalletConnected
+  const publicKeyStr = isServerMode ? serverWalletAddress : browserWalletAddress
 
-  const getPageTitle = () => {
-    switch (location.pathname) {
-      case '/': return 'Dashboard / Overview'
-      case '/trade': return 'Terminal / Trade'
-      case '/strategies': return 'Engine / Strategies'
-      case '/copytrade': return 'Intelligence / Copy Trade'
-      default: return 'Tactix / System'
+  const handleCopyAddress = () => {
+    if (publicKeyStr) {
+      navigator.clipboard.writeText(publicKeyStr)
     }
   }
 
   return (
-    <>
-      <header className="h-16 flex items-center justify-between px-6 bg-background-card/50 backdrop-blur sticky top-0 z-10">
-        {/* Breadcrumb / Page Title Placeholder */}
-        <div className="flex items-center gap-4 min-w-[200px]">
-          <span className="text-text-secondary text-[10px] font-mono uppercase tracking-widest">{getPageTitle()}</span>
+    <header style={widgetStyles} className="h-[55px] flex items-center justify-between px-4 shrink-0">
+      {/* Top glow line */}
+      <div
+        className="absolute top-0 left-0 w-full h-[1px] z-10"
+        style={{ background: 'linear-gradient(to right, rgba(0, 255, 255, 0.6), rgba(0, 255, 255, 0.2), transparent)' }}
+      />
+
+      {/* Left section - Search */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setCommandPaletteOpen(true)}
+          className={cn(
+            'flex items-center gap-2 h-8 px-3 rounded-lg',
+            'bg-white/[0.03] border border-white/[0.08]',
+            'text-text-muted hover:text-white hover:bg-white/[0.06] hover:border-accent-cyan/30',
+            'transition-all duration-200'
+          )}
+        >
+          <Search className="w-3.5 h-3.5" />
+          <span className="text-[11px] hidden sm:inline">Search...</span>
+          <kbd className="ml-2 text-[9px] text-text-muted bg-white/[0.06] px-1.5 py-0.5 rounded font-mono hidden sm:inline">
+            ⌘K
+          </kbd>
+        </button>
+      </div>
+
+      {/* Center section - Status */}
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          {portfolioConnected ? (
+            <Signal className="w-3.5 h-3.5 text-accent-green" />
+          ) : (
+            <SignalZero className="w-3.5 h-3.5 text-accent-red" />
+          )}
+          <span className={cn(
+            "text-[11px] font-medium",
+            portfolioConnected ? "text-accent-green" : "text-accent-red"
+          )}>
+            {portfolioConnected ? 'Connected' : 'Offline'}
+          </span>
         </div>
 
-        {/* Dynamic Center Content (Tabs for Strategies) */}
-        <div className="flex-1 flex justify-center">
-          {location.pathname === '/strategies' && <StrategyTabs />}
+        <div className="w-px h-4 bg-white/10" />
+
+        <div className="flex items-center gap-2">
+          <div className={cn(
+            "w-1.5 h-1.5 rounded-full",
+            pricesConnected
+              ? "bg-accent-cyan"
+              : "bg-white/30"
+          )} style={pricesConnected ? { boxShadow: '0 0 6px #00ffff' } : {}} />
+          <span className="text-[11px] text-text-muted">Prices</span>
         </div>
+      </div>
 
-        <div className="flex items-center gap-4 min-w-[200px] justify-end">
-          {/* Status Indicators */}
-          <div className="flex items-center gap-2 mr-2">
-            <button 
-              onClick={handleRestart}
-              title="System Health: Click to Restart Services"
-              className={cn(
-                "flex items-center justify-center gap-2 w-20 h-8 rounded-xl border transition-all duration-500 bg-background-elevated/50 hover:bg-white/5 group cursor-pointer",
-                priceConnected && lastUpdate > 0 && timeDiff < 5000 ? "border-accent-green/20 shadow-[0_0_10px_rgba(0,255,157,0.05)]" : "border-white/10"
-              )}
-            >
-               <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", priceColor, pricePulse && "animate-pulse shadow-[0_0_8px_currentColor]")} />
-               <span className={cn("text-[9px] font-black uppercase tracking-widest transition-colors duration-500", priceTextClass)}>
-                 {priceStatusText}
-               </span>
-            </button>
-            <button
-              onClick={handleRestart}
-              title="API Health: Click to Restart Services"
-              className={cn(
-                "flex items-center justify-center gap-2 w-20 h-8 rounded-xl border transition-all duration-500 bg-background-elevated/50 hover:bg-white/5 group cursor-pointer",
-                webConnected ? "border-accent-pink/20 shadow-[0_0_10px_rgba(255,0,255,0.05)]" : "border-white/10"
-              )}
-            >
-               <div className={cn("w-1.5 h-1.5 rounded-full transition-colors duration-500", webColor, webConnected && "animate-pulse shadow-[0_0_8px_currentColor]")} />
-               <span className={cn("text-[9px] font-black uppercase tracking-widest transition-colors duration-500", webTextClass)}>
-                 {webStatusText}
-               </span>
-            </button>
-          </div>
-
-          <div className="w-px h-6 bg-white/5" />
-
-          {/* Send Button */}
+      {/* Right section - Actions */}
+      <div className="flex items-center gap-1.5">
+        {/* Edit Mode Toggle */}
+        <Tooltip content={isEditMode ? 'Exit edit mode' : 'Edit layout'}>
           <button
-            onClick={() => setIsSendModalOpen(true)}
-            className="flex items-center gap-2 px-3 h-8 bg-accent-pink/10 border border-accent-pink/20 rounded-lg text-accent-pink hover:bg-accent-pink/20 transition-all group"
-          >
-            <Send size={14} className="group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Send</span>
-          </button>
-
-          <div className="w-px h-6 bg-white/5" />
-
-          {/* Notifications */}
-          <button className="relative text-text-secondary hover:text-white transition-colors">
-            <Bell size={18} />
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-accent-pink rounded-full" />
-          </button>
-
-          {/* Wallet Mode Indicator */}
-          <button
-            onClick={() => setIsWalletConnectModalOpen(true)}
+            onClick={() => setEditMode(!isEditMode)}
             className={cn(
-              "flex items-center gap-2 px-3 h-8 rounded-lg border transition-all group",
-              walletMode === 'browser'
-                ? "bg-accent-pink/10 border-accent-pink/20 text-accent-pink hover:bg-accent-pink/20"
-                : "bg-accent-cyan/10 border-accent-cyan/20 text-accent-cyan hover:bg-accent-cyan/20"
+              'flex items-center gap-1.5 h-8 px-2.5 rounded-lg transition-all duration-200',
+              isEditMode
+                ? 'bg-accent-cyan/15 border border-accent-cyan/40 text-accent-cyan'
+                : 'text-text-muted hover:text-white hover:bg-white/5'
             )}
           >
-            {walletMode === 'browser' ? <Globe size={14} /> : <Server size={14} />}
-            <span className="text-[9px] font-black uppercase tracking-wider">
-              {walletMode === 'browser' ? 'Browser' : 'Server'}
-            </span>
-            {walletMode === 'browser' && sessionKeyActive && (
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" title="Delegation Active" />
-            )}
+            <LayoutGrid className="w-3.5 h-3.5" />
+            {isEditMode && <span className="text-[11px] font-medium hidden sm:inline">Editing</span>}
           </button>
+        </Tooltip>
 
-          {/* Wallet Badge */}
+        {isEditMode && (
+          <Tooltip content="Reset layout">
+            <button
+              onClick={() => resetLayout(currentPage)}
+              className="h-8 w-8 flex items-center justify-center rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          </Tooltip>
+        )}
+
+        <div className="w-px h-4 bg-white/10 mx-0.5" />
+
+        {/* Notifications */}
+        <Tooltip content="Notifications">
           <button
-            onClick={() => setIsWalletModalOpen(true)}
-            className="flex items-center gap-3 pl-2 py-1.5 pr-4 bg-background-elevated border border-accent-pink/10 rounded-full hover:border-accent-pink/30 transition-colors group cursor-pointer"
+            onClick={() => setNotificationPanelOpen(true)}
+            className="relative h-8 w-8 flex items-center justify-center rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all"
           >
-            <div className="w-8 h-8 rounded-full bg-accent-pink/10 flex items-center justify-center border border-accent-pink/20 group-hover:border-accent-pink/40 transition-colors">
-              <Wallet size={14} className="text-accent-pink group-hover:text-accent-pink/80 transition-colors" />
-            </div>
-            <div className="flex flex-col items-start justify-center">
-              <span className="text-[10px] font-bold text-white leading-none">{walletAlias}</span>
-            </div>
+            <Bell className="w-3.5 h-3.5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 text-[8px] font-bold bg-accent-pink text-white rounded-full flex items-center justify-center" style={{ boxShadow: '0 0 6px #ff00ff' }}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </button>
-        </div>
-      </header>
+        </Tooltip>
 
-      <WalletModal isOpen={isWalletModalOpen} onClose={() => setIsWalletModalOpen(false)} />
-      <SendModal isOpen={isSendModalOpen} onClose={() => setIsSendModalOpen(false)} />
-      <WalletConnectModal isOpen={isWalletConnectModalOpen} onClose={() => setIsWalletConnectModalOpen(false)} />
-    </>
+        {/* Wallet Button */}
+        <div className="relative ml-1">
+          {connected && publicKeyStr ? (
+            <button
+              onClick={() => setShowWalletMenu(!showWalletMenu)}
+              className={cn(
+                'flex items-center gap-2 h-8 px-2.5 rounded-lg transition-all duration-200',
+                isServerMode
+                  ? 'bg-accent-purple/10 border border-accent-purple/30 hover:bg-accent-purple/15 hover:border-accent-purple/50'
+                  : 'bg-accent-cyan/10 border border-accent-cyan/30 hover:bg-accent-cyan/15 hover:border-accent-cyan/50'
+              )}
+            >
+              {isServerMode && (
+                <span className="text-[8px] font-bold uppercase px-1 py-0.5 rounded bg-accent-purple/20 text-accent-purple">
+                  Server
+                </span>
+              )}
+              <div className="w-1.5 h-1.5 rounded-full bg-accent-green" style={{ boxShadow: '0 0 4px #00ff9d' }} />
+              <span className={cn(
+                "text-[11px] font-mono",
+                isServerMode ? "text-accent-purple" : "text-accent-cyan"
+              )}>
+                {shortenAddress(publicKeyStr)}
+              </span>
+            </button>
+          ) : (
+            <button
+              className={cn(
+                'flex items-center gap-2 h-8 px-3 rounded-lg font-medium text-[11px] transition-all duration-200',
+                'border border-accent-cyan/40',
+                'text-white hover:border-accent-cyan/60'
+              )}
+              style={{ background: 'linear-gradient(to right, rgba(0, 255, 255, 0.2), rgba(153, 69, 255, 0.2))' }}
+            >
+              <Wallet className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Connect</span>
+            </button>
+          )}
+
+          {/* Wallet dropdown */}
+          <AnimatePresence>
+            {showWalletMenu && connected && publicKeyStr && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowWalletMenu(false)}
+                />
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                  transition={{ duration: 0.15 }}
+                  style={{ ...widgetStyles, borderRadius: '12px' }}
+                  className="absolute right-0 top-full mt-2 z-50 w-52"
+                >
+                  <div className="p-3 border-b border-accent-cyan/10">
+                    <p className="text-[9px] uppercase tracking-wider text-text-muted mb-1">Wallet</p>
+                    <p className="text-[12px] font-mono text-white">
+                      {shortenAddress(publicKeyStr, 6)}
+                    </p>
+                  </div>
+
+                  <div className="p-1">
+                    <button
+                      onClick={handleCopyAddress}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-text-secondary hover:bg-white/5 hover:text-white transition-colors text-[12px]"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      Copy Address
+                    </button>
+
+                    <a
+                      href={`https://solscan.io/account/${publicKeyStr}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-text-secondary hover:bg-white/5 hover:text-white transition-colors text-[12px]"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      View on Solscan
+                    </a>
+                  </div>
+
+                  <div className="p-1 border-t border-accent-cyan/10">
+                    <button
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-accent-red hover:bg-accent-red/10 transition-colors text-[12px]"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      Disconnect
+                    </button>
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </header>
   )
 }

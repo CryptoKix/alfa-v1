@@ -66,6 +66,12 @@ pip install -r requirements.txt
 - `backend/helius_infrastructure.py` - Unified Helius API client (RPC, WebSocket, DAS)
 - `backend/services/jito.py` - Jito bundle signing for MEV-resistant execution
 - `backend/services/yield_hunter/` - DeFi yield aggregation across Kamino, Jupiter Lend, Loopscale, HyLo protocols
+- `backend/services/liquidity/` - Unified liquidity management for Meteora DLMM and Orca Whirlpools
+
+### Node.js Sidecars
+Solana SDK integrations run as separate Node.js services:
+- **Meteora Sidecar** (port 5002): `cd backend/meteora_sidecar && npm start` - DLMM SDK transaction builder
+- **Orca Sidecar** (port 5003): `cd backend/meteora_sidecar && node orca_sidecar.js` - Whirlpools SDK transaction builder
 
 ### Data Flow Pattern
 1. Backend service detects event (whale swap, arb opportunity, price update)
@@ -99,9 +105,22 @@ Keypair stored at `backend/keypair.json` (gitignored).
 - Backend: `backend/server.log`
 - Price Server: `backend/price_server.log`
 - Sniper: `backend/sniper_outrider.log`
+- Meteora Sidecar: `backend/meteora_sidecar.log`
+- Orca Sidecar: `backend/meteora_sidecar/orca_sidecar.log`
 - Frontend: `frontend/frontend.log`
 - Supervisor: `backend/supervisor.log`
 
 ## Dev Proxy
 
 Vite proxies `/socket.io/*` and `/api/*` to `http://localhost:5001` (configured in `frontend/vite.config.ts`).
+
+## Important: Restarting Services
+
+**After making changes to backend Python files, restart the affected services:**
+- Flask backend changes: `kill -9 <pid>` (supervisor auto-restarts) or restart supervisor
+- Find PIDs: `ps aux | grep python.*app.py`
+- The supervisor (`python supervisor.py`) manages auto-restart of backend services
+
+**After making changes to Node.js sidecars:**
+- Meteora: `pkill -f "node.*index.js" && cd backend/meteora_sidecar && npm start`
+- Orca: `pkill -f "orca_sidecar" && cd backend/meteora_sidecar && node orca_sidecar.js &`

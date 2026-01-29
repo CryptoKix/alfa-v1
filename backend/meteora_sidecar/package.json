@@ -1,17 +1,26 @@
 {
-  "name": "meteora-sidecar",
-  "version": "1.0.0",
-  "description": "Node.js sidecar service for Meteora DLMM SDK integration",
+  "name": "liquidity-sidecar",
+  "version": "2.0.0",
+  "description": "Node.js sidecar service for Meteora DLMM and Orca Whirlpools SDK integration",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "start:orca": "node orca_sidecar.js",
+    "start:all": "node index.js & node orca_sidecar.js",
+    "dev": "nodemon index.js",
+    "dev:orca": "nodemon orca_sidecar.js"
   },
   "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
     "@meteora-ag/dlmm": "^1.3.4",
+    "@orca-so/common-sdk": "^0.6.11",
+    "@orca-so/whirlpools-sdk": "^0.17.4",
+    "@solana/spl-token": "^0.4.9",
     "@solana/web3.js": "^1.95.8",
     "bn.js": "^5.2.1",
     "cors": "^2.8.5",
+    "decimal.js": "^10.4.3",
+    "dotenv": "^17.2.3",
     "express": "^4.21.2"
   },
   "devDependencies": {

@@ -5,5 +5,16 @@ from routes.wallet import wallet_bp
 from routes.websocket import register_websocket_handlers
 from routes.yield_routes import yield_bp
 from routes.dlmm_routes import dlmm_bp, init_dlmm_services
+from routes.liquidity_routes import liquidity_bp, init_liquidity_services
 
-__all__ = ['api_bp', 'copytrade_bp', 'wallet_bp', 'yield_bp', 'dlmm_bp', 'register_websocket_handlers', 'init_dlmm_services']
+__all__ = [
+    'api_bp',
+    'copytrade_bp',
+    'wallet_bp',
+    'yield_bp',
+    'dlmm_bp',
+    'liquidity_bp',
+    'register_websocket_handlers',
+    'init_dlmm_services',
+    'init_liquidity_services'
+]

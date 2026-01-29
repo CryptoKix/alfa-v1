@@ -15,6 +15,11 @@ from services.notifications import notify_bot_completion, send_discord_notificat
 BOT_EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
 
+class BotTradeError(Exception):
+    """Raised when a bot trade fails and should not fall back."""
+    pass
+
+
 def execute_bot_trade(
     input_mint: str,
     output_mint: str,
@@ -27,32 +32,45 @@ def execute_bot_trade(
     """
     Execute a bot trade, using session key signing if available for browser wallets.
 
+    SECURITY: No longer silently falls back to server keypair.
+    If user_wallet is specified and session key fails, the trade is rejected.
+
     Args:
-        user_wallet: If provided, attempts to use session key delegation for this browser wallet.
-                    If None or no active session, falls back to server keypair.
+        user_wallet: If provided, REQUIRES session key delegation for this browser wallet.
+                    If session key unavailable or fails, raises BotTradeError.
+                    If None, uses server keypair (for server-owned bots).
     """
-    # Check if we should use session key signing
+    # Session key mode for browser wallet bots
     if user_wallet:
         try:
-            from services.session_keys import get_session_keypair, execute_trade_with_session_key
+            from services.session_keys import get_session_keypair, execute_trade_with_session_key, SessionPermissionError
             keypair = get_session_keypair(user_wallet)
-            if keypair:
-                # Use session key for browser wallet user
-                print(f"🔑 Using session key for {user_wallet[:8]}... to execute {source}")
-                return execute_trade_with_session_key(
-                    user_wallet=user_wallet,
-                    input_mint=input_mint,
-                    output_mint=output_mint,
-                    amount=amount,
-                    source=source,
-                    slippage_bps=slippage_bps
+            if not keypair:
+                raise BotTradeError(
+                    f"No active session key for wallet {user_wallet[:8]}... "
+                    "Session may have expired. Please reconnect your wallet."
                 )
-        except ImportError:
-            print("Session keys module not available, falling back to server keypair")
-        except Exception as e:
-            print(f"Session key trade failed: {e}, falling back to server keypair")
 
-    # Fall back to server keypair (legacy mode)
+            # Use session key for browser wallet user
+            print(f"🔑 Using session key for {user_wallet[:8]}... to execute {source}")
+            return execute_trade_with_session_key(
+                user_wallet=user_wallet,
+                input_mint=input_mint,
+                output_mint=output_mint,
+                amount=amount,
+                source=source,
+                slippage_bps=slippage_bps
+            )
+        except ImportError:
+            raise BotTradeError("Session keys module not available")
+        except SessionPermissionError as e:
+            raise BotTradeError(f"Session permission denied: {e}")
+        except BotTradeError:
+            raise  # Re-raise our own errors
+        except Exception as e:
+            raise BotTradeError(f"Session key trade failed: {e}")
+
+    # Server keypair mode (for bots not linked to a browser wallet)
     return execute_trade_logic(
         input_mint=input_mint,
         output_mint=output_mint,

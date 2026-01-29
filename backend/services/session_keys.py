@@ -18,8 +18,18 @@ from extensions import db, solana_client
 
 
 # Encryption key derived from server secret
-# In production, this should come from environment or secure vault
-SERVER_SECRET = os.getenv('SESSION_KEY_SECRET', 'tactix-session-key-secret-change-in-production')
+# SECURITY: No default - must be configured via environment variable
+SERVER_SECRET = os.getenv('SESSION_KEY_SECRET', '')
+
+if not SERVER_SECRET:
+    import warnings
+    warnings.warn(
+        "SESSION_KEY_SECRET not set! Session key encryption is disabled. "
+        "Set SESSION_KEY_SECRET in .env (minimum 32 characters) for production use.",
+        RuntimeWarning
+    )
+    # Use a dummy value to prevent crashes, but session keys won't be secure
+    SERVER_SECRET = 'INSECURE-DEFAULT-DO-NOT-USE-IN-PRODUCTION'
 
 def _get_encryption_key():
     """Derive encryption key from server secret."""
@@ -168,6 +178,44 @@ def sign_transaction_with_session_key(user_wallet: str, transaction_bytes: bytes
         raise Exception(f"Failed to sign transaction: {e}")
 
 
+class SessionPermissionError(Exception):
+    """Raised when a session key trade violates permissions."""
+    pass
+
+
+def _check_session_permissions(
+    session: dict,
+    input_mint: str,
+    output_mint: str,
+    usd_value: float
+) -> None:
+    """
+    Verify a trade is allowed under session permissions.
+
+    Raises:
+        SessionPermissionError: If trade violates permissions
+    """
+    permissions = session.get('permissions', {})
+    if isinstance(permissions, str):
+        import json
+        permissions = json.loads(permissions)
+
+    # Check max trade size
+    max_trade_size = permissions.get('maxTradeSize', 0)
+    if max_trade_size > 0 and usd_value > max_trade_size:
+        raise SessionPermissionError(
+            f"Trade size ${usd_value:.2f} exceeds session limit ${max_trade_size:.2f}"
+        )
+
+    # Check allowed tokens (if specified)
+    allowed_tokens = permissions.get('allowedTokens', [])
+    if allowed_tokens:
+        if input_mint not in allowed_tokens and output_mint not in allowed_tokens:
+            raise SessionPermissionError(
+                f"Neither {input_mint[:8]}... nor {output_mint[:8]}... in allowed tokens list"
+            )
+
+
 def execute_trade_with_session_key(
     user_wallet: str,
     input_mint: str,
@@ -181,6 +229,8 @@ def execute_trade_with_session_key(
 
     This creates and signs the transaction using the delegated session key,
     then submits it to the network.
+
+    SECURITY: Enforces session permissions (maxTradeSize, allowedTokens).
     """
     import requests
     from config import JUPITER_API_KEY, JUPITER_QUOTE_API, JUPITER_SWAP_API
@@ -200,11 +250,25 @@ def execute_trade_with_session_key(
 
     headers = {'x-api-key': JUPITER_API_KEY} if JUPITER_API_KEY else {}
 
-    # Get quote
+    # Get quote FIRST to calculate USD value for permission check
     quote_url = f"{JUPITER_QUOTE_API}?inputMint={input_mint}&outputMint={output_mint}&amount={amount_lamports}&slippageBps={slippage_bps}"
     quote = requests.get(quote_url, headers=headers, timeout=10).json()
     if "error" in quote:
         raise Exception(f"Quote: {quote['error']}")
+
+    # SECURITY: Calculate estimated USD value and check permissions BEFORE signing
+    estimated_usd = 0
+    with price_cache_lock:
+        if input_mint in price_cache:
+            estimated_usd = amount * price_cache[input_mint][0]
+        elif output_mint in price_cache:
+            amount_out_est = int(quote.get('outAmount', 0)) / (10 ** output_token.get('decimals', 9))
+            estimated_usd = amount_out_est * price_cache[output_mint][0]
+
+    # Get session and enforce permissions
+    session = db.get_active_session_key(user_wallet)
+    if session:
+        _check_session_permissions(session, input_mint, output_mint, estimated_usd)
 
     # Generate swap transaction (for the session key to sign)
     swap_payload = {

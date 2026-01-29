@@ -83,6 +83,29 @@ def api_dlmm_pool(address: str):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@dlmm_bp.route('/api/dlmm/pools/<address>/bins')
+def api_dlmm_pool_bins(address: str):
+    """Get bin liquidity distribution for a pool."""
+    try:
+        bins_left = request.args.get('left', 35, type=int)
+        bins_right = request.args.get('right', 35, type=int)
+
+        bin_data = dlmm_client.get_bin_liquidity(address, bins_left, bins_right)
+        if not bin_data:
+            return jsonify({"success": False, "error": "Failed to fetch bin data"}), 500
+
+        return jsonify({
+            "success": True,
+            "activeBinId": bin_data['activeBinId'],
+            "bins": bin_data['bins'],
+            "binStep": bin_data['binStep'],
+            "timestamp": time.time()
+        })
+    except Exception as e:
+        logger.error(f"[DLMM] Get pool bins error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # ==================== Strategy Routes ====================
 
 @dlmm_bp.route('/api/dlmm/strategy/calculate', methods=['POST'])
@@ -527,3 +550,175 @@ def handle_request_detected_pools():
         }, namespace='/dlmm')
     except Exception as e:
         logger.error(f"[DLMM] Socket detected pools request error: {e}")
+
+
+# ==================== Favorites Routes ====================
+
+@dlmm_bp.route('/api/dlmm/favorites')
+def api_dlmm_favorites():
+    """Get favorite DLMM pools."""
+    try:
+        favorites = db.get_setting('dlmm_favorites', [])
+        return jsonify({
+            "success": True,
+            "favorites": favorites,
+            "count": len(favorites)
+        })
+    except Exception as e:
+        logger.error(f"[DLMM] Get favorites error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@dlmm_bp.route('/api/dlmm/favorites/add', methods=['POST'])
+def api_dlmm_add_favorite():
+    """Add a pool to favorites."""
+    data = request.json
+    pool_address = data.get('pool_address')
+
+    if not pool_address:
+        return jsonify({"success": False, "error": "Missing pool_address"}), 400
+
+    try:
+        favorite_entry = None
+
+        # Try to get pool info, but don't fail if parsing errors occur
+        try:
+            pool = dlmm_client.get_pool(pool_address)
+            if pool:
+                favorite_entry = {
+                    "address": pool_address,
+                    "name": pool.name,
+                    "token_x_symbol": pool.token_x_symbol,
+                    "token_y_symbol": pool.token_y_symbol,
+                    "bin_step": pool.bin_step,
+                    "liquidity": pool.liquidity,
+                    "apr": pool.apr,
+                    "added_at": time.time()
+                }
+        except Exception as pool_err:
+            logger.warning(f"[DLMM] Could not get pool from cache: {pool_err}")
+
+        # Try sidecar if pool not found
+        if not favorite_entry:
+            try:
+                pool_info = dlmm_client.get_pool_info_from_sidecar(pool_address)
+                if pool_info:
+                    favorite_entry = {
+                        "address": pool_address,
+                        "name": data.get('name', f"Pool {pool_address[:8]}"),
+                        "token_x_symbol": pool_info.get('tokenXSymbol', '?'),
+                        "token_y_symbol": pool_info.get('tokenYSymbol', '?'),
+                        "bin_step": pool_info.get('binStep', 0),
+                        "added_at": time.time()
+                    }
+            except Exception as sidecar_err:
+                logger.warning(f"[DLMM] Could not get pool from sidecar: {sidecar_err}")
+
+        # Fallback: just save with the address
+        if not favorite_entry:
+            favorite_entry = {
+                "address": pool_address,
+                "name": data.get('name', f"Pool {pool_address[:8]}..."),
+                "token_x_symbol": "?",
+                "token_y_symbol": "?",
+                "bin_step": 0,
+                "added_at": time.time()
+            }
+
+        # Get existing favorites and add new one
+        favorites = db.get_setting('dlmm_favorites', [])
+
+        # Check if already exists
+        if any(f['address'] == pool_address for f in favorites):
+            return jsonify({"success": False, "error": "Pool already in favorites"}), 400
+
+        favorites.insert(0, favorite_entry)
+        db.save_setting('dlmm_favorites', favorites)
+
+        # Broadcast update
+        socketio.emit('favorites_update', {
+            'favorites': favorites
+        }, namespace='/dlmm')
+
+        return jsonify({
+            "success": True,
+            "favorite": favorite_entry,
+            "count": len(favorites)
+        })
+    except Exception as e:
+        logger.error(f"[DLMM] Add favorite error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@dlmm_bp.route('/api/dlmm/favorites/remove', methods=['POST'])
+def api_dlmm_remove_favorite():
+    """Remove a pool from favorites."""
+    data = request.json
+    pool_address = data.get('pool_address')
+
+    if not pool_address:
+        return jsonify({"success": False, "error": "Missing pool_address"}), 400
+
+    try:
+        favorites = db.get_setting('dlmm_favorites', [])
+        favorites = [f for f in favorites if f['address'] != pool_address]
+        db.save_setting('dlmm_favorites', favorites)
+
+        # Broadcast update
+        socketio.emit('favorites_update', {
+            'favorites': favorites
+        }, namespace='/dlmm')
+
+        return jsonify({
+            "success": True,
+            "count": len(favorites)
+        })
+    except Exception as e:
+        logger.error(f"[DLMM] Remove favorite error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@dlmm_bp.route('/api/dlmm/favorites/refresh', methods=['POST'])
+def api_dlmm_refresh_favorites():
+    """Refresh all favorites with updated data from API."""
+    try:
+        favorites = db.get_setting('dlmm_favorites', [])
+        updated_favorites = []
+
+        for fav in favorites:
+            address = fav.get('address')
+            if not address:
+                continue
+
+            # Try to fetch fresh pool data
+            pool = dlmm_client.get_pool(address)
+            if pool:
+                updated_favorites.append({
+                    "address": address,
+                    "name": pool.name,
+                    "token_x_symbol": pool.token_x_symbol,
+                    "token_y_symbol": pool.token_y_symbol,
+                    "bin_step": pool.bin_step,
+                    "liquidity": pool.liquidity,
+                    "apr": pool.apr,
+                    "added_at": fav.get('added_at', time.time())
+                })
+            else:
+                # Keep existing data if fetch fails
+                updated_favorites.append(fav)
+
+        db.save_setting('dlmm_favorites', updated_favorites)
+
+        # Broadcast update
+        socketio.emit('favorites_update', {
+            'favorites': updated_favorites
+        }, namespace='/dlmm')
+
+        return jsonify({
+            "success": True,
+            "favorites": updated_favorites,
+            "count": len(updated_favorites)
+        })
+    except Exception as e:
+        logger.error(f"[DLMM] Refresh favorites error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500

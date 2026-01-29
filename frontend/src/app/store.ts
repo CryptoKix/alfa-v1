@@ -9,6 +9,8 @@ import sniperReducer from '../features/sniper/sniperSlice'
 import intelReducer from '../features/intel/intelSlice'
 import walletReducer from '../features/wallet/walletSlice'
 import yieldReducer from '../features/yield/yieldSlice'
+import dlmmReducer from '../features/dlmm/dlmmSlice'
+import liquidityReducer from '../features/liquidity/liquiditySlice'
 
 export const store = configureStore({
   reducer: {
@@ -22,8 +24,11 @@ export const store = configureStore({
     intel: intelReducer,
     wallet: walletReducer,
     yield: yieldReducer,
+    dlmm: dlmmReducer,
+    liquidity: liquidityReducer,
   },
 })
 
 export type RootState = ReturnType<typeof store.getState>
 export type AppDispatch = typeof store.dispatch
+export type AppStore = typeof store

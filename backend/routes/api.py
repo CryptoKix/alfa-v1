@@ -12,10 +12,10 @@ from services.tokens import get_known_tokens, get_token_symbol
 from services.trading import execute_trade_logic
 from services.bots import process_grid_logic, update_bot_performance
 from services.notifications import notify_bot_completion
+from middleware.rate_limit import rate_limit
+from services.trade_guard import trade_guard, TradeGuardError
 
 api_bp = Blueprint('api', __name__)
-
-# Issue 17: Rate limiting
 
 # Price sanity check constants (Issue 4)
 PRICE_DEVIATION_THRESHOLD = 0.10  # 10% max deviation
@@ -43,6 +43,149 @@ def api_health():
         "web_server": "up",
         "price_server": "up" if (time.time() - extensions.last_price_update) < 10 else "down"
     })
+
+
+@api_bp.route('/api/system/services')
+def api_system_services():
+    """Get status of all backend services."""
+    import subprocess
+    import os
+    import extensions
+
+    services = [
+        {
+            "id": "backend",
+            "name": "Backend API",
+            "description": "Flask API & Socket.IO server",
+            "port": 5001,
+            "log_file": "backend/server.log"
+        },
+        {
+            "id": "price_server",
+            "name": "Price Server",
+            "description": "Real-time price feed updates",
+            "port": None,
+            "log_file": "backend/price_server.log"
+        },
+        {
+            "id": "sniper_outrider",
+            "name": "Sniper Outrider",
+            "description": "New token discovery scanner",
+            "port": None,
+            "log_file": "backend/sniper_outrider.log"
+        },
+        {
+            "id": "meteora_sidecar",
+            "name": "Meteora Sidecar",
+            "description": "DLMM SDK transaction builder",
+            "port": 5002,
+            "log_file": "backend/meteora_sidecar.log"
+        },
+        {
+            "id": "orca_sidecar",
+            "name": "Orca Sidecar",
+            "description": "Whirlpools SDK transaction builder",
+            "port": 5003,
+            "log_file": "backend/meteora_sidecar/orca_sidecar.log"
+        }
+    ]
+
+    results = []
+    for svc in services:
+        status = "unknown"
+        last_log = ""
+
+        # Check if service is running by process name
+        try:
+            if svc["id"] == "backend":
+                status = "running"  # We're responding, so backend is running
+            elif svc["id"] == "price_server":
+                # Check last price update timestamp
+                status = "running" if (time.time() - extensions.last_price_update) < 15 else "stopped"
+            elif svc["id"] == "meteora_sidecar":
+                # Check if sidecar responds
+                import requests
+                try:
+                    r = requests.get("http://localhost:5002/health", timeout=2)
+                    status = "running" if r.status_code == 200 else "stopped"
+                except:
+                    status = "stopped"
+            elif svc["id"] == "orca_sidecar":
+                # Check if Orca sidecar responds
+                import requests
+                try:
+                    r = requests.get("http://localhost:5003/health", timeout=2)
+                    status = "running" if r.status_code == 200 else "stopped"
+                except:
+                    status = "stopped"
+            elif svc["id"] == "sniper_outrider":
+                # Check if process is running
+                result = subprocess.run(
+                    ["pgrep", "-f", "sniper_outrider.py"],
+                    capture_output=True, text=True
+                )
+                status = "running" if result.returncode == 0 else "stopped"
+        except Exception as e:
+            status = "error"
+
+        # Get last few log lines
+        try:
+            log_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', svc["log_file"])
+            if os.path.exists(log_path):
+                with open(log_path, 'r') as f:
+                    lines = f.readlines()
+                    last_log = ''.join(lines[-5:]) if lines else ""
+        except:
+            last_log = ""
+
+        results.append({
+            **svc,
+            "status": status,
+            "last_log": last_log[-500:] if last_log else ""  # Limit log size
+        })
+
+    return jsonify({
+        "success": True,
+        "services": results,
+        "timestamp": time.time()
+    })
+
+
+@api_bp.route('/api/system/services/<service_id>/logs')
+def api_service_logs(service_id: str):
+    """Get recent logs for a specific service."""
+    import os
+
+    log_files = {
+        "backend": "backend/server.log",
+        "price_server": "backend/price_server.log",
+        "sniper_outrider": "backend/sniper_outrider.log",
+        "meteora_sidecar": "backend/meteora_sidecar.log",
+        "orca_sidecar": "backend/meteora_sidecar/orca_sidecar.log"
+    }
+
+    if service_id not in log_files:
+        return jsonify({"success": False, "error": "Unknown service"}), 404
+
+    lines_param = request.args.get('lines', 50, type=int)
+    lines_param = min(lines_param, 200)  # Cap at 200 lines
+
+    try:
+        log_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', log_files[service_id])
+        if os.path.exists(log_path):
+            with open(log_path, 'r') as f:
+                all_lines = f.readlines()
+                recent = all_lines[-lines_param:] if all_lines else []
+                return jsonify({
+                    "success": True,
+                    "service_id": service_id,
+                    "logs": ''.join(recent),
+                    "line_count": len(recent)
+                })
+        else:
+            return jsonify({"success": True, "service_id": service_id, "logs": "", "line_count": 0})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @api_bp.route('/api/history')
 def api_history():
@@ -310,13 +453,15 @@ def api_dca_add():
 
         levels = []
         # Find which levels should be pre-filled based on current price position
-        # Levels BELOW current price = should have positions (we "would have bought" there)
-        # Levels AT or ABOVE current price = empty (waiting to buy on dips)
+        # Grid trading logic:
+        # - Levels ABOVE current price = have positions (ready to SELL when price rises)
+        # - Levels BELOW current price = no positions (ready to BUY when price drops)
+        # This way we profit from price oscillations: buy low, sell high
         for i in range(s):
             price_level = lb + (i * (ub - lb) / (s - 1))
-            # A level has a position if it's BELOW current price (we assume we bought the dip)
-            # Level 0 (lowest) is always a buy entry point, not pre-filled
-            should_have_position = (i > 0) and (price_level < current_price)
+            # A level has a position if it's ABOVE current price (ready to sell high)
+            # The highest level (i == s-1) is the ceiling, don't pre-fill
+            should_have_position = (i < s - 1) and (price_level > current_price)
 
             levels.append({
                 "price": price_level,
@@ -328,12 +473,13 @@ def api_dca_add():
 
         state['grid_levels'] = levels
 
-        # Count levels that need to be filled (positions below current price)
+        # Count levels that need to be filled (positions ABOVE current price, ready to sell)
         fill_levels = [lvl for lvl in levels if lvl['has_position']]
         fill_count = len(fill_levels)
 
         if fill_count > 0:
-            # Execute initial rebalance to fill levels below current price
+            # Execute initial rebalance to buy tokens for levels above current price
+            # These tokens will be sold when price rises to each level
             initial_buy_amount = config['amount_per_level'] * fill_count
             try:
                 res = execute_trade_logic(
@@ -445,13 +591,74 @@ def api_dca_update():
     return jsonify({"success": True})
 
 @api_bp.route('/api/trade', methods=['POST'])
+@rate_limit('trade')
 def api_trade():
     data = request.json
     try:
-        sig = execute_trade_logic(data['inputMint'], data['outputMint'], float(data['amount']), data.get('strategy', 'Manual Swap'), data.get('slippageBps', 50), data.get('priorityFee', 0.001))
-        return jsonify({"success": True, "signature": sig['signature']})
+        result = execute_trade_logic(
+            data['inputMint'],
+            data['outputMint'],
+            float(data['amount']),
+            data.get('strategy', 'Manual Swap'),
+            data.get('slippageBps', 50),
+            data.get('priorityFee', 0.001)
+        )
+
+        # Check if trade requires confirmation
+        if result.get('requires_confirmation'):
+            return jsonify({
+                "success": False,
+                "requires_confirmation": True,
+                "confirmation_id": result['confirmation_id'],
+                "usd_value": result['usd_value'],
+                "message": result['message']
+            }), 200
+
+        return jsonify({"success": True, "signature": result['signature']})
+    except TradeGuardError as e:
+        return jsonify({"error": str(e), "code": e.code}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@api_bp.route('/api/trade/confirm', methods=['POST'])
+@rate_limit('trade')
+def api_trade_confirm():
+    """Confirm a large trade that requires approval."""
+    data = request.json
+    confirmation_id = data.get('confirmation_id')
+
+    if not confirmation_id:
+        return jsonify({"error": "confirmation_id required"}), 400
+
+    try:
+        # Validate and get trade details
+        trade_details = trade_guard.confirm_trade(confirmation_id)
+
+        # Execute the trade with skip_guard since it was already validated
+        result = execute_trade_logic(
+            trade_details['input_mint'],
+            trade_details['output_mint'],
+            trade_details['amount'],
+            trade_details['source'],
+            trade_details['slippage_bps'],
+            skip_guard=True
+        )
+
+        return jsonify({"success": True, "signature": result['signature']})
+    except TradeGuardError as e:
+        return jsonify({"error": str(e), "code": e.code}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@api_bp.route('/api/trade/limits', methods=['GET'])
+def api_trade_limits():
+    """Get current trade guard configuration and daily stats."""
+    return jsonify({
+        "config": trade_guard.get_config(),
+        "daily_stats": trade_guard.get_daily_stats()
+    })
 
 
 @api_bp.route('/api/limit/create', methods=['POST'])

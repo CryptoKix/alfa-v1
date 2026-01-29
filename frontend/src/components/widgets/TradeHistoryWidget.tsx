@@ -1,17 +1,16 @@
 import { useState } from 'react'
-import { History } from 'lucide-react'
+import { History, ExternalLink } from 'lucide-react'
 import { useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { HistoryModal } from '../modals/HistoryModal'
+import { WidgetContainer } from './base/WidgetContainer'
 
 const formatAmount = (num: number | undefined) => {
   if (num === undefined || num === null) return '0'
   if (num === 0) return '0'
-  if (num < 0.000001) return '< 0.000001'
-  return num.toLocaleString(undefined, { 
-    minimumFractionDigits: 0, 
-    maximumFractionDigits: num < 1 ? 6 : 2 
-  })
+  if (num < 0.0001) return num.toExponential(2)
+  if (num < 1) return num.toFixed(4)
+  return num.toLocaleString(undefined, { maximumFractionDigits: 2 })
 }
 
 const formatTimestamp = (dateStr: string) => {
@@ -19,110 +18,119 @@ const formatTimestamp = (dateStr: string) => {
   const isoStr = dateStr.replace(' ', 'T') + (dateStr.includes('Z') ? '' : 'Z')
   const date = new Date(isoStr)
   if (isNaN(date.getTime())) return '-'
-  
-  const d = date.getDate().toString().padStart(2, '0')
-  const m = (date.getMonth() + 1).toString().padStart(2, '0')
-  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-  
-  return `${m}/${d} ${time}`
+
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
 export const TradeHistoryWidget = () => {
-  const { history } = useAppSelector(state => state.portfolio)
+  const { history } = useAppSelector((state) => state.portfolio)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   return (
     <>
-      <div className="bg-background-card border border-accent-pink/10 rounded-2xl p-6 shadow-xl h-full flex flex-col relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/80 via-accent-pink/40 to-transparent" />
-
-        <div className="flex items-center justify-between mb-2 border-b border-accent-pink/10 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
-          <h3 className="text-sm font-bold flex items-center gap-2 uppercase tracking-tight text-white">
-            <History className="text-accent-pink" size={18} />
-            Trade History
-          </h3>
-          <button 
+      <WidgetContainer
+        id="trade-history"
+        title="Trade History"
+        icon={<History className="w-4 h-4" />}
+        badge={history.length > 0 ? `${history.length}` : undefined}
+        actions={
+          <button
             onClick={() => setIsModalOpen(true)}
-            className="text-[9px] uppercase tracking-[0.2em] text-text-muted hover:text-white transition-colors font-bold"
+            className="text-[10px] uppercase tracking-wider text-white/40 hover:text-accent-cyan transition-colors font-semibold"
           >
             View All
           </button>
-        </div>
-
-        {/* Table Header */}
-        <div className="grid grid-cols-[100px_100px_1fr_80px_60px] gap-4 px-2.5 pb-2 mr-[6px] text-[9px] font-black text-text-muted uppercase tracking-[0.2em] shrink-0">
-          <div>Timestamp</div>
-          <div>Asset Pair</div>
-          <div>Execution Detail</div>
-          <div>Price</div>
-          <div className="text-right">Status</div>
-        </div>
-
-        <div className="flex-1 relative min-h-0">
-          <div className="space-y-1 h-full overflow-auto custom-scrollbar pr-2 pb-4">
-            {history.length === 0 ? (
-               <div className="h-full flex flex-col items-center justify-center text-text-muted opacity-50">
-                 <span className="text-xs italic tracking-widest uppercase">No trades recorded</span>
-               </div>
-            ) : (
-              history.map((trade) => {
-                const isSuccess = trade.status === 'success'
-                const isOutputStable = ['USDC', 'USDT', 'USD'].includes(trade.output)
-                const targetAmount = isOutputStable ? trade.amount_in : trade.amount_out
-                const impliedPrice = trade.usd_value > 0 && targetAmount > 0 
-                  ? trade.usd_value / targetAmount 
-                  : 0
-                
-                return (
-                  <div key={trade.id} className="grid grid-cols-[100px_100px_1fr_80px_60px] gap-4 items-end p-2.5 rounded-xl bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group text-xs font-mono whitespace-nowrap overflow-hidden">
-                    <div className={cn(
-                      "font-black shrink-0 text-[11px] leading-none transition-colors duration-500",
-                      isSuccess ? "text-white/80" : "text-text-muted"
-                    )}>
-                      {formatTimestamp(trade.timestamp)}
-                    </div>
-                    
-                    <div className="flex items-end gap-1 font-black uppercase tracking-tighter shrink-0 text-[11px] leading-none">
-                      <span className="text-accent-pink inline-block leading-none">{trade.input}</span>
-                      <span className="text-text-muted opacity-30 inline-block leading-none">/</span>
-                      <span className="text-white/70 inline-block leading-none">{trade.output}</span>
-                    </div>
-
-                    <div className="flex items-end gap-2 min-w-0 overflow-hidden text-[11px] leading-none">
-                       <span className="font-bold text-white/90 shrink-0 leading-none">{formatAmount(trade.amount_in)} {trade.input}</span>
-                       <span className="text-accent-pink/50 text-[10px] italic shrink-0 leading-none">→</span>
-                       <span className="text-accent-pink font-black truncate leading-none">{formatAmount(trade.amount_out)} {trade.output}</span>
-                    </div>
-
-                    <div className="text-[11px] font-black text-white/60 leading-none shrink-0">
-                      {impliedPrice > 0 ? `${impliedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '---'}
-                    </div>
-
-                    <div className="text-right shrink-0 leading-none">
-                       <span className={cn(
-                         "uppercase font-black text-[9px] tracking-widest px-2 py-0.5 rounded border leading-none inline-block", 
-                         isSuccess ? "text-accent-green border-accent-green/20 bg-accent-green/5" : "text-accent-red border-accent-red/20 bg-accent-red/5"
-                       )}>
-                         {isSuccess ? 'OK' : 'ERR'}
-                       </span>
-                    </div>
-                  </div>
-                )
-              })
-            )}
+        }
+        noPadding
+      >
+        {/* Content */}
+        <div className="flex-1 overflow-auto glass-scrollbar min-h-0 p-3 space-y-2">
+          {/* Table Header */}
+          <div className="grid grid-cols-[70px_60px_1fr_80px_80px_70px] gap-3 px-3 py-1.5 items-center text-[10px] text-white/40 uppercase tracking-wider font-bold border border-transparent rounded-xl">
+            <div>Time</div>
+            <div>Type</div>
+            <div>Pair</div>
+            <div>In</div>
+            <div>Out</div>
+            <div>Price</div>
           </div>
-          
-          <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background-card to-transparent pointer-events-none z-10" />
-        </div>
-      </div>
 
-      <HistoryModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        history={history}
-        formatTimestamp={formatTimestamp}
-      />
+          {history.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-32 text-white/30">
+              <History size={24} strokeWidth={1} className="mb-2 opacity-50" />
+              <span className="text-xs">No trades recorded</span>
+            </div>
+          ) : (
+            history.slice(0, 20).map((trade) => {
+              const price = trade.amount_in && trade.amount_out ? (trade.amount_out / trade.amount_in) : 0
+
+              return (
+                <div
+                  key={trade.id}
+                  className={cn(
+                    'grid grid-cols-[70px_60px_1fr_80px_80px_70px] gap-3 px-3 py-1.5 items-center group transition-all cursor-pointer',
+                    'bg-white/[0.02] border border-white/[0.06] rounded-xl',
+                    'hover:bg-white/[0.04] hover:border-accent-cyan/30'
+                  )}
+                >
+                  {/* Time */}
+                  <div className="text-[11px] text-white/50">
+                    {formatTimestamp(trade.timestamp)}
+                  </div>
+
+                  {/* Type */}
+                  <div>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-accent-cyan/10 text-accent-cyan">
+                      Swap
+                    </span>
+                  </div>
+
+                  {/* Pair */}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm font-semibold text-white truncate">{trade.input}/{trade.output}</span>
+                    {trade.signature && (
+                      <a
+                        href={`https://solscan.io/tx/${trade.signature}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-accent-cyan transition-all shrink-0"
+                      >
+                        <ExternalLink size={12} />
+                      </a>
+                    )}
+                  </div>
+
+                  {/* In */}
+                  <div className="text-[12px] font-mono text-white/70 truncate">
+                    {formatAmount(trade.amount_in)}
+                  </div>
+
+                  {/* Out */}
+                  <div className="text-[12px] font-mono text-accent-cyan truncate">
+                    {formatAmount(trade.amount_out)}
+                  </div>
+
+                  {/* Price */}
+                  <div className="text-[12px] font-mono text-white/50">
+                    {price < 0.0001 ? price.toExponential(2) : price.toFixed(4)}
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      </WidgetContainer>
+
+      <HistoryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} history={history} formatTimestamp={formatTimestamp} />
     </>
   )
 }
-
