@@ -19,6 +19,11 @@ from .rebalance_engine import (
     REBALANCE_THRESHOLDS,
     RISK_CONFIGS
 )
+from .position_monitor import (
+    PositionMonitor,
+    MonitorSettings,
+    PositionStatus
+)
 
 __all__ = [
     # Orca Client
@@ -37,4 +42,8 @@ __all__ = [
     'RebalanceMode',
     'REBALANCE_THRESHOLDS',
     'RISK_CONFIGS',
+    # Position Monitor
+    'PositionMonitor',
+    'MonitorSettings',
+    'PositionStatus',
 ]

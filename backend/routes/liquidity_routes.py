@@ -13,6 +13,7 @@ from services.liquidity import (
     OrcaClient,
     UnifiedPositionManager,
     RebalanceEngine,
+    PositionMonitor,
     orca_client
 )
 from services.meteora_dlmm import DLMMClient
@@ -25,14 +26,16 @@ liquidity_bp = Blueprint('liquidity', __name__)
 meteora_client = DLMMClient()
 position_manager = None
 rebalance_engine = None
+position_monitor = None
 
 
 def init_liquidity_services(sio, session_key_service=None):
     """Initialize liquidity services with socketio instance."""
-    global position_manager, rebalance_engine
+    global position_manager, rebalance_engine, position_monitor
 
     position_manager = UnifiedPositionManager(db, sio, meteora_client, orca_client)
     rebalance_engine = RebalanceEngine(db, sio, position_manager, session_key_service)
+    position_monitor = PositionMonitor(db, sio, position_manager)
 
     logger.info("[Liquidity] Services initialized")
 
@@ -76,10 +79,9 @@ def api_liquidity_pool(protocol: str, address: str):
             return jsonify({"success": False, "error": "Invalid protocol"}), 400
 
         pool = position_manager.get_pool(protocol, address)
-        if not pool:
-            return jsonify({"success": False, "error": "Pool not found"}), 404
+        pool_dict = pool.to_dict() if pool else None
 
-        # Get additional chain info
+        # Get chain info from sidecar
         if protocol == 'meteora':
             chain_info = meteora_client.get_pool_info_from_sidecar(address)
             bin_data = meteora_client.get_bin_liquidity(address)
@@ -87,9 +89,106 @@ def api_liquidity_pool(protocol: str, address: str):
             chain_info = orca_client.get_pool_info_from_sidecar(address)
             bin_data = orca_client.get_tick_data(address)
 
+        # If pool not in cache or has incomplete data, build from sidecar/API response
+        needs_enrichment = (
+            not pool_dict or
+            pool_dict.get('price', 0) == 0 or
+            not pool_dict.get('tokenX', {}).get('symbol') or
+            pool_dict.get('tvl', 0) == 0
+        )
+        if needs_enrichment:
+            if protocol == 'orca':
+                # Check cache first (non-blocking) - populated by get_all_pools()
+                cached_pool = orca_client._pools_cache.get(address)
+                if cached_pool:
+                    pool_dict = {
+                        'protocol': 'orca',
+                        'address': address,
+                        'name': cached_pool.name,
+                        'tokenX': {
+                            'mint': cached_pool.token_a_mint,
+                            'symbol': cached_pool.token_a_symbol,
+                            'decimals': chain_info.get('tokenA', {}).get('decimals', 9) if chain_info else 9
+                        },
+                        'tokenY': {
+                            'mint': cached_pool.token_b_mint,
+                            'symbol': cached_pool.token_b_symbol,
+                            'decimals': chain_info.get('tokenB', {}).get('decimals', 6) if chain_info else 6
+                        },
+                        'priceSpacing': cached_pool.tick_spacing,
+                        'feeRate': cached_pool.fee_rate / 1000000,  # Convert from bps
+                        'liquidity': cached_pool.liquidity,
+                        'volume24h': cached_pool.volume_24h,
+                        'fees24h': cached_pool.fees_24h,
+                        'apr': cached_pool.apr,
+                        'price': cached_pool.price if cached_pool.price else (float(chain_info.get('currentPrice', 0)) if chain_info else 0),
+                        'tvl': cached_pool.tvl,
+                        'currentPriceIndex': chain_info.get('currentTick', 0) if chain_info else 0
+                    }
+                elif chain_info:
+                    # Fallback to sidecar-only data if not in cache
+                    # Derive symbols from known mints (sidecar doesn't return symbols)
+                    mint_a = chain_info.get('tokenA', {}).get('mint', '')
+                    mint_b = chain_info.get('tokenB', {}).get('mint', '')
+                    symbol_a = 'SOL' if 'So11111111111111111111111111111111111111112' in mint_a else '?'
+                    symbol_b = 'USDC' if 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' in mint_b else '?'
+
+                    pool_dict = {
+                        'protocol': 'orca',
+                        'address': address,
+                        'name': f"{symbol_a}/{symbol_b}",
+                        'tokenX': {
+                            'mint': mint_a,
+                            'symbol': symbol_a,
+                            'decimals': chain_info.get('tokenA', {}).get('decimals', 9)
+                        },
+                        'tokenY': {
+                            'mint': mint_b,
+                            'symbol': symbol_b,
+                            'decimals': chain_info.get('tokenB', {}).get('decimals', 6)
+                        },
+                        'priceSpacing': chain_info.get('tickSpacing', 0),
+                        'feeRate': chain_info.get('feeRate', 0) / 1000000,
+                        'liquidity': float(chain_info.get('liquidity', 0)),
+                        'volume24h': 0,
+                        'fees24h': 0,
+                        'apr': 0,
+                        'price': float(chain_info.get('currentPrice', 0)),
+                        'tvl': 0,
+                        'currentPriceIndex': chain_info.get('currentTick', 0)
+                    }
+            elif chain_info:  # meteora
+                pool_dict = {
+                    'protocol': 'meteora',
+                    'address': address,
+                    'name': chain_info.get('name', '?-?'),
+                    'tokenX': {
+                        'mint': chain_info.get('tokenXMint', ''),
+                        'symbol': chain_info.get('tokenXSymbol', '?'),
+                        'decimals': chain_info.get('tokenXDecimals', 9)
+                    },
+                    'tokenY': {
+                        'mint': chain_info.get('tokenYMint', ''),
+                        'symbol': chain_info.get('tokenYSymbol', '?'),
+                        'decimals': chain_info.get('tokenYDecimals', 6)
+                    },
+                    'priceSpacing': chain_info.get('binStep', 0),
+                    'feeRate': chain_info.get('baseFee', 0) / 10000,
+                    'liquidity': float(chain_info.get('liquidity', 0)),
+                    'volume24h': 0,
+                    'fees24h': 0,
+                    'apr': 0,
+                    'price': float(chain_info.get('activePrice', 0)),
+                    'tvl': 0,
+                    'currentPriceIndex': chain_info.get('activeBinId', 0)
+                }
+
+        if not pool_dict:
+            return jsonify({"success": False, "error": "Pool not found"}), 404
+
         return jsonify({
             "success": True,
-            "pool": pool.to_dict(),
+            "pool": pool_dict,
             "chainInfo": chain_info,
             "priceData": bin_data,
             "timestamp": time.time()
@@ -451,18 +550,58 @@ def api_liquidity_calculate_strategy():
 
 # ==================== Rebalance Routes ====================
 
-@liquidity_bp.route('/api/liquidity/rebalance/settings')
+@liquidity_bp.route('/api/liquidity/rebalance/settings', methods=['GET', 'POST'])
 def api_liquidity_rebalance_settings():
-    """Get rebalance engine settings."""
+    """Get or update rebalance engine settings."""
     try:
-        settings = rebalance_engine.get_settings()
-        return jsonify({
-            "success": True,
-            "settings": settings,
-            "timestamp": time.time()
-        })
+        if request.method == 'GET':
+            settings = rebalance_engine.get_settings()
+            return jsonify({
+                "success": True,
+                "settings": settings,
+                "timestamp": time.time()
+            })
+        else:
+            # Update settings
+            data = request.json or {}
+            rebalance_engine.update_settings(data)
+            settings = rebalance_engine.get_settings()
+            return jsonify({
+                "success": True,
+                "settings": settings,
+                "updated": True,
+                "timestamp": time.time()
+            })
     except Exception as e:
-        logger.error(f"[Liquidity] Get rebalance settings error: {e}")
+        logger.error(f"[Liquidity] Rebalance settings error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@liquidity_bp.route('/api/liquidity/rebalance/stats')
+def api_liquidity_rebalance_stats():
+    """Get rebalance stats for all positions or a specific one."""
+    position_pubkey = request.args.get('position_pubkey')
+
+    try:
+        if position_pubkey:
+            stats = rebalance_engine.get_position_stats(position_pubkey)
+            if not stats:
+                return jsonify({"success": False, "error": "No stats for position"}), 404
+            return jsonify({
+                "success": True,
+                "stats": stats,
+                "timestamp": time.time()
+            })
+        else:
+            all_stats = rebalance_engine.get_all_stats()
+            return jsonify({
+                "success": True,
+                "stats": all_stats,
+                "count": len(all_stats),
+                "timestamp": time.time()
+            })
+    except Exception as e:
+        logger.error(f"[Liquidity] Get rebalance stats error: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -645,12 +784,96 @@ def api_liquidity_stop_rebalance_engine():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ==================== Monitor Settings Routes ====================
+
+@liquidity_bp.route('/api/liquidity/monitor/settings', methods=['GET', 'POST'])
+def api_liquidity_monitor_settings():
+    """Get or update position monitor settings."""
+    try:
+        if request.method == 'GET':
+            return jsonify({
+                "success": True,
+                "settings": position_monitor.settings.to_dict(),
+                "running": position_monitor.is_running(),
+                "timestamp": time.time()
+            })
+        else:
+            data = request.json or {}
+
+            # Update settings
+            updated_settings = position_monitor.update_settings(data)
+
+            return jsonify({
+                "success": True,
+                "settings": updated_settings.to_dict(),
+                "timestamp": time.time()
+            })
+    except Exception as e:
+        logger.error(f"[Liquidity] Monitor settings error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@liquidity_bp.route('/api/liquidity/monitor/start', methods=['POST'])
+def api_liquidity_start_monitor():
+    """Start the position monitor."""
+    try:
+        position_monitor.start()
+        return jsonify({
+            "success": True,
+            "running": True,
+            "timestamp": time.time()
+        })
+    except Exception as e:
+        logger.error(f"[Liquidity] Start monitor error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@liquidity_bp.route('/api/liquidity/monitor/stop', methods=['POST'])
+def api_liquidity_stop_monitor():
+    """Stop the position monitor."""
+    try:
+        position_monitor.stop()
+        return jsonify({
+            "success": True,
+            "running": False,
+            "timestamp": time.time()
+        })
+    except Exception as e:
+        logger.error(f"[Liquidity] Stop monitor error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@liquidity_bp.route('/api/liquidity/monitor/position/<position_pubkey>')
+def api_liquidity_monitor_position_status(position_pubkey: str):
+    """Get current status for a specific position."""
+    try:
+        status = position_monitor.get_position_status(position_pubkey)
+        if not status:
+            return jsonify({"success": False, "error": "Position not found"}), 404
+
+        return jsonify({
+            "success": True,
+            "status": status.to_dict(),
+            "timestamp": time.time()
+        })
+    except Exception as e:
+        logger.error(f"[Liquidity] Get position status error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # ==================== Socket.IO Handlers ====================
 
 @socketio.on('connect', namespace='/liquidity')
 def handle_liquidity_connect():
     """Handle liquidity socket connection."""
     logger.info("[Liquidity] Client connected")
+
+    # Send current sidecar health status
+    try:
+        health = position_manager.check_sidecar_health()
+        socketio.emit('health_update', health, namespace='/liquidity')
+    except Exception as e:
+        logger.error(f"[Liquidity] Failed to send health update: {e}")
 
 
 @socketio.on('request_pools', namespace='/liquidity')

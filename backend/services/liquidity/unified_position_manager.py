@@ -137,10 +137,7 @@ class UnifiedPositionManager:
         if protocol is None or protocol == 'meteora':
             meteora_pools = self.meteora_client.get_all_pools()
             for mp in meteora_pools:
-                # Get chain info for current price index
-                chain_info = self.meteora_client.get_pool_info_from_sidecar(mp.address)
-                current_index = chain_info.get('activeBinId', 0) if chain_info else 0
-
+                # Don't call sidecar for every pool in list - current_price_index fetched on-demand
                 pools.append(UnifiedPool(
                     protocol='meteora',
                     address=mp.address,
@@ -157,16 +154,14 @@ class UnifiedPositionManager:
                     apr=mp.apr,
                     price=mp.price,
                     tvl=mp.liquidity,  # Meteora uses liquidity as TVL
-                    current_price_index=current_index
+                    current_price_index=0  # Fetched on-demand for individual pool
                 ))
 
         if protocol is None or protocol == 'orca':
             orca_pools = self.orca_client.get_all_pools()
             for op in orca_pools:
-                # Get chain info for current tick
-                chain_info = self.orca_client.get_pool_info_from_sidecar(op.address)
-                current_index = chain_info.get('currentTick', 0) if chain_info else 0
-
+                # Don't call sidecar for every pool in list - too slow with 14k+ pools
+                # current_price_index will be fetched when viewing individual pool
                 pools.append(UnifiedPool(
                     protocol='orca',
                     address=op.address,
@@ -183,7 +178,7 @@ class UnifiedPositionManager:
                     apr=op.apr,
                     price=op.price,
                     tvl=op.tvl,
-                    current_price_index=current_index
+                    current_price_index=0  # Fetched on-demand for individual pool
                 ))
 
         # Apply filters

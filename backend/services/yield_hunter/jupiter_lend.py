@@ -52,8 +52,14 @@ def fetch_jupiter_lend_opportunities() -> List[YieldOpportunity]:
                 if isinstance(supply_rate, str):
                     supply_rate = float(supply_rate)
 
-                # Convert to percentage if needed (API might return as decimal)
-                apy = supply_rate * 100 if supply_rate < 1 else supply_rate
+                # Convert to percentage - API returns as decimal (0.05 = 5%)
+                # Always multiply by 100 since lending APYs are typically returned as decimals
+                apy = supply_rate * 100
+
+                # Sanity check: lending APYs over 50% are suspicious, cap at 100%
+                if apy > 100:
+                    print(f"Warning: {symbol} has suspicious APY {apy}%, likely API format issue")
+                    apy = min(apy, 100)  # Cap unrealistic APYs
 
                 tvl = float(token.get('totalSupply', token.get('tvl', 0)))
                 tvl_usd = float(token.get('totalSupplyUsd', tvl))

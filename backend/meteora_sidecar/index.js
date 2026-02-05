@@ -167,11 +167,28 @@ app.post('/calculate-bins', async (req, res) => {
       riskProfile
     );
 
+    // Calculate prices from bin IDs
+    // Meteora price = (1 + binStep/10000)^(binId - 8388608) for DLMM
+    const basePriceFactor = 1 + poolInfo.binStep / 10000;
+    const priceFromBin = (binId) => Math.pow(basePriceFactor, binId - 8388608);
+
+    const currentPrice = priceFromBin(poolInfo.activeBinId);
+    const priceMin = priceFromBin(binRange.minBinId);
+    const priceMax = priceFromBin(binRange.maxBinId);
+
     res.json({
       success: true,
       activeBinId: poolInfo.activeBinId,
       binStep: poolInfo.binStep,
-      ...binRange
+      // Original fields
+      ...binRange,
+      // Normalized fields for frontend
+      rangeMin: binRange.minBinId,
+      rangeMax: binRange.maxBinId,
+      priceMin: priceMin,
+      priceMax: priceMax,
+      currentPrice: currentPrice,
+      riskProfile: riskProfile || 'medium'
     });
   } catch (error) {
     console.error('[Sidecar] Meteora calculate bins error:', error);
@@ -482,7 +499,7 @@ app.post('/orca/calculate-range', async (req, res) => {
 // START SERVER
 // ============================================================================
 
-app.listen(PORT, () => {
-  console.log(`[Liquidity Sidecar] Running on port ${PORT}`);
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`[Liquidity Sidecar] Running on 127.0.0.1:${PORT}`);
   console.log(`[Liquidity Sidecar] Protocols: Meteora DLMM, Orca Whirlpools`);
 });

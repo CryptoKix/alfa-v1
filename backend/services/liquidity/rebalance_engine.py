@@ -2,6 +2,7 @@
 """
 Rebalance Engine
 Monitors positions and triggers rebalancing when price moves near range edges.
+Supports bidirectional HFT-style auto-rebalancing for concentrated liquidity.
 """
 
 import logging
@@ -9,8 +10,9 @@ import time
 import asyncio
 import threading
 from typing import Optional, Dict, List, Literal
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
+from collections import defaultdict
 
 logger = logging.getLogger("tactix.rebalance")
 
@@ -24,17 +26,90 @@ class RebalanceMode(Enum):
 
 # Rebalance threshold configs (percentage from edge)
 REBALANCE_THRESHOLDS = {
-    'high': 0.10,    # 10% from edge
-    'medium': 0.15,  # 15% from edge
-    'low': 0.20,     # 20% from edge
+    'high': 0.10,    # 10% from edge - aggressive HFT style
+    'medium': 0.15,  # 15% from edge - balanced
+    'low': 0.20,     # 20% from edge - conservative
 }
 
 # Risk profile configs for new range calculation
 RISK_CONFIGS = {
-    'high': {'range_pct': 0.075},    # ~7.5% range
-    'medium': {'range_pct': 0.20},   # ~20% range
-    'low': {'range_pct': 0.50},      # ~50% range
+    'high': {'range_pct': 0.02, 'tick_range': 50},     # ~2% range, aggressive
+    'medium': {'range_pct': 0.08, 'tick_range': 200},  # ~8% range, balanced
+    'low': {'range_pct': 0.20, 'tick_range': 500},     # ~20% range, conservative
 }
+
+
+@dataclass
+class RebalanceRateLimits:
+    """Rate limiting configuration for rebalancing."""
+    min_cooldown_seconds: int = 300          # 5 minutes minimum between rebalances
+    max_rebalances_per_hour: int = 6         # Max 6 rebalances per hour
+    max_rebalances_per_day: int = 50         # Max 50 rebalances per day
+    min_fees_usd_before_rebalance: float = 1.0  # Min fees earned before rebalancing
+    hysteresis_pct: float = 0.5              # 0.5% buffer zone to prevent flip-flopping
+    estimated_tx_cost_usd: float = 0.12      # Estimated tx cost (2 txs for close+open)
+
+    def to_dict(self) -> Dict:
+        return {
+            'minCooldownSeconds': self.min_cooldown_seconds,
+            'maxRebalancesPerHour': self.max_rebalances_per_hour,
+            'maxRebalancesPerDay': self.max_rebalances_per_day,
+            'minFeesUsdBeforeRebalance': self.min_fees_usd_before_rebalance,
+            'hysteresisPct': self.hysteresis_pct,
+            'estimatedTxCostUsd': self.estimated_tx_cost_usd,
+        }
+
+
+@dataclass
+class RebalanceStats:
+    """Stats for a position's rebalancing activity."""
+    position_pubkey: str
+    last_rebalance_time: float = 0
+    rebalances_this_hour: int = 0
+    rebalances_today: int = 0
+    total_rebalances: int = 0
+    total_fees_collected_usd: float = 0
+    total_tx_costs_usd: float = 0
+    hour_window_start: float = 0
+    day_window_start: float = 0
+
+    def reset_hour_if_needed(self):
+        """Reset hourly counter if window has passed."""
+        now = time.time()
+        if now - self.hour_window_start > 3600:
+            self.hour_window_start = now
+            self.rebalances_this_hour = 0
+
+    def reset_day_if_needed(self):
+        """Reset daily counter if window has passed."""
+        now = time.time()
+        if now - self.day_window_start > 86400:
+            self.day_window_start = now
+            self.rebalances_today = 0
+
+    def record_rebalance(self, fees_collected_usd: float = 0, tx_cost_usd: float = 0):
+        """Record a rebalance event."""
+        self.reset_hour_if_needed()
+        self.reset_day_if_needed()
+
+        self.last_rebalance_time = time.time()
+        self.rebalances_this_hour += 1
+        self.rebalances_today += 1
+        self.total_rebalances += 1
+        self.total_fees_collected_usd += fees_collected_usd
+        self.total_tx_costs_usd += tx_cost_usd
+
+    def to_dict(self) -> Dict:
+        return {
+            'positionPubkey': self.position_pubkey,
+            'lastRebalanceTime': self.last_rebalance_time,
+            'rebalancesThisHour': self.rebalances_this_hour,
+            'rebalancesToday': self.rebalances_today,
+            'totalRebalances': self.total_rebalances,
+            'totalFeesCollectedUsd': self.total_fees_collected_usd,
+            'totalTxCostsUsd': self.total_tx_costs_usd,
+            'netProfitUsd': self.total_fees_collected_usd - self.total_tx_costs_usd,
+        }
 
 
 @dataclass
@@ -106,6 +181,13 @@ class RebalanceResult:
 class RebalanceEngine:
     """
     Engine that monitors positions and triggers rebalancing when needed.
+
+    Features:
+    - Bidirectional auto-rebalancing (follows price up AND down)
+    - Rate limiting (max rebalances per hour/day)
+    - Cooldown between rebalances
+    - Fee threshold check (only rebalance if profitable)
+    - Hysteresis buffer to prevent flip-flopping at boundaries
     """
 
     def __init__(self, db, socketio, position_manager, session_key_service=None):
@@ -114,9 +196,17 @@ class RebalanceEngine:
         self.position_manager = position_manager
         self.session_key_service = session_key_service
         self._running = False
-        self._check_interval = 30  # seconds
+        self._check_interval = 15  # seconds - faster for HFT-style
         self._pending_suggestions: Dict[str, RebalanceSuggestion] = {}
         self._rebalance_history: List[RebalanceResult] = []
+
+        # Rate limiting
+        self.rate_limits = RebalanceRateLimits()
+        self._position_stats: Dict[str, RebalanceStats] = {}
+
+        # Track last seen price index for hysteresis
+        self._last_seen_index: Dict[str, int] = {}
+        self._triggered_exit: Dict[str, bool] = {}  # Track if we've already triggered on exit
 
     def start(self):
         """Start the rebalance monitoring loop."""
@@ -157,8 +247,84 @@ class RebalanceEngine:
             except Exception as e:
                 logger.error(f"[Rebalance] Error evaluating position {pos.get('position_pubkey')}: {e}")
 
+    def _get_or_create_stats(self, position_pubkey: str) -> RebalanceStats:
+        """Get or create stats tracker for a position."""
+        if position_pubkey not in self._position_stats:
+            self._position_stats[position_pubkey] = RebalanceStats(
+                position_pubkey=position_pubkey,
+                hour_window_start=time.time(),
+                day_window_start=time.time()
+            )
+        return self._position_stats[position_pubkey]
+
+    def _check_rate_limits(self, position_pubkey: str) -> tuple[bool, str]:
+        """Check if rebalance is allowed by rate limits. Returns (allowed, reason)."""
+        stats = self._get_or_create_stats(position_pubkey)
+        stats.reset_hour_if_needed()
+        stats.reset_day_if_needed()
+
+        now = time.time()
+
+        # Check cooldown
+        if stats.last_rebalance_time > 0:
+            elapsed = now - stats.last_rebalance_time
+            if elapsed < self.rate_limits.min_cooldown_seconds:
+                return False, f"cooldown:{int(self.rate_limits.min_cooldown_seconds - elapsed)}s"
+
+        # Check hourly limit
+        if stats.rebalances_this_hour >= self.rate_limits.max_rebalances_per_hour:
+            return False, f"hourly_limit:{stats.rebalances_this_hour}/{self.rate_limits.max_rebalances_per_hour}"
+
+        # Check daily limit
+        if stats.rebalances_today >= self.rate_limits.max_rebalances_per_day:
+            return False, f"daily_limit:{stats.rebalances_today}/{self.rate_limits.max_rebalances_per_day}"
+
+        return True, "allowed"
+
+    def _check_hysteresis(self, position_pubkey: str, current_index: int, range_min: int, range_max: int) -> bool:
+        """
+        Check hysteresis to prevent flip-flopping at boundaries.
+
+        Once price exits range, we require it to move an additional hysteresis_pct
+        before triggering a rebalance. This prevents rapid back-and-forth rebalancing
+        when price hovers at the edge.
+        """
+        range_size = range_max - range_min
+        hysteresis_ticks = int(range_size * (self.rate_limits.hysteresis_pct / 100))
+
+        in_range = range_min <= current_index <= range_max
+
+        # Track if we've exited the range
+        if in_range:
+            # Reset exit trigger when back in range
+            self._triggered_exit[position_pubkey] = False
+            return False  # Don't suggest rebalance while in range (handled by near_edge logic)
+
+        # Price is out of range
+        if not self._triggered_exit.get(position_pubkey, False):
+            # First time exiting - check if we've moved past hysteresis buffer
+            if current_index > range_max:
+                # Exited above - check hysteresis
+                if current_index > range_max + hysteresis_ticks:
+                    self._triggered_exit[position_pubkey] = True
+                    return True
+            elif current_index < range_min:
+                # Exited below - check hysteresis
+                if current_index < range_min - hysteresis_ticks:
+                    self._triggered_exit[position_pubkey] = True
+                    return True
+            return False  # Haven't moved past hysteresis buffer yet
+
+        return True  # Already triggered
+
     def _evaluate_position(self, position: Dict) -> Optional[RebalanceSuggestion]:
-        """Evaluate a position and return rebalance suggestion if needed."""
+        """Evaluate a position and return rebalance suggestion if needed.
+
+        Enhanced with:
+        - Rate limiting (cooldown, hourly/daily limits)
+        - Fee threshold check
+        - Hysteresis buffer for boundary stability
+        """
         protocol = position.get('protocol')
         pool_address = position.get('pool_address')
         position_pubkey = position.get('position_pubkey')
@@ -167,6 +333,13 @@ class RebalanceEngine:
         risk_profile = position.get('risk_profile', 'medium')
         auto_rebalance = position.get('auto_rebalance', False)
         user_wallet = position.get('user_wallet')
+
+        # Check rate limits first (for auto-rebalance positions)
+        if auto_rebalance:
+            allowed, limit_reason = self._check_rate_limits(position_pubkey)
+            if not allowed:
+                logger.debug(f"[Rebalance] Position {position_pubkey[:8]} rate limited: {limit_reason}")
+                return None
 
         # Get current position info from chain
         pos_info = self.position_manager.get_position_info(protocol, pool_address, position_pubkey)
@@ -178,6 +351,9 @@ class RebalanceEngine:
             current_index = pos_info.get('activeBinId', 0)
         else:
             current_index = pos_info.get('currentTick', 0)
+
+        # Update last seen index
+        self._last_seen_index[position_pubkey] = current_index
 
         # Check if out of range
         in_range = range_min <= current_index <= range_max
@@ -199,7 +375,14 @@ class RebalanceEngine:
         threshold = REBALANCE_THRESHOLDS.get(risk_profile, 0.15)
 
         # Determine if rebalance needed
+        reason = None
+        urgency = None
+
         if not in_range:
+            # Check hysteresis for out-of-range positions
+            if auto_rebalance and not self._check_hysteresis(position_pubkey, current_index, range_min, range_max):
+                logger.debug(f"[Rebalance] Position {position_pubkey[:8]} waiting for hysteresis buffer")
+                return None
             reason = 'out_of_range'
             urgency = 'high'
         elif distance_from_edge < threshold:
@@ -208,6 +391,25 @@ class RebalanceEngine:
         else:
             # No rebalance needed
             return None
+
+        # For auto-rebalance, check fee threshold (profitability check)
+        if auto_rebalance and reason == 'near_edge':
+            # Get fees owed
+            fees_x = float(pos_info.get('feeXOwed', 0) or pos_info.get('feeOwedA', 0) or 0)
+            fees_y = float(pos_info.get('feeYOwed', 0) or pos_info.get('feeOwedB', 0) or 0)
+
+            # Rough USD estimate (assumes Y is quote token like USDC)
+            # In production, use actual price feeds
+            estimated_fees_usd = fees_y + (fees_x * pos_info.get('activePrice', pos_info.get('currentPrice', 1)))
+
+            # Only rebalance if fees cover tx costs + min threshold
+            min_required = self.rate_limits.estimated_tx_cost_usd + self.rate_limits.min_fees_usd_before_rebalance
+
+            if estimated_fees_usd < min_required and reason == 'near_edge':
+                logger.debug(f"[Rebalance] Position {position_pubkey[:8]} fees ${estimated_fees_usd:.2f} < min ${min_required:.2f}")
+                # Still allow if urgency is high (very close to edge)
+                if urgency != 'high':
+                    return None
 
         # Calculate new range centered on current price
         new_range = self._calculate_new_centered_range(
@@ -241,30 +443,37 @@ class RebalanceEngine:
         price_spacing: int,
         risk_profile: str
     ) -> Dict[str, int]:
-        """Calculate a new range centered on current price."""
+        """Calculate a new range centered on current price.
+
+        Uses risk profile configs with both percentage-based and tick-based ranges.
+        For HFT-style rebalancing, we use tighter ranges to maximize fee capture.
+        """
         config = RISK_CONFIGS.get(risk_profile, RISK_CONFIGS['medium'])
+        tick_range = config.get('tick_range', 200)  # Default to medium
         range_pct = config['range_pct']
 
         if protocol == 'meteora':
             # For Meteora, calculate based on bin step
             # Each bin = binStep basis points
+            # Use percentage-based calculation
             units = min(int((range_pct * 10000) / price_spacing), 69)
-            half_units = units // 2
+            half_units = max(units // 2, 5)  # Minimum 5 bins on each side
 
             return {
                 'range_min': current_index - half_units,
                 'range_max': current_index + half_units
             }
         else:
-            # For Orca, calculate based on tick spacing
-            # Price ratio = 1.0001^ticks
-            import math
-            ticks_for_range = int(math.log(1 + range_pct) / math.log(1.0001))
-            half_ticks = ticks_for_range // 2
+            # For Orca, use tick_range directly for more control
+            # This allows precise HFT-style positioning
+            half_ticks = tick_range // 2
 
             # Align to tick spacing
             aligned_half = (half_ticks // price_spacing) * price_spacing
             aligned_current = (current_index // price_spacing) * price_spacing
+
+            # Ensure minimum range
+            aligned_half = max(aligned_half, price_spacing * 5)
 
             return {
                 'range_min': aligned_current - aligned_half,
@@ -355,13 +564,26 @@ class RebalanceEngine:
             # Update database
             self.db.record_rebalance(result.to_dict())
 
+            # Record stats for rate limiting
+            stats = self._get_or_create_stats(suggestion.position_pubkey)
+            fees_collected = close_result.get('fees_collected_usd', 0)
+            stats.record_rebalance(
+                fees_collected_usd=fees_collected,
+                tx_cost_usd=self.rate_limits.estimated_tx_cost_usd
+            )
+
+            # Reset hysteresis trigger
+            self._triggered_exit.pop(suggestion.position_pubkey, None)
+
             # Remove from pending
             self._pending_suggestions.pop(suggestion.position_pubkey, None)
 
-            # Emit completed event
-            self.socketio.emit('rebalance_completed', result.to_dict(), namespace='/liquidity')
+            # Emit completed event with stats
+            result_dict = result.to_dict()
+            result_dict['stats'] = stats.to_dict()
+            self.socketio.emit('rebalance_completed', result_dict, namespace='/liquidity')
 
-            logger.info(f"[Rebalance] Completed rebalance for {suggestion.position_pubkey}")
+            logger.info(f"[Rebalance] Completed rebalance for {suggestion.position_pubkey} (total: {stats.total_rebalances})")
 
         except Exception as e:
             logger.error(f"[Rebalance] Auto-rebalance failed: {e}")
@@ -511,11 +733,57 @@ class RebalanceEngine:
         """Get rebalance engine settings."""
         return {
             'thresholds': REBALANCE_THRESHOLDS,
-            'riskConfigs': {k: {'rangePct': v['range_pct'] * 100} for k, v in RISK_CONFIGS.items()},
+            'riskConfigs': {
+                k: {
+                    'rangePct': v['range_pct'] * 100,
+                    'tickRange': v.get('tick_range', 200)
+                } for k, v in RISK_CONFIGS.items()
+            },
+            'rateLimits': self.rate_limits.to_dict(),
             'checkInterval': self._check_interval,
             'running': self._running
         }
 
+    def update_settings(self, updates: Dict):
+        """Update rebalance engine settings."""
+        if 'checkInterval' in updates:
+            self._check_interval = max(5, min(300, updates['checkInterval']))
+
+        if 'rateLimits' in updates:
+            rl = updates['rateLimits']
+            if 'minCooldownSeconds' in rl:
+                self.rate_limits.min_cooldown_seconds = max(60, rl['minCooldownSeconds'])
+            if 'maxRebalancesPerHour' in rl:
+                self.rate_limits.max_rebalances_per_hour = max(1, min(20, rl['maxRebalancesPerHour']))
+            if 'maxRebalancesPerDay' in rl:
+                self.rate_limits.max_rebalances_per_day = max(1, min(100, rl['maxRebalancesPerDay']))
+            if 'minFeesUsdBeforeRebalance' in rl:
+                self.rate_limits.min_fees_usd_before_rebalance = max(0, rl['minFeesUsdBeforeRebalance'])
+            if 'hysteresisPct' in rl:
+                self.rate_limits.hysteresis_pct = max(0, min(5, rl['hysteresisPct']))
+            if 'estimatedTxCostUsd' in rl:
+                self.rate_limits.estimated_tx_cost_usd = max(0, rl['estimatedTxCostUsd'])
+
+        logger.info(f"[Rebalance] Settings updated: interval={self._check_interval}s, limits={self.rate_limits.to_dict()}")
+
     def update_check_interval(self, interval: int):
         """Update the check interval."""
-        self._check_interval = max(10, min(300, interval))  # 10s - 5min
+        self._check_interval = max(5, min(300, interval))  # 5s - 5min for HFT-style
+
+    def get_position_stats(self, position_pubkey: str) -> Optional[Dict]:
+        """Get rebalance stats for a position."""
+        stats = self._position_stats.get(position_pubkey)
+        if stats:
+            stats.reset_hour_if_needed()
+            stats.reset_day_if_needed()
+            return stats.to_dict()
+        return None
+
+    def get_all_stats(self) -> List[Dict]:
+        """Get rebalance stats for all tracked positions."""
+        result = []
+        for pubkey, stats in self._position_stats.items():
+            stats.reset_hour_if_needed()
+            stats.reset_day_if_needed()
+            result.append(stats.to_dict())
+        return result

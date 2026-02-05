@@ -226,23 +226,58 @@ app.post('/build/close-position', async (req, res) => {
   }
 })
 
-// Calculate tick range for a given price range
+// Calculate tick range for a risk profile
 app.post('/calculate-tick-range', async (req, res) => {
   try {
     if (!orcaBuilder) {
       return res.status(503).json({ error: 'Orca not initialized' })
     }
-    const { poolAddress, priceLower, priceUpper } = req.body
+    const { poolAddress, riskProfile } = req.body
 
-    if (!poolAddress || priceLower === undefined || priceUpper === undefined) {
-      return res.status(400).json({ error: 'Missing required parameters' })
+    if (!poolAddress) {
+      return res.status(400).json({ error: 'Missing poolAddress' })
     }
 
-    const result = await orcaBuilder.calculateTickRange(poolAddress, priceLower, priceUpper)
-    res.json(result)
+    // Get pool info to get currentTick and tickSpacing
+    const poolInfo = await orcaBuilder.getWhirlpoolInfo(poolAddress)
+    if (!poolInfo) {
+      return res.status(500).json({ error: 'Failed to get pool info' })
+    }
+
+    const currentTick = poolInfo.currentTick
+    const tickSpacing = poolInfo.tickSpacing
+    const currentPrice = parseFloat(poolInfo.currentPrice || '0')
+    const profile = riskProfile || 'medium'
+
+    // Use the builder's calculateTickRange method
+    const result = orcaBuilder.calculateTickRange(currentTick, tickSpacing, profile)
+
+    // Calculate price bounds from ticks relative to current price
+    // Use the range percentage to calculate price bounds from current price
+    const rangePct = result.rangePct / 100 // Convert from percentage
+    const priceMin = currentPrice * (1 - rangePct)
+    const priceMax = currentPrice * (1 + rangePct)
+
+    console.log(`[Orca] Risk profile ${profile}: currentTick=${currentTick}, range=${result.tickLower}-${result.tickUpper}`)
+
+    res.json({
+      success: true,
+      tickLower: result.tickLower,
+      tickUpper: result.tickUpper,
+      rangeMin: result.tickLower,
+      rangeMax: result.tickUpper,
+      priceMin: priceMin,
+      priceMax: priceMax,
+      currentPrice: currentPrice,
+      currentTick: currentTick,
+      tickSpacing: tickSpacing,
+      tickCount: result.tickCount,
+      rangePct: result.rangePct,
+      riskProfile: profile
+    })
   } catch (error) {
     console.error('[Orca] Calculate tick range error:', error.message)
-    res.status(500).json({ error: error.message })
+    res.status(500).json({ success: false, error: error.message })
   }
 })
 
@@ -275,8 +310,8 @@ app.post('/initialize-tick-arrays', async (req, res) => {
 async function start() {
   await initOrca()
 
-  app.listen(PORT, () => {
-    console.log(`[Orca Sidecar] Running on port ${PORT}`)
+  app.listen(PORT, '127.0.0.1', () => {
+    console.log(`[Orca Sidecar] Running on 127.0.0.1:${PORT}`)
     console.log(`[Orca Sidecar] RPC: ${RPC_URL}`)
   })
 }

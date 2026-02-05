@@ -141,11 +141,29 @@ class OrcaClient:
         if address in self._pools_cache:
             return self._pools_cache[address]
 
-        # Try to fetch from API
+        # Single pool endpoint doesn't work reliably - refresh full cache instead
+        # This populates cache from list endpoint which has all the metrics
+        if not self._pools_cache:
+            logger.info(f"[Orca] Cache empty, fetching pools list for {address}")
+            self.get_all_pools(refresh=True)
+            if address in self._pools_cache:
+                return self._pools_cache[address]
+
+        # Pool not found in cache
+        logger.warning(f"[Orca] Pool {address} not found in cache")
+        return None
+
+    def _get_pool_from_api(self, address: str) -> Optional[OrcaPool]:
+        """Legacy: Try to fetch single pool from API (unreliable)."""
         try:
             response = requests.get(f"{ORCA_API_BASE}/v1/whirlpool/{address}", timeout=15)
             response.raise_for_status()
             item = response.json()
+
+            # Validate response has actual pool data (not error response)
+            if 'address' not in item and 'tokenA' not in item:
+                logger.warning(f"[Orca] API returned invalid pool data for {address}")
+                return None
 
             token_a = item.get('tokenA', {})
             token_b = item.get('tokenB', {})
@@ -179,9 +197,13 @@ class OrcaClient:
             response = requests.get(f"{self.sidecar_url}/pool/{address}", timeout=15)
             response.raise_for_status()
             data = response.json()
+            # Sidecar returns pool data directly (not wrapped in success/pool)
+            if data.get('address'):
+                return data
+            # Also handle wrapped response format
             if data.get('success'):
                 return data.get('pool')
-            return None
+            return data if data else None
         except requests.RequestException as e:
             logger.error(f"[Orca] Sidecar pool info error: {e}")
             return None
