@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Send, ChevronDown, CheckCircle, AlertCircle, Loader2, Book, User, Trash2 } from 'lucide-react'
 import { useAppSelector } from '@/app/hooks'
 import { cn } from '@/lib/utils'
@@ -108,7 +109,7 @@ export const SendModal = ({ isOpen, onClose }: SendModalProps) => {
 
   if (!isOpen) return null
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose}>
       <div className="bg-background-card border border-white/15 rounded-3xl w-full max-w-md flex flex-col shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-accent-purple to-accent-cyan z-20" />
@@ -246,6 +247,7 @@ export const SendModal = ({ isOpen, onClose }: SendModalProps) => {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

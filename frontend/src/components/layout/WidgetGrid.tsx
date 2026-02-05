@@ -16,10 +16,31 @@ export function WidgetGrid({ page, children }: WidgetGridProps) {
   const [containerWidth, setContainerWidth] = useState(0)
 
   // Get the current layout for this page, falling back to defaults
+  // Also merge in any missing widgets from defaults (e.g., newly added widgets)
   const currentLayouts = useMemo(() => {
+    const defaults = pageLayouts[page] || defaultDashboardLayouts
     const savedLayouts = layouts[page]
-    if (savedLayouts) return savedLayouts
-    return pageLayouts[page] || defaultDashboardLayouts
+
+    if (!savedLayouts) return defaults
+
+    // Merge: use saved layouts but add any missing widgets from defaults
+    const merged: Layouts = {}
+    for (const [bp, defaultBpLayouts] of Object.entries(defaults)) {
+      const savedBpLayouts = savedLayouts[bp] || []
+      const savedIds = new Set(savedBpLayouts.map((l: Layout) => l.i))
+
+      // Start with saved layouts
+      merged[bp] = [...savedBpLayouts]
+
+      // Add any missing widgets from defaults
+      for (const defaultLayout of defaultBpLayouts) {
+        if (!savedIds.has(defaultLayout.i)) {
+          merged[bp].push(defaultLayout)
+        }
+      }
+    }
+
+    return merged
   }, [layouts, page])
 
   // Filter out hidden widgets from children and fix keys

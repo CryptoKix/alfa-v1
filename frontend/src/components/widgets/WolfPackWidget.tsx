@@ -60,12 +60,12 @@ export const WolfPackWidget = () => {
   return (
     <div className="flex gap-4 h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Config Panel */}
-      <div className="w-[320px] bg-background-card border border-accent-pink/10 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4">
-        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/80 via-accent-pink/40 to-transparent" />
+      <div className="w-[320px] bg-background-card border border-accent-cyan/10 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4">
+        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-cyan/80 via-accent-cyan/40 to-transparent" />
 
-        <div className="flex items-center justify-between mb-1 border-b border-accent-pink/10 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+        <div className="flex items-center justify-between mb-1 border-b border-accent-cyan/10 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-accent-pink/10 rounded-lg text-accent-pink">
+            <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
               <Zap size={18} />
             </div>
             <div>
@@ -93,9 +93,9 @@ export const WolfPackWidget = () => {
                         type="range" min="2" max="10" step="1" 
                         value={config.consensus_threshold}
                         onChange={(e) => updateConfig('consensus_threshold', parseInt(e.target.value))}
-                        className="flex-1 h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-accent-pink"
+                        className="flex-1 h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-accent-cyan"
                     />
-                    <span className="font-mono font-bold text-accent-pink w-8 text-right">{config.consensus_threshold}</span>
+                    <span className="font-mono font-bold text-accent-cyan w-8 text-right">{config.consensus_threshold}</span>
                 </div>
                 <p className="text-[9px] text-text-secondary">Minimum unique whales buying within window.</p>
             </div>
@@ -106,7 +106,7 @@ export const WolfPackWidget = () => {
                     type="number" 
                     value={config.time_window}
                     onChange={(e) => updateConfig('time_window', parseInt(e.target.value))}
-                    className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-pink/50 outline-none"
+                    className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-cyan/50 outline-none"
                 />
             </div>
 
@@ -116,7 +116,7 @@ export const WolfPackWidget = () => {
                     type="number" 
                     value={config.buy_amount}
                     onChange={(e) => updateConfig('buy_amount', parseFloat(e.target.value))}
-                    className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-pink/50 outline-none"
+                    className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-cyan/50 outline-none"
                 />
             </div>
             
@@ -126,7 +126,7 @@ export const WolfPackWidget = () => {
                     <input 
                         type="number" value={config.slippage}
                         onChange={(e) => updateConfig('slippage', parseFloat(e.target.value))}
-                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-pink/50 outline-none"
+                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-cyan/50 outline-none"
                     />
                 </div>
                 <div className="space-y-1">
@@ -134,7 +134,7 @@ export const WolfPackWidget = () => {
                     <input 
                         type="number" value={config.priority_fee}
                         onChange={(e) => updateConfig('priority_fee', parseFloat(e.target.value))}
-                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-pink/50 outline-none"
+                        className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-accent-cyan/50 outline-none"
                     />
                 </div>
             </div>
@@ -145,10 +145,10 @@ export const WolfPackWidget = () => {
       <div className="flex-1 flex flex-col gap-4 min-w-0">
           
           {/* Consensus Feed */}
-          <div className="flex-1 bg-background-card border border-accent-pink/10 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0">
-            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/80 via-accent-pink/40 to-transparent" />
+          <div className="flex-1 bg-background-card border border-accent-cyan/10 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 min-h-0">
+            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-cyan/80 via-accent-cyan/40 to-transparent" />
 
-            <div className="flex items-center justify-between mb-1 border-b border-accent-pink/10 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+            <div className="flex items-center justify-between mb-1 border-b border-accent-cyan/10 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-accent-cyan/10 rounded-lg text-accent-cyan">
                   <Activity size={18} />
@@ -172,7 +172,7 @@ export const WolfPackWidget = () => {
                     consensus?.map((item) => (
                         <div key={item.mint} className="p-3 rounded-xl border border-white/5 bg-white/[0.02] flex items-center justify-between group hover:bg-white/5 transition-colors">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-accent-pink/10 text-accent-pink">
+                                <div className="p-2 rounded-lg bg-accent-cyan/10 text-accent-cyan">
                                     <Zap size={16} />
                                 </div>
                                 <div>
@@ -190,7 +190,7 @@ export const WolfPackWidget = () => {
                                 {/* Progress Bar */}
                                 <div className="w-24 h-1.5 bg-white/10 rounded-full overflow-hidden">
                                     <div 
-                                        className="h-full bg-gradient-to-r from-accent-purple to-accent-pink transition-all duration-500"
+                                        className="h-full bg-accent-cyan transition-all duration-500"
                                         style={{ width: `${Math.min(100, (item.count / config.consensus_threshold) * 100)}%` }}
                                     />
                                 </div>
@@ -211,10 +211,10 @@ export const WolfPackWidget = () => {
           </div>
 
           {/* Attack History */}
-          <div className="h-[200px] bg-background-card border border-accent-pink/10 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 shrink-0">
-            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/80 via-accent-pink/40 to-transparent" />
+          <div className="h-[200px] bg-background-card border border-accent-cyan/10 rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col gap-4 shrink-0">
+            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-cyan/80 via-accent-cyan/40 to-transparent" />
 
-            <div className="flex items-center justify-between mb-1 border-b border-accent-pink/10 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
+            <div className="flex items-center justify-between mb-1 border-b border-accent-cyan/10 shrink-0 h-[55px] -mx-4 px-4 -mt-4">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-accent-green/10 rounded-lg text-accent-green">
                   <Zap size={18} />

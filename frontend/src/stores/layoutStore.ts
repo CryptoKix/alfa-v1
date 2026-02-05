@@ -167,29 +167,43 @@ export const pageLayouts: Record<string, Layouts> = {
   },
   arb: {
     lg: [
-      { i: 'arb-scanner', x: 0, y: 0, w: 12, h: 20, minW: 6, minH: 8 },
-      { i: 'price-matrix', x: 12, y: 0, w: 8, h: 20, minW: 6, minH: 8 },
-      { i: 'alerts', x: 20, y: 0, w: 4, h: 20, minW: 4, minH: 6 },
+      // Left column: Add pair + Monitored pairs + Engine control
+      { i: 'add-pair', x: 0, y: 0, w: 6, h: 12, minW: 5, minH: 10 },
+      { i: 'pair-selector', x: 0, y: 12, w: 6, h: 8, minW: 5, minH: 6 },
+      // Middle top: Engine control
+      { i: 'arb-control', x: 6, y: 0, w: 6, h: 8, minW: 5, minH: 6 },
+      // Middle: Price matrix
+      { i: 'price-matrix', x: 6, y: 8, w: 6, h: 12, minW: 5, minH: 8 },
+      // Right: Opportunities (tall)
+      { i: 'opportunities', x: 12, y: 0, w: 12, h: 20, minW: 6, minH: 8 },
     ],
     md: [
-      { i: 'arb-scanner', x: 0, y: 0, w: 10, h: 20, minW: 6, minH: 8 },
-      { i: 'price-matrix', x: 10, y: 0, w: 6, h: 20, minW: 5, minH: 8 },
-      { i: 'alerts', x: 16, y: 0, w: 4, h: 20, minW: 4, minH: 6 },
+      { i: 'add-pair', x: 0, y: 0, w: 6, h: 12, minW: 5, minH: 10 },
+      { i: 'pair-selector', x: 0, y: 12, w: 6, h: 8, minW: 5, minH: 6 },
+      { i: 'arb-control', x: 6, y: 0, w: 6, h: 8, minW: 5, minH: 6 },
+      { i: 'price-matrix', x: 6, y: 8, w: 6, h: 12, minW: 5, minH: 8 },
+      { i: 'opportunities', x: 12, y: 0, w: 8, h: 20, minW: 5, minH: 8 },
     ],
     sm: [
-      { i: 'arb-scanner', x: 0, y: 0, w: 6, h: 10, minW: 6, minH: 8 },
-      { i: 'price-matrix', x: 6, y: 0, w: 6, h: 10, minW: 6, minH: 8 },
-      { i: 'alerts', x: 0, y: 10, w: 12, h: 10, minW: 4, minH: 6 },
+      { i: 'add-pair', x: 0, y: 0, w: 6, h: 12, minW: 4, minH: 10 },
+      { i: 'arb-control', x: 6, y: 0, w: 6, h: 6, minW: 4, minH: 5 },
+      { i: 'pair-selector', x: 6, y: 6, w: 6, h: 6, minW: 4, minH: 5 },
+      { i: 'price-matrix', x: 0, y: 12, w: 6, h: 10, minW: 4, minH: 8 },
+      { i: 'opportunities', x: 6, y: 12, w: 6, h: 10, minW: 4, minH: 8 },
     ],
     xs: [
-      { i: 'arb-scanner', x: 0, y: 0, w: 8, h: 8, minW: 4, minH: 6 },
-      { i: 'price-matrix', x: 0, y: 8, w: 8, h: 6, minW: 4, minH: 5 },
-      { i: 'alerts', x: 0, y: 14, w: 8, h: 6, minW: 4, minH: 4 },
+      { i: 'add-pair', x: 0, y: 0, w: 8, h: 12, minW: 4, minH: 10 },
+      { i: 'pair-selector', x: 0, y: 12, w: 8, h: 6, minW: 4, minH: 5 },
+      { i: 'arb-control', x: 0, y: 18, w: 8, h: 6, minW: 4, minH: 5 },
+      { i: 'price-matrix', x: 0, y: 24, w: 8, h: 8, minW: 4, minH: 6 },
+      { i: 'opportunities', x: 0, y: 32, w: 8, h: 8, minW: 4, minH: 6 },
     ],
     xxs: [
-      { i: 'arb-scanner', x: 0, y: 0, w: 4, h: 8, minW: 4, minH: 6 },
-      { i: 'price-matrix', x: 0, y: 8, w: 4, h: 6, minW: 4, minH: 5 },
-      { i: 'alerts', x: 0, y: 14, w: 4, h: 6, minW: 4, minH: 4 },
+      { i: 'add-pair', x: 0, y: 0, w: 4, h: 12, minW: 4, minH: 10 },
+      { i: 'pair-selector', x: 0, y: 12, w: 4, h: 6, minW: 4, minH: 5 },
+      { i: 'arb-control', x: 0, y: 18, w: 4, h: 6, minW: 4, minH: 5 },
+      { i: 'price-matrix', x: 0, y: 24, w: 4, h: 8, minW: 4, minH: 6 },
+      { i: 'opportunities', x: 0, y: 32, w: 4, h: 8, minW: 4, minH: 6 },
     ],
   },
   dlmm: {
@@ -300,6 +314,38 @@ export const pageLayouts: Record<string, Layouts> = {
       { i: 'rebalance-manager', x: 0, y: 31, w: 4, h: 5, minW: 4, minH: 4 },
     ],
   },
+  skr: {
+    lg: [
+      { i: 'skr-stats', x: 0, y: 0, w: 6, h: 6, minW: 5, minH: 4 },
+      { i: 'skr-chart', x: 6, y: 0, w: 18, h: 10, minW: 10, minH: 8 },
+      { i: 'skr-events', x: 0, y: 6, w: 6, h: 14, minW: 5, minH: 8 },
+      { i: 'skr-whales', x: 6, y: 10, w: 18, h: 10, minW: 8, minH: 6 },
+    ],
+    md: [
+      { i: 'skr-stats', x: 0, y: 0, w: 6, h: 6, minW: 5, minH: 4 },
+      { i: 'skr-chart', x: 6, y: 0, w: 14, h: 10, minW: 8, minH: 8 },
+      { i: 'skr-events', x: 0, y: 6, w: 6, h: 14, minW: 5, minH: 8 },
+      { i: 'skr-whales', x: 6, y: 10, w: 14, h: 10, minW: 6, minH: 6 },
+    ],
+    sm: [
+      { i: 'skr-stats', x: 0, y: 0, w: 12, h: 4, minW: 6, minH: 3 },
+      { i: 'skr-chart', x: 0, y: 4, w: 12, h: 8, minW: 6, minH: 6 },
+      { i: 'skr-events', x: 0, y: 12, w: 6, h: 8, minW: 4, minH: 6 },
+      { i: 'skr-whales', x: 6, y: 12, w: 6, h: 8, minW: 4, minH: 6 },
+    ],
+    xs: [
+      { i: 'skr-stats', x: 0, y: 0, w: 8, h: 4, minW: 4, minH: 3 },
+      { i: 'skr-chart', x: 0, y: 4, w: 8, h: 7, minW: 4, minH: 5 },
+      { i: 'skr-events', x: 0, y: 11, w: 8, h: 7, minW: 4, minH: 5 },
+      { i: 'skr-whales', x: 0, y: 18, w: 8, h: 7, minW: 4, minH: 5 },
+    ],
+    xxs: [
+      { i: 'skr-stats', x: 0, y: 0, w: 4, h: 5, minW: 4, minH: 4 },
+      { i: 'skr-chart', x: 0, y: 5, w: 4, h: 6, minW: 4, minH: 5 },
+      { i: 'skr-events', x: 0, y: 11, w: 4, h: 7, minW: 4, minH: 5 },
+      { i: 'skr-whales', x: 0, y: 18, w: 4, h: 7, minW: 4, minH: 5 },
+    ],
+  },
   control: {
     lg: [
       // Service monitor takes top portion
@@ -370,6 +416,13 @@ export const availableWidgets: Record<string, Array<{ id: string; name: string; 
     { id: 'detected-tokens', name: 'Detected Tokens', description: 'New token alerts' },
     { id: 'alerts', name: 'Alerts', description: 'System notifications' },
   ],
+  arb: [
+    { id: 'add-pair', name: 'Add Pair', description: 'Add new pairs to monitor' },
+    { id: 'pair-selector', name: 'Monitored Pairs', description: 'List of monitored pairs' },
+    { id: 'arb-control', name: 'Arb Engine', description: 'Engine controls and settings' },
+    { id: 'price-matrix', name: 'Price Matrix', description: 'Cross-venue price comparison' },
+    { id: 'opportunities', name: 'Opportunities', description: 'Detected arb opportunities' },
+  ],
   yield: [
     { id: 'yield-opportunities', name: 'Opportunities', description: 'Yield farming options' },
     { id: 'yield-positions', name: 'Positions', description: 'Active yield positions' },
@@ -382,6 +435,12 @@ export const availableWidgets: Record<string, Array<{ id: string; name: string; 
     { id: 'liquidity-positions', name: 'Positions', description: 'Your LP positions' },
     { id: 'create-position', name: 'Create Position', description: 'Open new LP position' },
     { id: 'rebalance-manager', name: 'Rebalance', description: 'Auto-rebalance settings' },
+  ],
+  skr: [
+    { id: 'skr-stats', name: 'Staking Stats', description: 'Total staked and staker count' },
+    { id: 'skr-chart', name: 'Net Staked Chart', description: 'Staking trend over time' },
+    { id: 'skr-events', name: 'Staking Feed', description: 'Real-time stake/unstake events' },
+    { id: 'skr-whales', name: 'Whale View', description: 'Top SKR stakers leaderboard' },
   ],
   control: [
     { id: 'service-monitor', name: 'Service Monitor', description: 'Backend service status' },
@@ -492,7 +551,21 @@ export const useLayoutStore = create<LayoutState>()(
     }),
     {
       name: 'tactix-layouts',
+      version: 3, // Bump this when adding new widgets to force layout refresh
       partialize: (state) => ({ layouts: state.layouts, hiddenWidgets: state.hiddenWidgets }),
+      migrate: (persistedState: any, version: number) => {
+        if (version < 3) {
+          // Reset skr page layout to pick up new SKR staking widgets
+          return {
+            ...persistedState,
+            layouts: {
+              ...persistedState?.layouts,
+              skr: undefined,
+            },
+          }
+        }
+        return persistedState
+      },
     }
   )
 )

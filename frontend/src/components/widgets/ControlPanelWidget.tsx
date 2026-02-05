@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Power, Users, TrendingUp, Crosshair, Newspaper, Loader2, RefreshCw } from 'lucide-react'
+import { Power, Users, TrendingUp, Crosshair, Newspaper, Loader2, RefreshCw, Shield } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 interface ServiceStatus {
@@ -18,7 +18,8 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Users: Users,
   TrendingUp: TrendingUp,
   Crosshair: Crosshair,
-  Newspaper: Newspaper
+  Newspaper: Newspaper,
+  Shield: Shield
 }
 
 const COLOR_MAP: Record<string, string> = {

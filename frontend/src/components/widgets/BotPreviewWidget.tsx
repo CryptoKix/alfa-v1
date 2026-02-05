@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
-import { Eye, TrendingUp, TrendingDown, DollarSign, Layers, Shield, AlertTriangle, Target } from 'lucide-react'
+import { Eye, TrendingUp, TrendingDown, DollarSign, Layers, Shield, AlertTriangle, Target, Users, Clock, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { WidgetContainer } from './base/WidgetContainer'
 
 interface BotPreviewWidgetProps {
-  strategy: 'grid' | 'dca' | 'twap' | 'vwap'
+  strategy: 'grid' | 'dca' | 'twap' | 'vwap' | 'wolfpack'
   config: {
     // Grid config
     lowerPrice?: number
@@ -28,6 +28,12 @@ interface BotPreviewWidgetProps {
     totalAmount?: number
     duration?: number
     maxDeviation?: number
+    // Wolfpack config
+    consensusThreshold?: number
+    timeWindow?: number
+    buyAmount?: number
+    wolfpackSlippage?: number
+    priorityFee?: number
   }
   inputToken?: string
   outputToken?: string
@@ -184,41 +190,43 @@ export function BotPreviewWidget({
     >
       {/* Content */}
       <div className="flex-1 overflow-hidden flex flex-col p-4">
-        {/* Summary Stats */}
-        <div className={cn("grid gap-3 mb-4 shrink-0", strategy === 'grid' ? "grid-cols-4" : "grid-cols-3")}>
-          <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3">
-            <div className="text-[9px] text-text-muted uppercase tracking-wider mb-1">Total Investment</div>
-            <div className="text-lg font-bold text-white font-mono">
-              ${totalInvestment.toLocaleString()}
-            </div>
-          </div>
-          <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3">
-            <div className="text-[9px] text-text-muted uppercase tracking-wider mb-1">
-              {strategy === 'grid' ? 'Grid Levels' : strategy === 'dca' ? 'Total Buys' : 'Time Slices'}
-            </div>
-            <div className="text-lg font-bold text-accent-cyan font-mono">
-              {strategy === 'grid' ? config.gridLevels || 10 :
-               strategy === 'dca' ? config.maxBuys || 10 :
-               config.duration || 24}
-            </div>
-          </div>
-          <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3">
-            <div className="text-[9px] text-text-muted uppercase tracking-wider mb-1">Per Execution</div>
-            <div className="text-lg font-bold text-accent-green font-mono">
-              ${(totalInvestment / (strategy === 'grid' ? (config.gridLevels || 10) :
-                 strategy === 'dca' ? (config.maxBuys || 10) :
-                 (config.duration || 24))).toFixed(2)}
-            </div>
-          </div>
-          {strategy === 'grid' && gridProfitStats && (
-            <div className="bg-white/[0.02] border border-accent-green/20 rounded-lg p-3">
-              <div className="text-[9px] text-accent-green uppercase tracking-wider mb-1">Profit/Level</div>
-              <div className="text-lg font-bold text-accent-green font-mono">
-                +{gridProfitStats.avgProfitPerLevel.toFixed(2)}%
+        {/* Summary Stats - Hide for wolfpack which has its own layout */}
+        {strategy !== 'wolfpack' && (
+          <div className={cn("grid gap-3 mb-4 shrink-0", strategy === 'grid' ? "grid-cols-4" : "grid-cols-3")}>
+            <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3">
+              <div className="text-[9px] text-white uppercase tracking-wider mb-1">Investment</div>
+              <div className="text-lg font-bold text-white font-mono">
+                ${totalInvestment.toLocaleString()}
               </div>
             </div>
-          )}
-        </div>
+            <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3">
+              <div className="text-[9px] text-white uppercase tracking-wider mb-1">
+                {strategy === 'grid' ? 'Grid Levels' : strategy === 'dca' ? 'Total Buys' : 'Time Slices'}
+              </div>
+              <div className="text-lg font-bold text-white font-mono">
+                {strategy === 'grid' ? config.gridLevels || 10 :
+                 strategy === 'dca' ? config.maxBuys || 10 :
+                 config.duration || 24}
+              </div>
+            </div>
+            <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3">
+              <div className="text-[9px] text-white uppercase tracking-wider mb-1">Per Execution</div>
+              <div className="text-lg font-bold text-white font-mono">
+                ${(totalInvestment / (strategy === 'grid' ? (config.gridLevels || 10) :
+                   strategy === 'dca' ? (config.maxBuys || 10) :
+                   (config.duration || 24))).toFixed(2)}
+              </div>
+            </div>
+            {strategy === 'grid' && gridProfitStats && (
+              <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3">
+                <div className="text-[9px] text-white uppercase tracking-wider mb-1">Profit/Level</div>
+                <div className="text-lg font-bold text-white font-mono">
+                  +{gridProfitStats.avgProfitPerLevel.toFixed(2)}%
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Grid Preview */}
         {strategy === 'grid' && gridIntervals.length > 0 && (
@@ -233,7 +241,7 @@ export function BotPreviewWidget({
               <div className="flex justify-between text-[9px] text-text-muted mb-1">
                 <span>${config.lowerPrice?.toFixed(2) || '100.00'}</span>
                 {currentPrice && (
-                  <span className="text-accent-yellow font-bold">
+                  <span className="text-white font-bold">
                     Current: ${currentPrice.toFixed(2)}
                   </span>
                 )}
@@ -248,7 +256,7 @@ export function BotPreviewWidget({
                       key={i}
                       className={cn(
                         "absolute top-0 bottom-0 w-[2px]",
-                        level.type === 'buy' ? 'bg-accent-green' : 'bg-accent-cyan'
+                        level.type === 'buy' ? 'bg-accent-cyan' : 'bg-accent-pink'
                       )}
                       style={{ left: `${position}%` }}
                     />
@@ -257,14 +265,14 @@ export function BotPreviewWidget({
                 {/* Current price indicator */}
                 {currentPricePosition !== null && (
                   <div
-                    className="absolute top-0 bottom-0 w-[3px] bg-accent-yellow shadow-[0_0_8px_rgba(255,200,0,0.8)] z-10"
+                    className="absolute top-0 bottom-0 w-[3px] bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] z-10"
                     style={{ left: `${currentPricePosition}%` }}
                   />
                 )}
               </div>
               <div className="flex justify-between text-[8px] mt-1">
-                <span className="text-accent-green">BUY ZONE</span>
-                <span className="text-accent-cyan">SELL ZONE</span>
+                <span className="text-accent-cyan">BUY ZONE</span>
+                <span className="text-accent-pink">SELL ZONE</span>
               </div>
             </div>
 
@@ -272,7 +280,7 @@ export function BotPreviewWidget({
             <div className="space-y-1 mb-3">
               <div className="grid grid-cols-[32px_1fr_1fr_60px_60px] gap-2 text-[9px] text-text-muted uppercase tracking-wider pb-1 border-b border-white/5">
                 <div>#</div>
-                <div className="text-accent-green">Buy Floor</div>
+                <div className="text-accent-cyan">Buy Floor</div>
                 <div className="text-accent-pink">Sell Ceiling</div>
                 <div className="text-right">Alloc</div>
                 <div className="text-right">Profit</div>
@@ -285,17 +293,17 @@ export function BotPreviewWidget({
                   className={cn(
                     "grid grid-cols-[32px_1fr_1fr_60px_60px] gap-2 py-1.5 text-[11px] font-mono border-b transition-colors",
                     isCurrent
-                      ? "bg-accent-yellow/10 border-accent-yellow/30 rounded-lg -mx-1 px-1"
+                      ? "bg-white/10 border-white/30 rounded-lg -mx-1 px-1"
                       : "border-white/[0.02] hover:bg-white/[0.02]"
                   )}
                 >
-                  <div className={cn("text-text-muted", isCurrent && "text-accent-yellow font-bold")}>
+                  <div className={cn("text-text-muted", isCurrent && "text-white font-bold")}>
                     {isCurrent ? "▸" : ""}{interval.interval}
                   </div>
-                  <div className="text-accent-green font-bold">${interval.buyFloor.toFixed(2)}</div>
+                  <div className="text-accent-cyan font-bold">${interval.buyFloor.toFixed(2)}</div>
                   <div className="text-accent-pink font-bold">${interval.sellCeiling.toFixed(2)}</div>
                   <div className="text-right text-text-secondary">${interval.allocation.toFixed(0)}</div>
-                  <div className="text-right text-accent-green font-bold">
+                  <div className="text-right text-accent-cyan font-bold">
                     +{interval.profitPct.toFixed(2)}%
                   </div>
                 </div>
@@ -324,9 +332,9 @@ export function BotPreviewWidget({
                     </div>
                   )}
                   {config.takeProfit && (
-                    <div className="flex-1 flex items-center gap-1 p-2 rounded-lg bg-accent-green/5 border border-accent-green/10">
-                      <Target size={10} className="text-accent-green" />
-                      <span className="text-[9px] text-accent-green">TP: +{config.takeProfit}%</span>
+                    <div className="flex-1 flex items-center gap-1 p-2 rounded-lg bg-accent-cyan/5 border border-accent-cyan/10">
+                      <Target size={10} className="text-accent-cyan" />
+                      <span className="text-[9px] text-accent-cyan">TP: +{config.takeProfit}%</span>
                     </div>
                   )}
                 </div>
@@ -371,10 +379,10 @@ export function BotPreviewWidget({
                 {dcaSchedule.map((entry, i) => (
                   <div
                     key={i}
-                    className="flex-1 border-r border-white/5 last:border-r-0 flex items-center justify-center hover:bg-accent-green/10 transition-colors cursor-default"
+                    className="flex-1 border-r border-white/5 last:border-r-0 flex items-center justify-center hover:bg-accent-cyan/10 transition-colors cursor-default"
                     title={`Buy ${i + 1}: $${entry.amount}`}
                   >
-                    <div className="w-2 h-2 rounded-full bg-accent-green/50" />
+                    <div className="w-2 h-2 rounded-full bg-accent-cyan/50" />
                   </div>
                 ))}
               </div>
@@ -393,7 +401,7 @@ export function BotPreviewWidget({
                   key={entry.execution}
                   className="grid grid-cols-[60px_1fr_100px_100px] gap-2 py-1.5 text-[11px] font-mono border-b border-white/[0.02] hover:bg-white/[0.02] transition-colors"
                 >
-                  <div className="text-accent-green font-bold">#{entry.execution}</div>
+                  <div className="text-accent-cyan font-bold">#{entry.execution}</div>
                   <div className="text-text-secondary capitalize">{entry.timing}</div>
                   <div className="text-right text-white">${entry.amount.toFixed(2)}</div>
                   <div className="text-right text-accent-cyan">${entry.cumulative.toFixed(2)}</div>
@@ -428,8 +436,8 @@ export function BotPreviewWidget({
             </div>
 
             {strategy === 'vwap' && config.maxDeviation && (
-              <div className="mb-3 p-2 bg-accent-yellow/5 border border-accent-yellow/20 rounded-lg">
-                <div className="text-[9px] text-accent-yellow flex items-center gap-1">
+              <div className="mb-3 p-2 bg-white/5 border border-white/20 rounded-lg">
+                <div className="text-[9px] text-white flex items-center gap-1">
                   <DollarSign size={10} />
                   Max deviation: {config.maxDeviation}% from VWAP
                 </div>
@@ -449,6 +457,95 @@ export function BotPreviewWidget({
                 <div className="text-sm font-bold text-accent-purple font-mono">
                   {config.duration || 24} hours
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Wolfpack Preview */}
+        {strategy === 'wolfpack' && (
+          <div className="flex-1 overflow-auto custom-scrollbar">
+            <div className="text-[10px] text-text-muted uppercase tracking-wider mb-3 flex items-center gap-2">
+              <Users size={12} />
+              Whale Consensus Strategy
+            </div>
+
+            {/* Visual representation */}
+            <div className="mb-4 p-4 bg-white/[0.02] rounded-lg border border-white/5 relative">
+              <div className="flex items-center justify-center gap-3">
+                {Array.from({ length: config.consensusThreshold || 2 }).map((_, i) => (
+                  <div key={i} className="flex flex-col items-center">
+                    <div className="w-10 h-10 rounded-full bg-accent-cyan/20 border border-accent-cyan/40 flex items-center justify-center">
+                      <Users size={16} className="text-accent-cyan" />
+                    </div>
+                    <span className="text-[8px] text-text-muted mt-1">Whale {i + 1}</span>
+                  </div>
+                ))}
+                <div className="flex flex-col items-center">
+                  <div className="text-accent-cyan text-lg font-bold">=</div>
+                </div>
+                <div className="flex flex-col items-center">
+                  <div className="w-10 h-10 rounded-full bg-accent-cyan/20 border border-accent-cyan/40 flex items-center justify-center">
+                    <Zap size={16} className="text-accent-cyan" />
+                  </div>
+                  <span className="text-[8px] text-accent-cyan mt-1">AUTO BUY</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Config Summary */}
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3">
+                  <div className="text-[9px] text-text-muted uppercase mb-1 flex items-center gap-1">
+                    <Users size={10} />
+                    Consensus
+                  </div>
+                  <div className="text-lg font-bold text-accent-cyan font-mono">
+                    {config.consensusThreshold || 2} Whales
+                  </div>
+                </div>
+                <div className="bg-white/[0.02] border border-white/5 rounded-lg p-3">
+                  <div className="text-[9px] text-text-muted uppercase mb-1 flex items-center gap-1">
+                    <Clock size={10} />
+                    Time Window
+                  </div>
+                  <div className="text-lg font-bold text-white font-mono">
+                    {config.timeWindow || 60}s
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-white/[0.02] border border-white/5 rounded-lg p-2">
+                  <div className="text-[8px] text-text-muted uppercase">Buy Amount</div>
+                  <div className="text-sm font-bold text-accent-cyan font-mono">
+                    {config.buyAmount || 0.1} SOL
+                  </div>
+                </div>
+                <div className="bg-white/[0.02] border border-white/5 rounded-lg p-2">
+                  <div className="text-[8px] text-text-muted uppercase">Slippage</div>
+                  <div className="text-sm font-bold text-white font-mono">
+                    {config.wolfpackSlippage || 15}%
+                  </div>
+                </div>
+                <div className="bg-white/[0.02] border border-white/5 rounded-lg p-2">
+                  <div className="text-[8px] text-text-muted uppercase">Priority</div>
+                  <div className="text-sm font-bold text-white font-mono">
+                    {config.priorityFee || 0.005} SOL
+                  </div>
+                </div>
+              </div>
+
+              {/* How it works */}
+              <div className="mt-3 p-3 bg-accent-cyan/5 border border-accent-cyan/20 rounded-lg">
+                <div className="text-[9px] text-accent-cyan font-bold uppercase mb-2">How It Works</div>
+                <ol className="text-[10px] text-text-secondary space-y-1 list-decimal list-inside">
+                  <li>Copy Trader detects whale buys</li>
+                  <li>Wolfpack tracks unique wallets per token</li>
+                  <li>When {config.consensusThreshold || 2}+ whales buy same token within {config.timeWindow || 60}s</li>
+                  <li>Auto-executes buy with {config.buyAmount || 0.1} SOL</li>
+                </ol>
               </div>
             </div>
           </div>

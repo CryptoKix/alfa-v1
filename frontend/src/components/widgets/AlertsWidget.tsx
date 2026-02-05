@@ -1,89 +1,103 @@
-import { Bell, BellOff, Info, CheckCircle, AlertCircle, Zap, Clock } from 'lucide-react'
+import { Bell, BellOff, CheckCircle, AlertCircle, Zap, Info } from 'lucide-react'
 import { useAppSelector, useAppDispatch } from '@/app/hooks'
 import { cn } from '@/lib/utils'
 import { clearAll } from '@/features/notifications/notificationsSlice'
+import { WidgetContainer } from './base/WidgetContainer'
+
+const formatTime = (ts: number) => {
+  const date = new Date(ts)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+
+const getAlertType = (type: string) => {
+  switch (type) {
+    case 'success':
+      return { label: 'Success', color: 'bg-accent-green/10 text-accent-green' }
+    case 'error':
+      return { label: 'Error', color: 'bg-accent-red/10 text-accent-red' }
+    case 'signal':
+      return { label: 'Signal', color: 'bg-accent-cyan/10 text-accent-cyan' }
+    default:
+      return { label: 'Info', color: 'bg-white/10 text-white/70' }
+  }
+}
 
 export const AlertsWidget = () => {
   const dispatch = useAppDispatch()
   const { notifications } = useAppSelector(state => state.notifications)
 
-  const formatTime = (ts: number) => {
-    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-  }
-
   return (
-    <div className="bg-background-card border border-accent-cyan/10 rounded-2xl p-6 shadow-xl relative overflow-hidden group flex flex-col h-full shrink-0">
-      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-cyan/60 via-accent-cyan/20 to-transparent" />
-
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-accent-cyan/10 shrink-0 h-[55px] -mx-6 px-6 -mt-6">
-        <h3 className="text-sm font-bold flex items-center gap-2 text-white uppercase tracking-tight">
-          <Bell className="text-accent-cyan" size={18} />
-          System Alerts
-        </h3>
-        <div className="flex gap-2">
-           <button 
-             onClick={() => dispatch(clearAll())}
-             className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[9px] font-bold text-text-muted hover:text-white hover:bg-white/10 transition-colors uppercase tracking-widest"
-           >
-             Clear All
-           </button>
+    <WidgetContainer
+      id="alerts"
+      title="System Alerts"
+      icon={<Bell className="w-4 h-4" />}
+      badge={notifications.length > 0 ? `${notifications.length}` : undefined}
+      noPadding
+      actions={
+        <button
+          onClick={() => dispatch(clearAll())}
+          className="text-[10px] uppercase tracking-wider text-white/40 hover:text-accent-cyan transition-colors font-semibold"
+        >
+          Clear
+        </button>
+      }
+    >
+      <div className="flex-1 overflow-auto glass-scrollbar min-h-0 p-3 space-y-2">
+        {/* Table Header */}
+        <div className="grid grid-cols-[60px_55px_1fr] gap-3 px-3 py-1.5 items-center text-[10px] text-white/40 uppercase tracking-wider font-bold border border-transparent rounded-xl">
+          <div>Time</div>
+          <div className="-ml-1.5">Type</div>
+          <div>Message</div>
         </div>
-      </div>
 
-      {/* Alerts Stream */}
-      <div className="flex-1 overflow-auto custom-scrollbar pr-2 space-y-2 mt-2">
         {notifications.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-text-muted opacity-50 gap-2">
-            <BellOff size={24} strokeWidth={1} />
-            <div className="text-center">
-              <div className="font-bold text-[10px] uppercase tracking-widest">No Active Alerts</div>
-              <div className="text-[9px]">Engine activity will appear here</div>
-            </div>
+          <div className="flex flex-col items-center justify-center h-32 text-white/30">
+            <BellOff size={24} strokeWidth={1} className="mb-2 opacity-50" />
+            <span className="text-xs">No active alerts</span>
           </div>
         ) : (
-          notifications.map((alert) => (
-            <div 
-              key={alert.id} 
-              className={cn(
-                "p-3 rounded-xl border transition-all relative overflow-hidden group",
-                alert.type === 'success' ? "bg-accent-green/5 border-accent-green/10" :
-                alert.type === 'error' ? "bg-accent-red/5 border-accent-red/10" :
-                alert.type === 'signal' ? "bg-accent-cyan/5 border-accent-cyan/10" :
-                "bg-white/[0.02] border-white/5"
-              )}
-            >
-              <div className="flex items-start gap-3">
-                <div className={cn(
-                  "p-1.5 rounded-lg shrink-0",
-                  alert.type === 'success' ? "text-accent-green bg-accent-green/10" :
-                  alert.type === 'error' ? "text-accent-red bg-accent-red/10" :
-                  alert.type === 'signal' ? "text-accent-cyan bg-accent-cyan/10" :
-                  "text-text-muted bg-white/5"
-                )}>
-                  {alert.type === 'success' ? <CheckCircle size={14} /> :
-                   alert.type === 'error' ? <AlertCircle size={14} /> :
-                   alert.type === 'signal' ? <Zap size={14} /> :
-                   <Info size={14} />}
+          notifications.map((alert) => {
+            const alertType = getAlertType(alert.type)
+
+            return (
+              <div
+                key={alert.id}
+                className={cn(
+                  'grid grid-cols-[60px_55px_1fr] gap-3 px-3 py-1.5 items-center group transition-all cursor-pointer',
+                  'bg-white/[0.02] border border-white/[0.06] rounded-xl',
+                  'hover:bg-white/[0.04] hover:border-accent-cyan/30'
+                )}
+              >
+                {/* Time */}
+                <div className="text-[12px] text-white/50">
+                  {formatTime(alert.timestamp)}
                 </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-0.5">
-                    <span className="text-[10px] font-black text-white uppercase tracking-tight truncate">{alert.title}</span>
-                    <span className="text-[8px] text-text-muted font-mono shrink-0 flex items-center gap-1">
-                      <Clock size={8} />
-                      {formatTime(alert.timestamp)}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-text-secondary leading-relaxed line-clamp-2">
-                    {alert.message}
-                  </p>
+
+                {/* Type */}
+                <div className="-ml-1.5 flex items-center">
+                  <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded leading-none', alertType.color)}>
+                    {alertType.label}
+                  </span>
+                </div>
+
+                {/* Message */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[12px] font-semibold text-white truncate">{alert.title}</span>
                 </div>
               </div>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
-    </div>
+    </WidgetContainer>
   )
 }

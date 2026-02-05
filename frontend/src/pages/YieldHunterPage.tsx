@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useAppSelector, useAppDispatch } from '@/app/hooks'
-import { setOpportunities, setPositions, setFilters, setLoading } from '@/features/yield/yieldSlice'
+import { setOpportunities, setPositions, setLoading } from '@/features/yield/yieldSlice'
 import {
   Percent, Shield, TrendingUp, AlertTriangle, DollarSign,
-  RefreshCw, Filter, ChevronDown, Wallet,
-  ArrowUpRight, ArrowDownRight, Info
+  RefreshCw, Wallet, Info, ChevronRight
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import axios from 'axios'
+import { YieldDepositModal } from '@/components/modals/YieldDepositModal'
 
 interface YieldOpportunity {
   protocol: string
@@ -24,34 +24,33 @@ interface YieldOpportunity {
   token_logo: string
 }
 
-const riskColors = {
-  low: 'text-accent-cyan',
-  medium: 'text-amber-400',
-  high: 'text-accent-pink'
+type RiskTab = 'high' | 'medium' | 'low'
+
+const riskTabConfig = {
+  high: { icon: AlertTriangle, label: 'High Risk', color: 'text-accent-purple', bg: 'bg-accent-purple/10', border: 'border-accent-purple/30' },
+  medium: { icon: TrendingUp, label: 'Medium Risk', color: 'text-accent-pink', bg: 'bg-accent-pink/10', border: 'border-accent-pink/30' },
+  low: { icon: Shield, label: 'Low Risk', color: 'text-accent-cyan', bg: 'bg-accent-cyan/10', border: 'border-accent-cyan/30' }
 }
 
-const riskBgColors = {
-  low: 'bg-accent-cyan/10 border-accent-cyan/30',
-  medium: 'bg-amber-400/10 border-amber-400/30',
-  high: 'bg-accent-pink/10 border-accent-pink/30'
-}
-
-const protocolInfo: Record<string, { color: string; description: string }> = {
-  kamino: { color: 'text-[#00D1FF]', description: 'Established lending & LP vaults' },
-  jupiter_lend: { color: 'text-[#C7F284]', description: 'Jupiter ecosystem lending' },
-  loopscale: { color: 'text-[#FF6B6B]', description: 'Leveraged yield loops' },
-  hylo: { color: 'text-[#A78BFA]', description: 'Oracle-free LST protocol' }
+const protocolInfo: Record<string, { description: string; logo: string }> = {
+  kamino: { description: 'Lending & LP vaults', logo: 'https://app.kamino.finance/favicon.ico' },
+  jupiter_lend: { description: 'Jupiter lending', logo: 'https://static.jup.ag/jup/icon.png' },
+  loopscale: { description: 'Leveraged loops', logo: 'https://loopscale.com/favicon.ico' },
+  hylo: { description: 'Oracle-free LST', logo: 'https://hylo.so/favicon.ico' }
 }
 
 export default function YieldHunterPage() {
   const dispatch = useAppDispatch()
-  const { opportunities, positions, filters, loading, stats } = useAppSelector(state => state.yield)
+  const { opportunities, positions, loading } = useAppSelector(state => state.yield)
   const wallet = useAppSelector(state => state.wallet.browserWalletAddress)
 
   const [localOpportunities, setLocalOpportunities] = useState<YieldOpportunity[]>([])
   const [refreshing, setRefreshing] = useState(false)
-  const [showFilters, setShowFilters] = useState(false)
+  const [selectedProtocol, setSelectedProtocol] = useState<string | null>(null)
+  const [activeRiskTab, setActiveRiskTab] = useState<RiskTab>('medium')
   const [selectedOpp, setSelectedOpp] = useState<YieldOpportunity | null>(null)
+  const [depositModalOpen, setDepositModalOpen] = useState(false)
+  const [depositOpp, setDepositOpp] = useState<YieldOpportunity | null>(null)
 
   useEffect(() => {
     fetchOpportunities()
@@ -66,11 +65,7 @@ export default function YieldHunterPage() {
   const fetchOpportunities = async () => {
     dispatch(setLoading(true))
     try {
-      const params = new URLSearchParams()
-      if (filters.risk) params.append('risk', filters.risk)
-      if (filters.protocol) params.append('protocol', filters.protocol)
-
-      const res = await axios.get(`/api/yield/opportunities?${params}`)
+      const res = await axios.get('/api/yield/opportunities')
       if (res.data.success) {
         dispatch(setOpportunities(res.data.opportunities))
         setLocalOpportunities(res.data.opportunities)
@@ -103,22 +98,36 @@ export default function YieldHunterPage() {
 
   const displayOpps = opportunities.length > 0 ? opportunities : localOpportunities
 
-  // Apply local sorting
-  const sortedOpps = [...displayOpps].sort((a, b) => {
-    const multiplier = filters.sortOrder === 'desc' ? -1 : 1
-    if (filters.sortBy === 'apy') return multiplier * (b.apy - a.apy)
-    if (filters.sortBy === 'tvl') return multiplier * (b.tvl - a.tvl)
-    if (filters.sortBy === 'risk') {
-      const riskOrder = { low: 0, medium: 1, high: 2 }
-      return multiplier * (riskOrder[b.risk_level] - riskOrder[a.risk_level])
-    }
-    return 0
-  })
+  // Filter by selected protocol, then by risk tab, then sort by APY desc
+  const getFilteredOpps = () => {
+    let filtered = displayOpps
 
-  // Apply risk filter locally if set
-  const filteredOpps = filters.risk
-    ? sortedOpps.filter(o => o.risk_level === filters.risk)
-    : sortedOpps
+    if (selectedProtocol) {
+      filtered = filtered.filter(o => o.protocol === selectedProtocol)
+    }
+
+    filtered = filtered.filter(o => o.risk_level === activeRiskTab)
+
+    // Sort by APY highest to lowest
+    return [...filtered].sort((a, b) => b.apy - a.apy)
+  }
+
+  const filteredOpps = getFilteredOpps()
+
+  // Get counts per risk level for selected protocol
+  const getRiskCounts = () => {
+    let opps = displayOpps
+    if (selectedProtocol) {
+      opps = opps.filter(o => o.protocol === selectedProtocol)
+    }
+    return {
+      high: opps.filter(o => o.risk_level === 'high').length,
+      medium: opps.filter(o => o.risk_level === 'medium').length,
+      low: opps.filter(o => o.risk_level === 'low').length
+    }
+  }
+
+  const riskCounts = getRiskCounts()
 
   const formatTvl = (tvl: number) => {
     if (tvl >= 1_000_000_000) return `$${(tvl / 1_000_000_000).toFixed(2)}B`
@@ -133,183 +142,186 @@ export default function YieldHunterPage() {
     return `${apy.toFixed(2)}%`
   }
 
+  const handleDepositClick = (e: React.MouseEvent, opp: YieldOpportunity) => {
+    e.stopPropagation()
+    setDepositOpp(opp)
+    setDepositModalOpen(true)
+  }
+
   return (
-    <div className="flex flex-col gap-2 h-full min-h-0">
+    <div className="flex flex-col gap-2 h-full min-h-0 overflow-hidden">
       {/* Header */}
       <div className="flex justify-between items-center shrink-0">
         <div>
           <h1 className="text-xl font-bold text-text-primary tracking-tight flex items-center gap-2">
-            <Percent className="text-accent-purple" size={24} />
+            <Percent className="text-accent-cyan" size={24} />
             YIELD HUNTER
           </h1>
-          <p className="text-xs text-text-muted">Aggregated DeFi yields across Solana protocols</p>
+          <p className="text-xs text-text-muted">Select a protocol to view yield opportunities</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all text-xs font-bold uppercase",
-              showFilters
-                ? "bg-accent-purple/20 border-accent-purple/40 text-accent-purple"
-                : "bg-background-card border-white/10 text-text-secondary hover:text-text-primary"
-            )}
-          >
-            <Filter size={14} />
-            Filters
-            <ChevronDown size={14} className={cn("transition-transform", showFilters && "rotate-180")} />
-          </button>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent-cyan/10 border border-accent-cyan/30 text-accent-cyan text-xs font-bold uppercase hover:bg-accent-cyan/20 transition-all disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={cn(refreshing && "animate-spin")} />
-            Refresh
-          </button>
-        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent-cyan/5 border border-accent-cyan/10 text-text-secondary text-xs font-bold uppercase hover:bg-accent-cyan/10 hover:text-text-primary transition-all disabled:opacity-50"
+        >
+          <RefreshCw size={14} className={cn(refreshing && "animate-spin")} />
+          Refresh
+        </button>
       </div>
-
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 shrink-0">
-        <div className="bg-background-card border border-accent-purple/20 rounded-xl p-4 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-purple/60 to-transparent" />
-          <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-1">Total Opportunities</p>
-          <p className="text-2xl font-mono font-bold text-text-primary">{stats?.totalOpportunities || displayOpps.length}</p>
-        </div>
-        <div className="bg-background-card border border-accent-cyan/20 rounded-xl p-4 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-cyan/60 to-transparent" />
-          <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-1">Best APY</p>
-          <p className="text-2xl font-mono font-bold text-accent-cyan">{formatApy(stats?.maxApy || 0)}</p>
-        </div>
-        <div className="bg-background-card border border-accent-pink/20 rounded-xl p-4 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-pink/60 to-transparent" />
-          <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-1">Total TVL</p>
-          <p className="text-2xl font-mono font-bold text-text-primary">{formatTvl(stats?.totalTvl || 0)}</p>
-        </div>
-        <div className="bg-background-card border border-white/10 rounded-xl p-4 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-white/20 to-transparent" />
-          <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-1">Your Positions</p>
-          <p className="text-2xl font-mono font-bold text-text-primary">{positions.length}</p>
-        </div>
-      </div>
-
-      {/* Filters Panel */}
-      {showFilters && (
-        <div className="bg-background-card border border-accent-purple/20 rounded-xl p-4 shrink-0">
-          <div className="flex flex-wrap gap-4">
-            {/* Risk Filter */}
-            <div>
-              <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">Risk Level</p>
-              <div className="flex gap-1">
-                {(['all', 'low', 'medium', 'high'] as const).map(risk => (
-                  <button
-                    key={risk}
-                    onClick={() => dispatch(setFilters({ risk: risk === 'all' ? null : risk }))}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border",
-                      (filters.risk === risk || (risk === 'all' && !filters.risk))
-                        ? risk === 'all'
-                          ? 'bg-accent-purple/20 border-accent-purple/40 text-accent-purple'
-                          : `${riskBgColors[risk]} ${riskColors[risk]}`
-                        : 'bg-background-dark border-white/5 text-text-secondary hover:text-text-primary'
-                    )}
-                  >
-                    {risk === 'low' && <Shield size={10} className="inline mr-1" />}
-                    {risk === 'medium' && <TrendingUp size={10} className="inline mr-1" />}
-                    {risk === 'high' && <AlertTriangle size={10} className="inline mr-1" />}
-                    {risk}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Protocol Filter */}
-            <div>
-              <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">Protocol</p>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => dispatch(setFilters({ protocol: null }))}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border",
-                    !filters.protocol
-                      ? 'bg-accent-purple/20 border-accent-purple/40 text-accent-purple'
-                      : 'bg-background-dark border-white/5 text-text-secondary hover:text-text-primary'
-                  )}
-                >
-                  All
-                </button>
-                {Object.keys(protocolInfo).map(protocol => (
-                  <button
-                    key={protocol}
-                    onClick={() => dispatch(setFilters({ protocol: filters.protocol === protocol ? null : protocol }))}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border",
-                      filters.protocol === protocol
-                        ? 'bg-white/10 border-white/20 text-text-primary'
-                        : 'bg-background-dark border-white/5 text-text-secondary hover:text-text-primary'
-                    )}
-                  >
-                    {protocol.replace('_', ' ')}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Sort */}
-            <div>
-              <p className="text-[10px] text-text-secondary uppercase tracking-wider mb-2">Sort By</p>
-              <div className="flex gap-1">
-                {(['apy', 'tvl', 'risk'] as const).map(sort => (
-                  <button
-                    key={sort}
-                    onClick={() => {
-                      if (filters.sortBy === sort) {
-                        dispatch(setFilters({ sortOrder: filters.sortOrder === 'desc' ? 'asc' : 'desc' }))
-                      } else {
-                        dispatch(setFilters({ sortBy: sort, sortOrder: 'desc' }))
-                      }
-                    }}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border flex items-center gap-1",
-                      filters.sortBy === sort
-                        ? 'bg-accent-cyan/20 border-accent-cyan/40 text-accent-cyan'
-                        : 'bg-background-dark border-white/5 text-text-secondary hover:text-text-primary'
-                    )}
-                  >
-                    {sort.toUpperCase()}
-                    {filters.sortBy === sort && (
-                      filters.sortOrder === 'desc' ? <ArrowDownRight size={10} /> : <ArrowUpRight size={10} />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Content */}
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-2">
-        {/* Opportunities Grid */}
-        <div className="lg:col-span-9 h-full min-h-0 flex flex-col">
-          <div className="bg-background-card border border-accent-purple/20 rounded-xl flex-1 min-h-0 overflow-hidden relative">
-            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-purple/60 to-transparent" />
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-2 overflow-hidden">
+        {/* Left Sidebar - Protocol Selector */}
+        <div className="lg:col-span-3 flex flex-col gap-2 h-full min-h-0 overflow-hidden">
+          {/* Protocol Cards */}
+          <div className="bg-background-card border border-accent-cyan/10 rounded-xl p-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary mb-3">Select Protocol</h3>
+            <div className="space-y-2">
+              {Object.entries(protocolInfo).map(([protocol, info]) => {
+                const count = displayOpps.filter(o => o.protocol === protocol).length
+                const maxApy = Math.max(...displayOpps.filter(o => o.protocol === protocol).map(o => o.apy), 0)
+                const isSelected = selectedProtocol === protocol
 
-            {/* Header */}
-            <div className="p-4 border-b border-white/5 flex items-center justify-between">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-text-primary">
-                Yield Opportunities
-              </h2>
-              <span className="text-xs text-text-secondary">{filteredOpps.length} results</span>
+                return (
+                  <button
+                    key={protocol}
+                    onClick={() => setSelectedProtocol(isSelected ? null : protocol)}
+                    className={cn(
+                      "w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left",
+                      isSelected
+                        ? "bg-accent-cyan/10 border-accent-cyan/30"
+                        : "bg-background-dark/50 border-accent-cyan/10 hover:border-accent-cyan/20"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={info.logo}
+                        alt={protocol}
+                        className="w-8 h-8 rounded-lg bg-accent-cyan/10 p-1"
+                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                      />
+                      <div>
+                        <p className={cn(
+                          "text-sm font-bold capitalize",
+                          isSelected ? "text-accent-cyan" : "text-text-primary"
+                        )}>
+                          {protocol.replace('_', ' ')}
+                        </p>
+                        <p className="text-[10px] text-text-muted">{info.description}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-mono font-bold text-accent-cyan">{formatApy(maxApy)}</p>
+                      <p className="text-[10px] text-text-muted">{count} vaults</p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Your Positions */}
+          <div className="bg-background-card border border-accent-cyan/10 rounded-xl p-4 flex-1 min-h-0 overflow-hidden flex flex-col">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary mb-3 flex items-center gap-2 shrink-0">
+              <Wallet size={14} className="text-accent-cyan" />
+              Your Positions
+            </h3>
+
+            {!wallet ? (
+              <div className="flex flex-col items-center justify-center flex-1 text-text-secondary">
+                <Wallet size={20} className="opacity-20 mb-2" />
+                <p className="text-[10px]">Connect wallet to view</p>
+              </div>
+            ) : positions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center flex-1 text-text-secondary">
+                <DollarSign size={20} className="opacity-20 mb-2" />
+                <p className="text-[10px]">No active positions</p>
+              </div>
+            ) : (
+              <div className="space-y-2 flex-1 overflow-y-auto glass-scrollbar">
+                {positions.map((pos) => (
+                  <div key={pos.id} className="p-2 bg-background-dark/50 rounded-lg border border-accent-cyan/10">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-text-primary truncate">{pos.vault_name}</p>
+                      <span className="text-xs font-mono text-accent-cyan">{pos.entry_apy?.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Main Widget - Opportunities with Risk Tabs */}
+        <div className="lg:col-span-9 h-full min-h-0 flex flex-col overflow-hidden">
+          <div className="bg-background-card border border-accent-cyan/10 rounded-xl flex-1 min-h-0 flex flex-col overflow-hidden">
+            {/* Header with Tabs */}
+            <div className="border-b border-accent-cyan/10 shrink-0">
+              <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
+                  {selectedProtocol ? (
+                    <>
+                      <span className="capitalize">{selectedProtocol.replace('_', ' ')}</span>
+                      <ChevronRight size={14} className="text-text-muted" />
+                      <span className="text-text-secondary">Vaults</span>
+                    </>
+                  ) : (
+                    'All Protocols'
+                  )}
+                </h2>
+                <span className="text-xs text-text-secondary">{filteredOpps.length} vaults</span>
+              </div>
+
+              {/* Risk Tabs */}
+              <div className="flex px-4 gap-1">
+                {(['high', 'medium', 'low'] as const).map(risk => {
+                  const config = riskTabConfig[risk]
+                  const Icon = config.icon
+                  const isActive = activeRiskTab === risk
+                  const count = riskCounts[risk]
+
+                  return (
+                    <button
+                      key={risk}
+                      onClick={() => setActiveRiskTab(risk)}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-t-lg border-x border-t transition-all text-xs font-bold",
+                        isActive
+                          ? `${config.bg} ${config.border} ${config.color} -mb-px`
+                          : "bg-transparent border-transparent text-text-secondary hover:text-text-primary"
+                      )}
+                    >
+                      <Icon size={14} />
+                      {config.label}
+                      <span className={cn(
+                        "px-1.5 py-0.5 rounded text-[10px]",
+                        isActive ? "bg-black/20" : "bg-white/5"
+                      )}>
+                        {count}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
-            {/* Grid */}
-            <div className="p-4 overflow-y-auto h-[calc(100%-56px)] custom-scrollbar">
+            {/* Vault Grid */}
+            <div className="flex-1 min-h-0 overflow-auto glass-scrollbar p-4">
               {loading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                   {[1, 2, 3, 4, 5, 6].map(i => (
-                    <div key={i} className="h-40 bg-white/5 rounded-xl animate-pulse" />
+                    <div key={i} className="h-40 bg-accent-cyan/5 rounded-xl animate-pulse" />
                   ))}
+                </div>
+              ) : filteredOpps.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-text-secondary">
+                  <Percent size={48} className="opacity-20 mb-4" />
+                  <p className="text-lg font-bold">No {riskTabConfig[activeRiskTab].label} Vaults</p>
+                  <p className="text-sm">
+                    {selectedProtocol
+                      ? `Try selecting a different risk level or protocol`
+                      : 'Select a protocol to view opportunities'}
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -320,8 +332,8 @@ export default function YieldHunterPage() {
                       className={cn(
                         "group bg-background-dark/50 hover:bg-background-dark border rounded-xl p-4 transition-all cursor-pointer",
                         selectedOpp?.vault_address === opp.vault_address
-                          ? "border-accent-purple/50 ring-1 ring-accent-purple/20"
-                          : "border-white/5 hover:border-accent-purple/30"
+                          ? "border-accent-cyan/50 ring-1 ring-accent-cyan/10"
+                          : "border-accent-cyan/10 hover:border-accent-cyan/30"
                       )}
                     >
                       {/* Header */}
@@ -330,25 +342,18 @@ export default function YieldHunterPage() {
                           <img
                             src={opp.protocol_logo}
                             alt={opp.protocol}
-                            className="w-8 h-8 rounded-lg bg-white/10 p-1"
+                            className="w-8 h-8 rounded-lg bg-accent-cyan/10 p-1"
                             onError={(e) => (e.currentTarget.style.display = 'none')}
                           />
                           <div>
-                            <p className={cn("text-sm font-bold", protocolInfo[opp.protocol]?.color || 'text-text-primary')}>
+                            <p className="text-sm font-bold text-text-primary">
                               {opp.name}
                             </p>
-                            <p className="text-[10px] text-text-secondary capitalize">
-                              {opp.protocol.replace('_', ' ')}
+                            <p className="text-[10px] text-text-muted capitalize">
+                              {opp.deposit_symbol}
                             </p>
                           </div>
                         </div>
-                        <span className={cn(
-                          "px-2 py-1 rounded-lg text-[9px] font-bold uppercase border",
-                          riskBgColors[opp.risk_level],
-                          riskColors[opp.risk_level]
-                        )}>
-                          {opp.risk_level}
-                        </span>
                       </div>
 
                       {/* APY */}
@@ -360,22 +365,22 @@ export default function YieldHunterPage() {
                       </div>
 
                       {/* Stats */}
-                      <div className="flex items-center justify-between text-xs border-t border-white/5 pt-3">
+                      <div className="flex items-center justify-between text-xs border-t border-accent-cyan/10 pt-3">
                         <div>
                           <p className="text-text-secondary">TVL</p>
                           <p className="font-mono font-bold text-text-primary">{formatTvl(opp.tvl)}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-text-secondary">Min Deposit</p>
-                          <p className="font-mono font-bold text-text-primary">
-                            {opp.min_deposit} {opp.deposit_symbol}
-                          </p>
-                        </div>
+                        <button
+                          onClick={(e) => handleDepositClick(e, opp)}
+                          className="px-4 py-1.5 bg-accent-cyan/10 hover:bg-accent-cyan/20 border border-accent-cyan/30 rounded-lg text-[10px] font-bold uppercase text-accent-cyan transition-all hover:shadow-[0_0_10px_rgba(0,255,255,0.2)]"
+                        >
+                          Deposit
+                        </button>
                       </div>
 
                       {/* Expanded Risk Factors */}
                       {selectedOpp?.vault_address === opp.vault_address && opp.risk_factors.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-white/5">
+                        <div className="mt-3 pt-3 border-t border-accent-cyan/10">
                           <p className="text-[10px] text-text-secondary uppercase mb-2 flex items-center gap-1">
                             <Info size={10} /> Risk Factors
                           </p>
@@ -383,7 +388,7 @@ export default function YieldHunterPage() {
                             {opp.risk_factors.map((factor, fi) => (
                               <span
                                 key={fi}
-                                className="px-2 py-1 bg-white/5 rounded text-[9px] text-text-secondary"
+                                className="px-2 py-1 bg-accent-cyan/5 rounded text-[9px] text-text-secondary"
                               >
                                 {factor.replace(/_/g, ' ')}
                               </span>
@@ -395,93 +400,17 @@ export default function YieldHunterPage() {
                   ))}
                 </div>
               )}
-
-              {!loading && filteredOpps.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-full text-text-secondary">
-                  <Percent size={48} className="opacity-20 mb-4" />
-                  <p className="text-lg font-bold">No Opportunities Found</p>
-                  <p className="text-sm">Try adjusting your filters</p>
-                </div>
-              )}
             </div>
-          </div>
-        </div>
-
-        {/* Right Sidebar */}
-        <div className="lg:col-span-3 flex flex-col gap-2 h-full min-h-0">
-          {/* Protocol Stats */}
-          <div className="bg-background-card border border-accent-purple/20 rounded-xl p-4 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-purple/60 to-transparent" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary mb-3">Protocols</h3>
-            <div className="space-y-2">
-              {Object.entries(protocolInfo).map(([protocol, info]) => {
-                const count = displayOpps.filter(o => o.protocol === protocol).length
-                const maxApy = Math.max(...displayOpps.filter(o => o.protocol === protocol).map(o => o.apy), 0)
-                return (
-                  <div key={protocol} className="flex items-center justify-between p-2 bg-background-dark/50 rounded-lg">
-                    <div>
-                      <p className={cn("text-xs font-bold capitalize", info.color)}>
-                        {protocol.replace('_', ' ')}
-                      </p>
-                      <p className="text-[9px] text-text-secondary">{info.description}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-mono font-bold text-accent-cyan">{formatApy(maxApy)}</p>
-                      <p className="text-[9px] text-text-secondary">{count} vaults</p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Your Positions */}
-          <div className="bg-background-card border border-accent-cyan/20 rounded-xl p-4 flex-1 min-h-0 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-accent-cyan/60 to-transparent" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary mb-3 flex items-center gap-2">
-              <Wallet size={14} className="text-accent-cyan" />
-              Your Positions
-            </h3>
-
-            {!wallet ? (
-              <div className="flex flex-col items-center justify-center h-32 text-text-secondary">
-                <Wallet size={24} className="opacity-20 mb-2" />
-                <p className="text-xs">Connect wallet to view positions</p>
-              </div>
-            ) : positions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-32 text-text-secondary">
-                <DollarSign size={24} className="opacity-20 mb-2" />
-                <p className="text-xs">No active positions</p>
-                <p className="text-[10px]">Deposit to start earning</p>
-              </div>
-            ) : (
-              <div className="space-y-2 overflow-y-auto max-h-[300px] custom-scrollbar">
-                {positions.map((pos) => (
-                  <div key={pos.id} className="p-3 bg-background-dark/50 rounded-lg border border-white/5">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-bold text-text-primary">{pos.vault_name}</p>
-                      <span className={cn(
-                        "px-1.5 py-0.5 rounded text-[8px] font-bold uppercase",
-                        pos.status === 'active' ? 'bg-accent-cyan/20 text-accent-cyan' : 'bg-white/10 text-text-secondary'
-                      )}>
-                        {pos.status}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-text-secondary">Deposited</span>
-                      <span className="font-mono text-text-primary">{pos.deposit_amount} {pos.deposit_symbol}</span>
-                    </div>
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-text-secondary">Entry APY</span>
-                      <span className="font-mono text-accent-cyan">{pos.entry_apy?.toFixed(2)}%</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </div>
+
+      {/* Deposit Modal */}
+      <YieldDepositModal
+        isOpen={depositModalOpen}
+        onClose={() => { setDepositModalOpen(false); setDepositOpp(null); }}
+        opportunity={depositOpp}
+      />
     </div>
   )
 }

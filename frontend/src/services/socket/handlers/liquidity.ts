@@ -6,11 +6,15 @@ import {
   addRebalanceSuggestion,
   removeRebalanceSuggestion,
   setRebalanceSettings,
+  setMonitorSettings,
+  updatePositionStatus,
   setSidecarHealth,
   type UnifiedPool,
   type UnifiedPosition,
   type RebalanceSuggestion,
   type RebalanceSettings,
+  type MonitorSettings,
+  type PositionStatus,
 } from '@/features/liquidity/liquiditySlice'
 
 export function setupLiquidityHandler(socket: Socket, store: AppStore): void {
@@ -85,6 +89,18 @@ export function setupLiquidityHandler(socket: Socket, store: AppStore): void {
   socket.on('settings_update', (data: RebalanceSettings) => {
     console.log('[Liquidity] Settings update')
     store.dispatch(setRebalanceSettings(data))
+  })
+
+  // Monitor settings updated
+  socket.on('monitor_settings_update', (data: MonitorSettings) => {
+    console.log('[Liquidity] Monitor settings update')
+    store.dispatch(setMonitorSettings(data))
+  })
+
+  // Position status update from monitor
+  socket.on('position_status', (data: PositionStatus) => {
+    console.log('[Liquidity] Position status:', data.positionPubkey, data.urgency, data.reason)
+    store.dispatch(updatePositionStatus(data))
   })
 
   // Health check

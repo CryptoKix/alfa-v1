@@ -11,12 +11,11 @@ import {
   Plus,
   Eye,
   EyeOff,
-  Settings,
   ArrowRight,
   ExternalLink,
   X,
 } from 'lucide-react'
-import { Button, Badge, Tooltip, StatusDot } from '@/components/ui'
+import { Button, Badge, Tooltip } from '@/components/ui'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useEffect } from 'react'
 
@@ -129,94 +128,103 @@ function WhaleTrackerWidget() {
           )}
         </AnimatePresence>
 
-        <div className="flex-1 overflow-auto glass-scrollbar">
-          <AnimatePresence>
-            {targets.length === 0 && !isAdding ? (
-              <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-white/40">
-                <Users className="w-10 h-10 mb-3 opacity-50" />
-                <p className="text-sm mb-3">No whales tracked</p>
-                <Button variant="primary" size="sm" onClick={() => setIsAdding(true)}>
-                  <Plus className="w-4 h-4 mr-1" />
-                  Add Whale
-                </Button>
-              </div>
-            ) : targets.length > 0 && (
-              <div className="divide-y divide-white/[0.04]">
-                {targets.map((target, index) => (
-                  <motion.div
-                    key={target.address}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ delay: index * 0.03 }}
-                    className="p-4 hover:bg-white/[0.02] transition-colors group"
+        <div className="flex-1 overflow-auto glass-scrollbar min-h-0 p-3 space-y-2">
+          {/* Table Header */}
+          <div className="grid grid-cols-[24px_1fr_90px_70px_70px] gap-3 px-3 py-1.5 items-center text-[10px] text-white/40 uppercase tracking-wider font-bold border border-transparent rounded-xl">
+            <div></div>
+            <div>Whale</div>
+            <div>Address</div>
+            <div>Profit</div>
+            <div>Win Rate</div>
+          </div>
+
+          {targets.length === 0 && !isAdding ? (
+            <div className="flex flex-col items-center justify-center h-32 text-white/30">
+              <Users size={24} strokeWidth={1} className="mb-2 opacity-50" />
+              <span className="text-xs">No whales tracked</span>
+              <Button variant="primary" size="sm" className="mt-3" onClick={() => setIsAdding(true)}>
+                <Plus className="w-3 h-3 mr-1" />
+                Add Whale
+              </Button>
+            </div>
+          ) : (
+            targets.map((target) => (
+              <div
+                key={target.address}
+                className={cn(
+                  'grid grid-cols-[24px_1fr_90px_70px_70px] gap-3 px-3 py-1.5 items-center group transition-all cursor-pointer',
+                  'bg-white/[0.02] border border-white/[0.06] rounded-xl',
+                  'hover:bg-white/[0.04] hover:border-accent-cyan/30'
+                )}
+              >
+                {/* Status */}
+                <div className="flex justify-center">
+                  <div className={cn(
+                    'w-2.5 h-2.5 rounded-full',
+                    target.status === 'active'
+                      ? 'bg-accent-green shadow-[0_0_8px_rgba(34,197,94,0.5)]'
+                      : 'bg-white/30'
+                  )} />
+                </div>
+
+                {/* Whale Name */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[12px] font-semibold text-white truncate">
+                    {target.alias || 'Unknown Whale'}
+                  </span>
+                  {target.tags && target.tags.length > 0 && (
+                    <Badge variant="default" size="sm" className="shrink-0">
+                      {target.tags[0]}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Address */}
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-mono text-white/50 truncate">
+                    {shortenAddress(target.address, 4)}
+                  </span>
+                  <a
+                    href={`https://solscan.io/account/${target.address}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-accent-cyan transition-all shrink-0"
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[var(--accent-pink)]/10 flex items-center justify-center text-[var(--accent-pink)] font-bold">
-                        {target.alias?.[0] || 'W'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium">{target.alias || 'Unknown Whale'}</span>
-                          <StatusDot
-                            status={target.status === 'active' ? 'active' : 'paused'}
-                          />
-                        </div>
-                        <p className="text-xs text-white/50 font-mono">
-                          {shortenAddress(target.address, 6)}
-                        </p>
-                        {target.tags && target.tags.length > 0 && (
-                          <div className="flex gap-1 mt-2">
-                            {target.tags.slice(0, 3).map((tag) => (
-                              <Badge key={tag} variant="default" size="sm">
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
+                    <ExternalLink size={10} />
+                  </a>
+                </div>
+
+                {/* Profit */}
+                <div className={cn(
+                  'text-[12px] font-mono truncate',
+                  (target.performance?.total_profit_sol || 0) >= 0
+                    ? 'text-accent-green'
+                    : 'text-accent-red'
+                )}>
+                  {(target.performance?.total_profit_sol || 0) >= 0 ? '+' : ''}
+                  {formatNumber(target.performance?.total_profit_sol || 0)}
+                </div>
+
+                {/* Win Rate */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] font-mono text-white/70">
+                    {target.performance?.win_rate?.toFixed(0) || 0}%
+                  </span>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Tooltip content={target.status === 'active' ? 'Pause' : 'Resume'}>
+                      <button className="p-1 hover:bg-white/10 rounded transition-colors">
+                        {target.status === 'active' ? (
+                          <EyeOff className="w-3 h-3 text-white/50 hover:text-white" />
+                        ) : (
+                          <Eye className="w-3 h-3 text-white/50 hover:text-white" />
                         )}
-                      </div>
-                      <div className="text-right">
-                        {target.performance && (
-                          <>
-                            <p
-                              className={cn(
-                                'text-sm font-mono-numbers',
-                                (target.performance.total_profit_sol || 0) >= 0
-                                  ? 'text-[var(--accent-green)]'
-                                  : 'text-[var(--accent-red)]'
-                              )}
-                            >
-                              {(target.performance.total_profit_sol || 0) >= 0 ? '+' : ''}
-                              {formatNumber(target.performance.total_profit_sol || 0)} SOL
-                            </p>
-                            <p className="text-xs text-white/50">
-                              {target.performance.win_rate?.toFixed(0) || 0}% win rate
-                            </p>
-                          </>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Tooltip content={target.status === 'active' ? 'Pause' : 'Resume'}>
-                          <Button variant="ghost" size="icon-sm">
-                            {target.status === 'active' ? (
-                              <EyeOff className="w-4 h-4" />
-                            ) : (
-                              <Eye className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </Tooltip>
-                        <Tooltip content="Settings">
-                          <Button variant="ghost" size="icon-sm">
-                            <Settings className="w-4 h-4" />
-                          </Button>
-                        </Tooltip>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+                      </button>
+                    </Tooltip>
+                  </div>
+                </div>
               </div>
-            )}
-          </AnimatePresence>
+            ))
+          )}
         </div>
       </div>
     </WidgetContainer>
@@ -235,68 +243,82 @@ function SignalFeedWidget() {
       badgeVariant="pink"
       noPadding
     >
-      <div className="h-full overflow-auto glass-scrollbar">
-        <AnimatePresence>
-          {signals.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-white/40">
-              <Activity className="w-10 h-10 mb-3 opacity-50" />
-              <p className="text-sm">Waiting for whale activity...</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-white/[0.04]">
-              {signals.slice(0, 50).map((signal, index) => (
-                <motion.div
-                  key={signal.id || signal.signature}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ delay: index * 0.02 }}
-                  className="p-3 hover:bg-white/[0.02] transition-colors"
+      <div className="flex-1 overflow-auto glass-scrollbar min-h-0 p-3 space-y-2">
+        {/* Table Header */}
+        <div className="grid grid-cols-[60px_50px_1fr_1fr_50px] gap-3 px-3 py-1.5 items-center text-[10px] text-white/40 uppercase tracking-wider font-bold border border-transparent rounded-xl">
+          <div>Time</div>
+          <div>Type</div>
+          <div>Whale</div>
+          <div>Trade</div>
+          <div></div>
+        </div>
+
+        {signals.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-32 text-white/30">
+            <Activity size={24} strokeWidth={1} className="mb-2 opacity-50" />
+            <span className="text-xs">Waiting for whale activity...</span>
+          </div>
+        ) : (
+          signals.slice(0, 50).map((signal) => (
+            <div
+              key={signal.id || signal.signature}
+              className={cn(
+                'grid grid-cols-[60px_50px_1fr_1fr_50px] gap-3 px-3 py-1.5 items-center group transition-all cursor-pointer',
+                'bg-white/[0.02] border border-white/[0.06] rounded-xl',
+                'hover:bg-white/[0.04] hover:border-accent-cyan/30'
+              )}
+            >
+              {/* Time */}
+              <div className="text-[11px] text-white/50">
+                {formatTimestamp(signal.timestamp)}
+              </div>
+
+              {/* Type */}
+              <div>
+                <span className={cn(
+                  'text-[10px] font-bold px-1.5 py-0.5 rounded leading-none',
+                  'bg-accent-pink/10 text-accent-pink'
+                )}>
+                  {signal.type || 'SWAP'}
+                </span>
+              </div>
+
+              {/* Whale */}
+              <div className="text-[12px] font-semibold text-white truncate">
+                {signal.alias || shortenAddress(signal.wallet, 4)}
+              </div>
+
+              {/* Trade */}
+              <div className="flex items-center gap-2 min-w-0">
+                {signal.sent && signal.received ? (
+                  <>
+                    <span className="text-[11px] font-mono text-white/70 truncate">
+                      {formatNumber(signal.sent.amount)} {signal.sent.symbol}
+                    </span>
+                    <ArrowRight className="w-3 h-3 text-white/30 shrink-0" />
+                    <span className="text-[11px] font-mono text-accent-green truncate">
+                      {formatNumber(signal.received.amount)} {signal.received.symbol}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-[11px] text-white/50">-</span>
+                )}
+              </div>
+
+              {/* Link */}
+              <div className="flex justify-end">
+                <a
+                  href={`https://solscan.io/tx/${signal.signature}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-accent-cyan transition-all"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[var(--accent-pink)]/10 flex items-center justify-center flex-shrink-0">
-                      <Activity className="w-4 h-4 text-[var(--accent-pink)]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium">
-                          {signal.alias || shortenAddress(signal.wallet, 4)}
-                        </span>
-                        <Badge variant="pink" size="sm">
-                          {signal.type || 'SWAP'}
-                        </Badge>
-                      </div>
-                      {signal.sent && signal.received && (
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="text-white/50">
-                            {formatNumber(signal.sent.amount)} {signal.sent.symbol}
-                          </span>
-                          <ArrowRight className="w-3 h-3 text-white/30" />
-                          <span className="text-[var(--accent-green)]">
-                            {formatNumber(signal.received.amount)} {signal.received.symbol}
-                          </span>
-                        </div>
-                      )}
-                      <p className="text-[10px] text-white/30 mt-1">
-                        {formatTimestamp(signal.timestamp)}
-                      </p>
-                    </div>
-                    <Tooltip content="View on Solscan">
-                      <a
-                        href={`https://solscan.io/tx/${signal.signature}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-white/30 hover:text-white/60"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    </Tooltip>
-                  </div>
-                </motion.div>
-              ))}
+                  <ExternalLink size={12} />
+                </a>
+              </div>
             </div>
-          )}
-        </AnimatePresence>
+          ))
+        )}
       </div>
     </WidgetContainer>
   )

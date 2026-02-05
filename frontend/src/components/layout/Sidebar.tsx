@@ -12,6 +12,7 @@ import {
   Layers,
   Droplets,
   Sprout,
+  Lock,
   Newspaper,
   Settings,
   ChevronLeft,
@@ -30,6 +31,7 @@ const navItems = [
   { path: '/liquidity', icon: Droplets, label: 'Liquidity' },
   { path: '/dlmm', icon: Layers, label: 'DLMM (Legacy)' },
   { path: '/yield', icon: Sprout, label: 'Yield' },
+  { path: '/skr', icon: Lock, label: 'SKR Staking' },
   { path: '/intel', icon: Newspaper, label: 'Intel' },
   { path: '/control', icon: Settings, label: 'Control Panel' },
 ]

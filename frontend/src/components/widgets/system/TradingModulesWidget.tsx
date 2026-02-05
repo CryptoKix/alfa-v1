@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Power, Zap, Users, Newspaper, Skull } from 'lucide-react'
+import { Power, Zap, Users, Newspaper, Skull, Shield, Lock, Crosshair } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { WidgetContainer } from '../base/WidgetContainer'
 
@@ -19,8 +19,11 @@ interface SystemStatus {
 const modules = [
   { id: 'arb_engine', name: 'Arb Engine', icon: Zap, description: 'High-frequency scan & execute' },
   { id: 'copy_trader', name: 'Copy Trader', icon: Users, description: 'Whale tracking & replication' },
+  { id: 'wolf_pack', name: 'Wolf Pack', icon: Crosshair, description: 'Whale consensus trading' },
   { id: 'dlmm_sniper', name: 'DLMM Sniper', icon: Skull, description: 'Meteora pool detection' },
   { id: 'news', name: 'Intel Feed', icon: Newspaper, description: 'News & social aggregation' },
+  { id: 'network_monitor', name: 'Network Monitor', icon: Shield, description: 'Security surveillance & alerts' },
+  { id: 'skr_staking', name: 'SKR Staking', icon: Lock, description: 'SKR staking event tracking' },
 ]
 
 export function TradingModulesWidget() {

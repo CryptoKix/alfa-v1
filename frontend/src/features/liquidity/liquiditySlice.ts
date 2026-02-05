@@ -82,6 +82,38 @@ export interface RebalanceSettings {
   running: boolean
 }
 
+export interface MonitorSettings {
+  distanceThresholds: {
+    high: number
+    medium: number
+    low: number
+  }
+  feeThresholdUsd: number | null
+  maxPositionAgeHours: number | null
+  volatilityThresholdPct: number | null
+  volatilityWindowMinutes: number
+  checkIntervalSeconds: number
+}
+
+export interface PositionStatus {
+  positionPubkey: string
+  protocol: 'meteora' | 'orca'
+  poolAddress: string
+  userWallet: string
+  inRange: boolean
+  distanceFromEdge: number
+  currentPrice: number
+  rangeMinPrice: number
+  rangeMaxPrice: number
+  feesX: number
+  feesY: number
+  totalFeesUsd: number
+  positionAgeHours: number
+  urgency: 'healthy' | 'warning' | 'critical'
+  reason: string
+  timestamp: number
+}
+
 export interface PriceData {
   bins?: Array<{
     binId?: number
@@ -123,10 +155,14 @@ export interface LiquidityState {
 
   // Positions
   positions: UnifiedPosition[]
+  positionStatuses: Record<string, PositionStatus>
 
   // Rebalancing
   rebalanceSuggestions: RebalanceSuggestion[]
   rebalanceSettings: RebalanceSettings | null
+
+  // Monitor settings
+  monitorSettings: MonitorSettings | null
 
   // UI state
   loading: boolean
@@ -165,8 +201,10 @@ const initialState: LiquidityState = {
   selectedPoolPriceData: null,
   selectedPoolPriceDataLoading: false,
   positions: [],
+  positionStatuses: {},
   rebalanceSuggestions: [],
   rebalanceSettings: null,
+  monitorSettings: null,
   loading: false,
   error: null,
   sidecarHealth: {
@@ -269,6 +307,20 @@ const liquiditySlice = createSlice({
       state.rebalanceSettings = action.payload
     },
 
+    // Monitor settings
+    setMonitorSettings: (state, action: PayloadAction<MonitorSettings>) => {
+      state.monitorSettings = action.payload
+    },
+
+    // Position status updates
+    updatePositionStatus: (state, action: PayloadAction<PositionStatus>) => {
+      state.positionStatuses[action.payload.positionPubkey] = action.payload
+    },
+
+    clearPositionStatuses: (state) => {
+      state.positionStatuses = {}
+    },
+
     // UI state
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload
@@ -311,6 +363,9 @@ export const {
   addRebalanceSuggestion,
   removeRebalanceSuggestion,
   setRebalanceSettings,
+  setMonitorSettings,
+  updatePositionStatus,
+  clearPositionStatuses,
   setLoading,
   setError,
   setSidecarHealth,

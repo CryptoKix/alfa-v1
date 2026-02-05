@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useAppSelector } from '@/app/hooks'
-import { Wallet, Search, ArrowUpDown, TrendingUp, TrendingDown } from 'lucide-react'
+import { Wallet, Search, ArrowUpDown, TrendingUp, TrendingDown, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { WidgetContainer } from '../base/WidgetContainer'
 import { Spinner } from '@/components/ui'
+import { SendModal } from '@/components/modals/SendModal'
 
 type SortKey = 'value' | 'balance' | 'price' | 'symbol' | 'change'
 type SortDir = 'asc' | 'desc'
@@ -16,6 +17,7 @@ export function PortfolioWidget() {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('value')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [isSendModalOpen, setIsSendModalOpen] = useState(false)
 
   // Calculate live values
   const liveHoldings = useMemo(() => {
@@ -125,6 +127,14 @@ export function PortfolioWidget() {
       }
       actions={
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsSendModalOpen(true)}
+            className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-bold text-accent-purple hover:text-white bg-accent-purple/10 hover:bg-accent-purple/20 border border-accent-purple/20 rounded-lg transition-all"
+            title="Send Assets"
+          >
+            <Send size={12} />
+            Send
+          </button>
           <div
             className={cn(
               'flex items-center gap-1 text-[11px] font-bold font-mono px-2 py-1 rounded',
@@ -252,6 +262,9 @@ export function PortfolioWidget() {
           </div>
         </div>
       )}
+
+      {/* Send Modal */}
+      <SendModal isOpen={isSendModalOpen} onClose={() => setIsSendModalOpen(false)} />
     </WidgetContainer>
   )
 }

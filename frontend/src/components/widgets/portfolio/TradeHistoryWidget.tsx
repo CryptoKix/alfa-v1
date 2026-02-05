@@ -131,7 +131,11 @@ export function TradeHistoryWidget() {
           </div>
         ) : (
           filteredHistory.slice(0, 50).map((trade) => {
-            const price = trade.amount_in && trade.amount_out ? (trade.amount_out / trade.amount_in) : 0
+            // Calculate price: stablecoin amount / non-stable amount = token price in USD
+            const isInputStable = ['USDC', 'USDT', 'USD'].includes(trade.input)
+            const price = trade.amount_in && trade.amount_out
+              ? (isInputStable ? trade.amount_in / trade.amount_out : trade.amount_out / trade.amount_in)
+              : 0
             const tradeType = getTradeType(trade.source, trade.input, trade.output)
 
             return (

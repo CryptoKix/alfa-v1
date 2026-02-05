@@ -371,19 +371,19 @@ export const GridConfigWidget = () => {
           <div className="space-y-1.5">
             <div className="flex justify-between items-end px-1">
               <label className="text-[9px] uppercase tracking-widest text-text-muted font-bold text-accent-green">Grid Levels</label>
-              <span className="text-[9px] font-mono text-text-muted">{gridCount} lvls</span>
+              <span className="text-[9px] font-mono text-text-muted">{gridCount || '0'} lvls</span>
             </div>
-            <div className="bg-background-elevated border border-white/10 rounded-xl p-2 flex items-center gap-3 h-12">
-              <button onClick={() => setGridCount(Math.max(2, steps - 1).toString())} className="p-1 hover:bg-white/5 rounded text-text-muted hover:text-accent-green transition-colors"><Minus size={14} /></button>
-              <input 
-                type="range" 
-                min="2" 
-                max="50" 
+            <div className="bg-background-elevated border border-white/10 rounded-xl p-2 flex items-center gap-2 h-12">
+              <button onClick={() => setGridCount(prev => String(Math.max(0, (parseInt(prev) || 0) - 1)))} className="p-1 hover:bg-white/5 rounded text-text-muted hover:text-accent-green transition-colors shrink-0"><Minus size={14} /></button>
+              <input
+                type="text"
+                inputMode="numeric"
                 value={gridCount}
-                onChange={(e) => setGridCount(e.target.value)}
-                className="flex-1 accent-accent-green h-1"
+                onChange={(e) => setGridCount(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="10"
+                className="bg-transparent text-sm font-mono font-bold text-white w-full focus:outline-none placeholder:text-white/5 text-center min-w-0"
               />
-              <button onClick={() => setGridCount(Math.min(50, steps + 1).toString())} className="p-1 hover:bg-white/5 rounded text-text-muted hover:text-accent-green transition-colors"><Plus size={14} /></button>
+              <button onClick={() => setGridCount(prev => String((parseInt(prev) || 0) + 1))} className="p-1 hover:bg-white/5 rounded text-text-muted hover:text-accent-green transition-colors shrink-0"><Plus size={14} /></button>
             </div>
           </div>
 
@@ -710,8 +710,11 @@ export const GridConfigWidget = () => {
                   const amountAssetColor = isRebal ? "text-white/90" : (isBuy ? "text-accent-cyan" : "text-accent-pink")
                   const toAmountAssetColor = isRebal ? "text-white/90" : (isBuy ? "text-accent-pink" : "text-accent-cyan")
 
-                  const targetAmount = isOutputStable ? trade.amount_in : trade.amount_out
-                  const impliedPrice = trade.usd_value > 0 && targetAmount > 0 ? trade.usd_value / targetAmount : 0
+                  // Calculate SOL price based on which side is the stablecoin
+                  const isInputStable = ['USDC', 'USDT', 'USD'].includes(trade.input)
+                  const impliedPrice = trade.amount_in > 0 && trade.amount_out > 0
+                    ? (isInputStable ? trade.amount_in / trade.amount_out : trade.amount_out / trade.amount_in)
+                    : 0
 
                   return (
                     <div key={trade.id} className="mx-2 grid grid-cols-[90px_50px_1fr_1fr_80px_60px] gap-4 items-center px-2 py-2 rounded-lg bg-background-elevated/30 border border-white/5 hover:border-white/10 transition-all group font-mono whitespace-nowrap overflow-hidden">

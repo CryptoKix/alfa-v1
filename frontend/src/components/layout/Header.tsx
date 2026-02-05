@@ -83,13 +83,13 @@ export function Header() {
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           {portfolioConnected ? (
-            <Signal className="w-3.5 h-3.5 text-accent-green" />
+            <Signal className="w-3.5 h-3.5 text-accent-cyan" />
           ) : (
             <SignalZero className="w-3.5 h-3.5 text-accent-red" />
           )}
           <span className={cn(
             "text-[11px] font-medium",
-            portfolioConnected ? "text-accent-green" : "text-accent-red"
+            portfolioConnected ? "text-accent-cyan" : "text-accent-red"
           )}>
             {portfolioConnected ? 'Connected' : 'Offline'}
           </span>
@@ -104,7 +104,10 @@ export function Header() {
               ? "bg-accent-cyan"
               : "bg-white/30"
           )} style={pricesConnected ? { boxShadow: '0 0 6px #00ffff' } : {}} />
-          <span className="text-[11px] text-text-muted">Prices</span>
+          <span className={cn(
+            "text-[11px]",
+            pricesConnected ? "text-accent-cyan" : "text-text-muted"
+          )}>Prices</span>
         </div>
       </div>
 

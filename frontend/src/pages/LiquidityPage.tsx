@@ -44,6 +44,7 @@ import {
 import { Button, Badge, GlassCard, Input, Select } from '@/components/ui'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState, useMemo, useEffect } from 'react'
+import { PoolDetailsModal } from '@/components/modals/PoolDetailsModal'
 
 // Protocol badge colors
 const protocolColors = {
@@ -115,16 +116,40 @@ function ProtocolSelectorWidget() {
 }
 
 // Favorites Widget
-function FavoritesWidget() {
+function FavoritesWidget({
+  onOpenPoolModal,
+}: {
+  onOpenPoolModal: (pool: UnifiedPool) => void
+}) {
   const dispatch = useAppDispatch()
   const { favorites, pools, selectedPool } = useAppSelector((state) => state.liquidity)
 
   const handleSelectFavorite = (fav: FavoritePool) => {
-    // Find the pool in the pools list and select it
-    const pool = pools.find((p) => p.address === fav.address)
-    if (pool) {
-      dispatch(setSelectedPool(pool))
+    // Find the pool in the pools list
+    let pool = pools.find((p) => p.address === fav.address)
+
+    // If not in list, create from favorite data (instant, no API call)
+    if (!pool) {
+      pool = {
+        protocol: fav.protocol,
+        address: fav.address,
+        name: fav.name || `${fav.tokenXSymbol}/${fav.tokenYSymbol}`,
+        tokenX: { mint: '', symbol: fav.tokenXSymbol },
+        tokenY: { mint: '', symbol: fav.tokenYSymbol },
+        priceSpacing: fav.priceSpacing,
+        feeRate: 0,
+        liquidity: 0,
+        volume24h: 0,
+        fees24h: 0,
+        apr: fav.apr || 0,
+        price: 0,
+        tvl: fav.tvl || 0,
+        currentPriceIndex: 0,
+      } as UnifiedPool
     }
+
+    dispatch(setSelectedPool(pool))
+    onOpenPoolModal(pool)
   }
 
   const handleRemoveFavorite = (address: string) => {
@@ -242,7 +267,11 @@ function FavoritesWidget() {
 }
 
 // Unified Pools Widget
-function LiquidityPoolsWidget() {
+function LiquidityPoolsWidget({
+  onOpenPoolModal,
+}: {
+  onOpenPoolModal: (pool: UnifiedPool) => void
+}) {
   const dispatch = useAppDispatch()
   const { pools, selectedProtocol, loading, selectedPool } = useAppSelector((state) => state.liquidity)
   const [search, setSearch] = useState('')
@@ -284,6 +313,11 @@ function LiquidityPoolsWidget() {
 
   const handleSelectPool = (pool: UnifiedPool) => {
     dispatch(setSelectedPool(pool))
+  }
+
+  const handleDoubleClickPool = (pool: UnifiedPool) => {
+    dispatch(setSelectedPool(pool))
+    onOpenPoolModal(pool)
   }
 
   return (
@@ -333,6 +367,7 @@ function LiquidityPoolsWidget() {
               <div
                 key={`${pool.protocol}-${pool.address}`}
                 onClick={() => handleSelectPool(pool)}
+                onDoubleClick={() => handleDoubleClickPool(pool)}
                 className={cn(
                   'grid grid-cols-[1fr_50px_70px_60px] gap-3 px-3 py-1.5 items-center group transition-all cursor-pointer',
                   'bg-white/[0.02] border rounded-xl',
@@ -340,6 +375,7 @@ function LiquidityPoolsWidget() {
                     ? 'border-accent-purple/50 bg-accent-purple/10'
                     : 'border-white/[0.06] hover:bg-white/[0.04] hover:border-accent-cyan/30'
                 )}
+                title="Double-click to open details"
               >
                 {/* Pool */}
                 <div className="flex items-center gap-2 min-w-0">
@@ -779,26 +815,52 @@ function CreatePositionWidget() {
 }
 
 export default function LiquidityPage() {
+  const [poolModalOpen, setPoolModalOpen] = useState(false)
+  const [modalPool, setModalPool] = useState<UnifiedPool | null>(null)
+
+  const handleOpenPoolModal = (pool: UnifiedPool) => {
+    setModalPool(pool)
+    setPoolModalOpen(true)
+  }
+
+  const handleClosePoolModal = () => {
+    setPoolModalOpen(false)
+  }
+
+  const handlePositionCreated = () => {
+    // Could trigger a refresh of positions here
+    console.log('[LiquidityPage] Position created')
+  }
+
   return (
-    <WidgetGrid page="liquidity">
-      <div key="protocol-selector">
-        <ProtocolSelectorWidget />
-      </div>
-      <div key="liquidity-favorites">
-        <FavoritesWidget />
-      </div>
-      <div key="liquidity-pools">
-        <LiquidityPoolsWidget />
-      </div>
-      <div key="liquidity-positions">
-        <LiquidityPositionsWidget />
-      </div>
-      <div key="rebalance-manager">
-        <RebalanceWidget />
-      </div>
-      <div key="create-position">
-        <CreatePositionWidget />
-      </div>
-    </WidgetGrid>
+    <>
+      <WidgetGrid page="liquidity">
+        <div key="protocol-selector">
+          <ProtocolSelectorWidget />
+        </div>
+        <div key="liquidity-favorites">
+          <FavoritesWidget onOpenPoolModal={handleOpenPoolModal} />
+        </div>
+        <div key="liquidity-pools">
+          <LiquidityPoolsWidget onOpenPoolModal={handleOpenPoolModal} />
+        </div>
+        <div key="liquidity-positions">
+          <LiquidityPositionsWidget />
+        </div>
+        <div key="rebalance-manager">
+          <RebalanceWidget />
+        </div>
+        <div key="create-position">
+          <CreatePositionWidget />
+        </div>
+      </WidgetGrid>
+
+      <PoolDetailsModal
+        isOpen={poolModalOpen}
+        onClose={handleClosePoolModal}
+        pool={modalPool}
+        onPositionCreated={handlePositionCreated}
+      />
+    </>
   )
 }

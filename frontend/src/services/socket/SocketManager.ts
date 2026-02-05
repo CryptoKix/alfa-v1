@@ -14,6 +14,7 @@ export type SocketNamespace =
   | 'yield'
   | 'dlmm'
   | 'liquidity'
+  | 'skr'
 
 export interface SocketConfig {
   transports: string[]
@@ -176,7 +177,7 @@ class SocketManager {
   getConnectionStatus(): Record<SocketNamespace, boolean> {
     const namespaces: SocketNamespace[] = [
       'portfolio', 'prices', 'history', 'bots', 'copytrade',
-      'arb', 'sniper', 'intel', 'yield', 'dlmm'
+      'arb', 'sniper', 'intel', 'yield', 'dlmm', 'liquidity', 'skr'
     ]
 
     return namespaces.reduce((acc, ns) => {

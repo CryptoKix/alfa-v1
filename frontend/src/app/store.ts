@@ -11,6 +11,7 @@ import walletReducer from '../features/wallet/walletSlice'
 import yieldReducer from '../features/yield/yieldSlice'
 import dlmmReducer from '../features/dlmm/dlmmSlice'
 import liquidityReducer from '../features/liquidity/liquiditySlice'
+import skrReducer from '../features/skr/skrSlice'
 
 export const store = configureStore({
   reducer: {
@@ -26,6 +27,7 @@ export const store = configureStore({
     yield: yieldReducer,
     dlmm: dlmmReducer,
     liquidity: liquidityReducer,
+    skr: skrReducer,
   },
 })
 

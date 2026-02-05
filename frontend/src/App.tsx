@@ -12,8 +12,10 @@ import SniperPage from './pages/SniperPage'
 import DLMMPage from './pages/DLMMPage'
 import LiquidityPage from './pages/LiquidityPage'
 import YieldPage from './pages/YieldPage'
+import YieldHunterPage from './pages/YieldHunterPage'
 import NewsPage from './pages/NewsPage'
 import ControlPanel from './pages/ControlPanel'
+import SKRStakingPage from './pages/SKRStakingPage'
 
 function App() {
   const dispatch = useAppDispatch()
@@ -50,7 +52,9 @@ function App() {
           <Route path="/sniper" element={<SniperPage />} />
           <Route path="/dlmm" element={<DLMMPage />} />
           <Route path="/liquidity" element={<LiquidityPage />} />
-          <Route path="/yield" element={<YieldPage />} />
+          <Route path="/yield" element={<YieldHunterPage />} />
+          <Route path="/yield/widgets" element={<YieldPage />} />
+          <Route path="/skr" element={<SKRStakingPage />} />
           <Route path="/intel" element={<NewsPage />} />
           <Route path="/control" element={<ControlPanel />} />
         </Routes>

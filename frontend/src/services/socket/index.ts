@@ -15,6 +15,7 @@ import { setupIntelHandler } from './handlers/intel'
 import { setupYieldHandler } from './handlers/yield'
 import { setupDLMMHandler } from './handlers/dlmm'
 import { setupLiquidityHandler } from './handlers/liquidity'
+import { setupSKRHandler } from './handlers/skr'
 
 // Set the store reference
 socketManager.setStore(store)
@@ -31,6 +32,7 @@ socketManager.registerHandler('intel', setupIntelHandler)
 socketManager.registerHandler('yield', setupYieldHandler)
 socketManager.registerHandler('dlmm', setupDLMMHandler)
 socketManager.registerHandler('liquidity', setupLiquidityHandler)
+socketManager.registerHandler('skr', setupSKRHandler)
 
 /**
  * Initialize all socket connections
@@ -51,6 +53,7 @@ export function initSockets(): void {
     'yield',
     'dlmm',
     'liquidity',
+    'skr',
   ]
 
   for (const ns of namespaces) {
