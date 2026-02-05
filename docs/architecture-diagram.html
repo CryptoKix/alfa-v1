@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TacTix.sol Architecture Diagram</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0A0E27 0%, #1a1f3a 50%, #0A0E27 100%);
+            color: #E0E0E0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #00FFFF;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #9CA3AF;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+
+        .diagram-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .layer {
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .layer-title {
+            font-size: 1.2rem;
+            color: #FF00FF;
+            margin-bottom: 15px;
+            padding-left: 10px;
+            border-left: 4px solid #FF00FF;
+        }
+
+        .layer-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .component {
+            background: linear-gradient(135deg, rgba(26, 31, 58, 0.9) 0%, rgba(16, 20, 39, 0.9) 100%);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 15px 20px;
+            min-width: 180px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .component:hover {
+            border-color: #00FFFF;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .component-title {
+            color: #00FFFF;
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+
+        .component-port {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 0, 255, 0.2);
+            color: #FF00FF;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .component-details {
+            font-size: 0.85rem;
+            color: #9CA3AF;
+        }
+
+        .component-details li {
+            margin: 4px 0;
+            padding-left: 12px;
+            position: relative;
+        }
+
+        .component-details li::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #9900FF;
+        }
+
+        /* Layer-specific colors */
+        .frontend-layer .component {
+            border-color: rgba(0, 255, 255, 0.4);
+        }
+
+        .backend-layer .component {
+            border-color: rgba(153, 0, 255, 0.4);
+        }
+
+        .sidecar-layer .component {
+            border-color: rgba(255, 0, 255, 0.4);
+        }
+
+        .external-layer .component {
+            border-color: rgba(255, 165, 0, 0.4);
+        }
+
+        .data-layer .component {
+            border-color: rgba(0, 255, 127, 0.4);
+        }
+
+        /* Connection arrows */
+        .connection-section {
+            display: flex;
+            justify-content: center;
+            padding: 20px 0;
+            position: relative;
+        }
+
+        .arrow-down {
+            width: 2px;
+            height: 40px;
+            background: linear-gradient(180deg, #00FFFF, #9900FF);
+            position: relative;
+            margin: 0 30px;
+        }
+
+        .arrow-down::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 10px solid #9900FF;
+        }
+
+        .arrow-label {
+            position: absolute;
+            font-size: 0.75rem;
+            color: #9CA3AF;
+            white-space: nowrap;
+        }
+
+        /* Protocol badges */
+        .protocol-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            margin: 2px;
+            font-weight: 600;
+        }
+
+        .badge-http { background: rgba(0, 255, 255, 0.2); color: #00FFFF; }
+        .badge-ws { background: rgba(255, 0, 255, 0.2); color: #FF00FF; }
+        .badge-sqlite { background: rgba(0, 255, 127, 0.2); color: #00FF7F; }
+
+        /* Large component for main services */
+        .component-large {
+            min-width: 280px;
+        }
+
+        .component-xl {
+            min-width: 400px;
+        }
+
+        /* Grid for services */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .service-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 8px;
+            border-left: 3px solid #9900FF;
+        }
+
+        .service-item-title {
+            color: #E0E0E0;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .service-item-desc {
+            color: #6B7280;
+            font-size: 0.8rem;
+        }
+
+        /* Flow diagram */
+        .flow-section {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 16px;
+            padding: 30px;
+            margin: 40px 0;
+        }
+
+        .flow-title {
+            color: #00FFFF;
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .flow-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        .flow-box {
+            background: linear-gradient(135deg, rgba(26, 31, 58, 0.9) 0%, rgba(16, 20, 39, 0.9) 100%);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+
+        .flow-arrow {
+            color: #FF00FF;
+            font-size: 1.2rem;
+        }
+
+        /* Namespace grid */
+        .namespace-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .namespace-item {
+            background: rgba(255, 0, 255, 0.1);
+            border: 1px solid rgba(255, 0, 255, 0.3);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 0.8rem;
+            text-align: center;
+            color: #FF00FF;
+        }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .legend-frontend { background: #00FFFF; }
+        .legend-backend { background: #9900FF; }
+        .legend-sidecar { background: #FF00FF; }
+        .legend-external { background: #FFA500; }
+        .legend-data { background: #00FF7F; }
+
+        /* Summary table */
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        .summary-table th,
+        .summary-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .summary-table th {
+            color: #00FFFF;
+            font-weight: 600;
+        }
+
+        .summary-table tr:hover {
+            background: rgba(0, 255, 255, 0.05);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            h1 { font-size: 1.8rem; }
+            .component { min-width: 100%; }
+            .flow-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <h1>TacTix.sol Architecture</h1>
+    <p class="subtitle">Solana Trading Terminal - System Integration Map</p>
+
+    <div class="diagram-container">
+
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color legend-frontend"></div>
+                <span>Frontend</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color legend-backend"></div>
+                <span>Backend</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color legend-sidecar"></div>
+                <span>Node.js Sidecars</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color legend-external"></div>
+                <span>External APIs</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color legend-data"></div>
+                <span>Data Layer</span>
+            </div>
+        </div>
+
+        <!-- Frontend Layer -->
+        <div class="layer frontend-layer">
+            <h2 class="layer-title">FRONTEND LAYER (React + TypeScript)</h2>
+            <div class="layer-content">
+                <div class="component component-xl">
+                    <span class="component-port">:5173</span>
+                    <div class="component-title">Vite Dev Server</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>React 18 + TypeScript</li>
+                            <li>Tailwind CSS v4 (Cyberpunk Theme)</li>
+                            <li>Redux Toolkit (12 Slices)</li>
+                            <li>Socket.IO Client</li>
+                        </ul>
+                        <div style="margin-top: 10px;">
+                            <span class="protocol-badge badge-http">HTTP Proxy</span>
+                            <span class="protocol-badge badge-ws">WebSocket</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="component component-large">
+                    <div class="component-title">Redux Store Slices</div>
+                    <div class="namespace-grid">
+                        <div class="namespace-item">portfolio</div>
+                        <div class="namespace-item">prices</div>
+                        <div class="namespace-item">bots</div>
+                        <div class="namespace-item">copytrade</div>
+                        <div class="namespace-item">arb</div>
+                        <div class="namespace-item">sniper</div>
+                        <div class="namespace-item">intel</div>
+                        <div class="namespace-item">wallet</div>
+                        <div class="namespace-item">yield</div>
+                        <div class="namespace-item">dlmm</div>
+                        <div class="namespace-item">liquidity</div>
+                        <div class="namespace-item">notifications</div>
+                    </div>
+                </div>
+
+                <div class="component component-large">
+                    <div class="component-title">Main Pages</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>Dashboard (Overview)</li>
+                            <li>BotsPage (Grid/DCA/TWAP/VWAP)</li>
+                            <li>CopyTradePage (Whale Tracking)</li>
+                            <li>ArbPage (Arbitrage Monitor)</li>
+                            <li>LiquidityPage (Meteora + Orca)</li>
+                            <li>YieldHunterPage (DeFi Yields)</li>
+                            <li>SniperPage (Token Discovery)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection -->
+        <div class="connection-section">
+            <div class="arrow-down" style="margin-left: 100px;">
+                <span class="arrow-label" style="left: 20px; top: 10px;">REST /api/*</span>
+            </div>
+            <div class="arrow-down">
+                <span class="arrow-label" style="left: 20px; top: 10px;">Socket.IO (11 Namespaces)</span>
+            </div>
+            <div class="arrow-down" style="margin-right: 100px;">
+                <span class="arrow-label" style="left: 20px; top: 10px;">Wallet Signing</span>
+            </div>
+        </div>
+
+        <!-- Middleware Layer -->
+        <div class="layer backend-layer">
+            <h2 class="layer-title">MIDDLEWARE LAYER</h2>
+            <div class="layer-content">
+                <div class="component">
+                    <div class="component-title">Authentication</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>Token-based Auth</li>
+                            <li>Session Cookies (24h)</li>
+                            <li>IP Whitelist</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="component">
+                    <div class="component-title">Rate Limiting</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>Per-endpoint limits</li>
+                            <li>Trading protection</li>
+                            <li>Quote throttling</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="component">
+                    <div class="component-title">Security Headers</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>X-Frame-Options</li>
+                            <li>CSP Policy</li>
+                            <li>XSS Protection</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="component">
+                    <div class="component-title">CORS</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>localhost:5173</li>
+                            <li>Credentials enabled</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection -->
+        <div class="connection-section">
+            <div class="arrow-down"></div>
+        </div>
+
+        <!-- Backend Layer -->
+        <div class="layer backend-layer">
+            <h2 class="layer-title">BACKEND LAYER (Python Flask + Socket.IO)</h2>
+            <div class="layer-content">
+                <div class="component component-xl">
+                    <span class="component-port">:5001</span>
+                    <div class="component-title">Flask Application (app.py)</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>Blueprint Registration</li>
+                            <li>Socket.IO Initialization</li>
+                            <li>Engine Management</li>
+                            <li>Service Coordination</li>
+                        </ul>
+                        <div style="margin-top: 10px;">
+                            <span class="protocol-badge badge-http">HTTP</span>
+                            <span class="protocol-badge badge-ws">WebSocket</span>
+                            <span class="protocol-badge badge-sqlite">SQLite</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <h3 style="color: #9900FF; margin-bottom: 15px; text-align: center;">API Blueprints</h3>
+                <div class="layer-content">
+                    <div class="component">
+                        <div class="component-title">/api/</div>
+                        <div class="component-details">General API, Health</div>
+                    </div>
+                    <div class="component">
+                        <div class="component-title">/api/auth/</div>
+                        <div class="component-details">Login, Sessions</div>
+                    </div>
+                    <div class="component">
+                        <div class="component-title">/api/wallet/</div>
+                        <div class="component-details">Balances, Holdings</div>
+                    </div>
+                    <div class="component">
+                        <div class="component-title">/api/copytrade/</div>
+                        <div class="component-details">Whale Targets</div>
+                    </div>
+                    <div class="component">
+                        <div class="component-title">/api/arb/</div>
+                        <div class="component-details">Arbitrage Pairs</div>
+                    </div>
+                    <div class="component">
+                        <div class="component-title">/api/liquidity/</div>
+                        <div class="component-details">Unified LP</div>
+                    </div>
+                    <div class="component">
+                        <div class="component-title">/api/dlmm/</div>
+                        <div class="component-details">Meteora DLMM</div>
+                    </div>
+                    <div class="component">
+                        <div class="component-title">/api/yield/</div>
+                        <div class="component-details">Yield Aggregator</div>
+                    </div>
+                    <div class="component">
+                        <div class="component-title">/api/services/</div>
+                        <div class="component-details">Service Control</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <h3 style="color: #9900FF; margin-bottom: 15px; text-align: center;">Background Services & Engines</h3>
+                <div class="services-grid">
+                    <div class="service-item">
+                        <div class="service-item-title">CopyTraderEngine</div>
+                        <div class="service-item-desc">Whale tracking via Helius WS</div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-item-title">ArbEngine</div>
+                        <div class="service-item-desc">Cross-DEX spread detection</div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-item-title">BotsService</div>
+                        <div class="service-item-desc">DCA/Grid/TWAP/VWAP</div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-item-title">PortfolioService</div>
+                        <div class="service-item-desc">Balance polling (30s)</div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-item-title">YieldHunter</div>
+                        <div class="service-item-desc">DeFi yield aggregation</div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-item-title">DLMMClient</div>
+                        <div class="service-item-desc">Meteora pool management</div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-item-title">OrcaClient</div>
+                        <div class="service-item-desc">Whirlpools integration</div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-item-title">TradeGuard</div>
+                        <div class="service-item-desc">Pre-trade validation</div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-item-title">SessionKeys</div>
+                        <div class="service-item-desc">Browser wallet delegation</div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-item-title">NewsService</div>
+                        <div class="service-item-desc">RSS + Discord feeds</div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-item-title">NetworkMonitor</div>
+                        <div class="service-item-desc">Health checks</div>
+                    </div>
+                    <div class="service-item">
+                        <div class="service-item-title">AuditService</div>
+                        <div class="service-item-desc">Transaction logging</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <h3 style="color: #9900FF; margin-bottom: 15px; text-align: center;">WebSocket Namespaces</h3>
+                <div class="namespace-grid" style="max-width: 800px; margin: 0 auto;">
+                    <div class="namespace-item">/portfolio</div>
+                    <div class="namespace-item">/prices</div>
+                    <div class="namespace-item">/history</div>
+                    <div class="namespace-item">/bots</div>
+                    <div class="namespace-item">/copytrade</div>
+                    <div class="namespace-item">/arb</div>
+                    <div class="namespace-item">/sniper</div>
+                    <div class="namespace-item">/intel</div>
+                    <div class="namespace-item">/yield</div>
+                    <div class="namespace-item">/dlmm</div>
+                    <div class="namespace-item">/liquidity</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection -->
+        <div class="connection-section">
+            <div class="arrow-down" style="margin-left: 150px;">
+                <span class="arrow-label" style="left: 20px; top: 10px;">HTTP POST</span>
+            </div>
+            <div class="arrow-down" style="margin-right: 150px;">
+                <span class="arrow-label" style="left: 20px; top: 10px;">HTTP POST</span>
+            </div>
+        </div>
+
+        <!-- Sidecar Layer -->
+        <div class="layer sidecar-layer">
+            <h2 class="layer-title">NODE.JS SIDECARS (SDK Wrappers)</h2>
+            <div class="layer-content">
+                <div class="component component-large">
+                    <span class="component-port">:5002</span>
+                    <div class="component-title">Meteora Sidecar</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>@meteora-ag/dlmm SDK</li>
+                            <li>Position creation</li>
+                            <li>Add/Remove liquidity</li>
+                            <li>Claim fees</li>
+                            <li>Close positions</li>
+                        </ul>
+                        <div style="margin-top: 10px;">
+                            <span class="protocol-badge badge-http">Express.js</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="component component-large">
+                    <span class="component-port">:5003</span>
+                    <div class="component-title">Orca Sidecar</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>@orca-so/whirlpools-sdk</li>
+                            <li>Whirlpools positions</li>
+                            <li>Liquidity management</li>
+                            <li>Fee collection</li>
+                        </ul>
+                        <div style="margin-top: 10px;">
+                            <span class="protocol-badge badge-http">Express.js</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection -->
+        <div class="connection-section">
+            <div class="arrow-down"></div>
+        </div>
+
+        <!-- Supporting Services Layer -->
+        <div class="layer backend-layer">
+            <h2 class="layer-title">SUPPORTING SERVICES (Background Processes)</h2>
+            <div class="layer-content">
+                <div class="component">
+                    <div class="component-title">Price Server</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>Pyth price feeds</li>
+                            <li>Helius WS stream</li>
+                            <li>POST to /api/webhook</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="component">
+                    <div class="component-title">Sniper Outrider</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>New token discovery</li>
+                            <li>Raydium pool watch</li>
+                            <li>LP creation detection</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="component">
+                    <div class="component-title">Network Monitor</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>API health checks</li>
+                            <li>RPC availability</li>
+                            <li>Alert escalation</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="component">
+                    <div class="component-title">Supervisor</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>Process management</li>
+                            <li>Auto-restart</li>
+                            <li>Log aggregation</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection -->
+        <div class="connection-section">
+            <div class="arrow-down"></div>
+        </div>
+
+        <!-- External APIs Layer -->
+        <div class="layer external-layer">
+            <h2 class="layer-title">EXTERNAL APIs & PROTOCOLS</h2>
+            <div class="layer-content">
+                <div class="component">
+                    <div class="component-title">Helius</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>RPC (mainnet)</li>
+                            <li>WebSocket</li>
+                            <li>DAS API</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="component">
+                    <div class="component-title">Jupiter</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>Quote API</li>
+                            <li>Swap API</li>
+                            <li>Limit Orders</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="component">
+                    <div class="component-title">Pyth Network</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>Price Oracles</li>
+                            <li>Hermes API</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="component">
+                    <div class="component-title">Meteora</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>DLMM API</li>
+                            <li>Pool Data</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="component">
+                    <div class="component-title">Orca</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>GraphQL API</li>
+                            <li>Whirlpools Data</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="component">
+                    <div class="component-title">DeFi Protocols</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>Kamino</li>
+                            <li>Jupiter Lend</li>
+                            <li>Loopscale</li>
+                            <li>HyLo</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="component">
+                    <div class="component-title">Jito</div>
+                    <div class="component-details">
+                        <ul>
+                            <li>Bundle Submission</li>
+                            <li>MEV Protection</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection -->
+        <div class="connection-section">
+            <div class="arrow-down"></div>
+        </div>
+
+        <!-- Data Layer -->
+        <div class="layer data-layer">
+            <h2 class="layer-title">DATA LAYER</h2>
+            <div class="layer-content">
+                <div class="component component-xl">
+                    <div class="component-title">SQLite Database (tactix_data.db)</div>
+                    <div class="component-details">
+                        <div class="namespace-grid">
+                            <div class="namespace-item" style="background: rgba(0, 255, 127, 0.1); border-color: rgba(0, 255, 127, 0.3); color: #00FF7F;">trades</div>
+                            <div class="namespace-item" style="background: rgba(0, 255, 127, 0.1); border-color: rgba(0, 255, 127, 0.3); color: #00FF7F;">bots</div>
+                            <div class="namespace-item" style="background: rgba(0, 255, 127, 0.1); border-color: rgba(0, 255, 127, 0.3); color: #00FF7F;">snapshots</div>
+                            <div class="namespace-item" style="background: rgba(0, 255, 127, 0.1); border-color: rgba(0, 255, 127, 0.3); color: #00FF7F;">tokens</div>
+                            <div class="namespace-item" style="background: rgba(0, 255, 127, 0.1); border-color: rgba(0, 255, 127, 0.3); color: #00FF7F;">signals</div>
+                            <div class="namespace-item" style="background: rgba(0, 255, 127, 0.1); border-color: rgba(0, 255, 127, 0.3); color: #00FF7F;">user_wallets</div>
+                            <div class="namespace-item" style="background: rgba(0, 255, 127, 0.1); border-color: rgba(0, 255, 127, 0.3); color: #00FF7F;">targets</div>
+                            <div class="namespace-item" style="background: rgba(0, 255, 127, 0.1); border-color: rgba(0, 255, 127, 0.3); color: #00FF7F;">arb_pairs</div>
+                            <div class="namespace-item" style="background: rgba(0, 255, 127, 0.1); border-color: rgba(0, 255, 127, 0.3); color: #00FF7F;">yield_positions</div>
+                            <div class="namespace-item" style="background: rgba(0, 255, 127, 0.1); border-color: rgba(0, 255, 127, 0.3); color: #00FF7F;">dlmm_positions</div>
+                            <div class="namespace-item" style="background: rgba(0, 255, 127, 0.1); border-color: rgba(0, 255, 127, 0.3); color: #00FF7F;">orca_positions</div>
+                            <div class="namespace-item" style="background: rgba(0, 255, 127, 0.1); border-color: rgba(0, 255, 127, 0.3); color: #00FF7F;">pool_metadata</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Flow Diagrams -->
+        <div class="flow-section">
+            <h3 class="flow-title">Trade Execution Flow</h3>
+            <div class="flow-row">
+                <div class="flow-box">User (Browser)</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">React Frontend</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">REST POST /api/*</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Flask Backend</div>
+            </div>
+            <div class="flow-row">
+                <div class="flow-box">Flask Backend</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Session Key / Server Key</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Jupiter Quote</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Sign & Execute</div>
+            </div>
+            <div class="flow-row">
+                <div class="flow-box">Transaction Confirmed</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">DB Update</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Socket.IO Broadcast</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Redux Update</div>
+            </div>
+        </div>
+
+        <div class="flow-section">
+            <h3 class="flow-title">Real-Time Price Flow</h3>
+            <div class="flow-row">
+                <div class="flow-box">Solana Network</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Helius WebSocket</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Price Server</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Parse Pyth Data</div>
+            </div>
+            <div class="flow-row">
+                <div class="flow-box">POST /api/webhook</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Backend Cache</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Socket.IO /prices</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Frontend Redux</div>
+            </div>
+        </div>
+
+        <div class="flow-section">
+            <h3 class="flow-title">Whale Copy Trade Signal Flow</h3>
+            <div class="flow-row">
+                <div class="flow-box">Whale Wallet</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Swap Transaction</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Helius WS (CopyTrader)</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Decode Transaction</div>
+            </div>
+            <div class="flow-row">
+                <div class="flow-box">Save to DB</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box" style="border-color: #FF00FF;">Auto-Strike?</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Execute OR Emit Signal</div>
+                <span class="flow-arrow">→</span>
+                <div class="flow-box">Frontend Notification</div>
+            </div>
+        </div>
+
+        <!-- Port Summary -->
+        <div class="flow-section">
+            <h3 class="flow-title">Port Configuration Summary</h3>
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th>Service</th>
+                        <th>Port</th>
+                        <th>Protocol</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Frontend (Vite)</td>
+                        <td style="color: #00FFFF;">5173</td>
+                        <td>HTTP</td>
+                        <td>React dev server</td>
+                    </tr>
+                    <tr>
+                        <td>Backend (Flask)</td>
+                        <td style="color: #00FFFF;">5001</td>
+                        <td>HTTP + WebSocket</td>
+                        <td>Main API + Socket.IO</td>
+                    </tr>
+                    <tr>
+                        <td>Meteora Sidecar</td>
+                        <td style="color: #00FFFF;">5002</td>
+                        <td>HTTP</td>
+                        <td>DLMM SDK wrapper</td>
+                    </tr>
+                    <tr>
+                        <td>Orca Sidecar</td>
+                        <td style="color: #00FFFF;">5003</td>
+                        <td>HTTP</td>
+                        <td>Whirlpools SDK wrapper</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="text-align: center; color: #6B7280; padding: 40px 0; font-size: 0.9rem;">
+            <p>TacTix.sol Architecture Diagram</p>
+            <p style="color: #00FFFF; margin-top: 5px;">Generated: January 2026</p>
+        </div>
+    </div>
+</body>
+</html>
