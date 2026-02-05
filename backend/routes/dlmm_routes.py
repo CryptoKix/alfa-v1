@@ -6,7 +6,8 @@ import base64
 import logging
 from flask import Blueprint, jsonify, request
 
-from extensions import db, socketio
+import sio_bridge
+from extensions import db
 from services.meteora_dlmm import DLMMClient, StrategyCalculator, RiskProfile, PositionManager
 from services.meteora_dlmm.strategy_calculator import StrategyType
 
@@ -16,13 +17,13 @@ dlmm_bp = Blueprint('dlmm', __name__)
 
 # Initialize services
 dlmm_client = DLMMClient()
-position_manager = None  # Initialized after socketio is available
+position_manager = None  # Initialized by init_dlmm_services()
 
 
-def init_dlmm_services(sio):
-    """Initialize DLMM services with socketio instance."""
+def init_dlmm_services():
+    """Initialize DLMM services."""
     global position_manager
-    position_manager = PositionManager(db, sio, dlmm_client)
+    position_manager = PositionManager(db, dlmm_client)
 
 
 # ==================== Pool Routes ====================
@@ -453,7 +454,7 @@ def api_dlmm_update_sniper_settings():
         settings = db.get_dlmm_sniper_settings()
 
         # Broadcast settings update
-        socketio.emit('sniper_settings_update', {
+        sio_bridge.emit('sniper_settings_update', {
             'settings': settings
         }, namespace='/dlmm')
 
@@ -497,59 +498,7 @@ def api_dlmm_health():
     })
 
 
-# ==================== Socket.IO Handlers ====================
-
-@socketio.on('connect', namespace='/dlmm')
-def handle_dlmm_connect():
-    """Handle DLMM socket connection."""
-    logger.info("[DLMM] Client connected")
-
-
-@socketio.on('request_pools', namespace='/dlmm')
-def handle_request_pools():
-    """Send DLMM pools to requesting client."""
-    try:
-        pools = dlmm_client.get_all_pools()
-        pools_data = [p.to_dict() for p in pools[:100]]
-        socketio.emit('pools_update', {
-            'pools': pools_data,
-            'timestamp': time.time()
-        }, namespace='/dlmm')
-    except Exception as e:
-        logger.error(f"[DLMM] Socket pools request error: {e}")
-
-
-@socketio.on('request_positions', namespace='/dlmm')
-def handle_request_positions(data):
-    """Send user's DLMM positions."""
-    wallet = data.get('wallet') if data else None
-    if not wallet:
-        return
-
-    try:
-        positions = position_manager.get_positions(wallet, 'active')
-        for pos in positions:
-            pos['roi'] = position_manager.calculate_position_roi(pos)
-
-        socketio.emit('positions_update', {
-            'positions': positions,
-            'timestamp': time.time()
-        }, namespace='/dlmm')
-    except Exception as e:
-        logger.error(f"[DLMM] Socket positions request error: {e}")
-
-
-@socketio.on('request_detected_pools', namespace='/dlmm')
-def handle_request_detected_pools():
-    """Send detected pools to requesting client."""
-    try:
-        pools = db.get_dlmm_sniped_pools(limit=50)
-        socketio.emit('detected_pools_update', {
-            'pools': pools,
-            'timestamp': time.time()
-        }, namespace='/dlmm')
-    except Exception as e:
-        logger.error(f"[DLMM] Socket detected pools request error: {e}")
+# Socket.IO handlers for dlmm namespace are registered in main.py
 
 
 # ==================== Favorites Routes ====================
@@ -636,7 +585,7 @@ def api_dlmm_add_favorite():
         db.save_setting('dlmm_favorites', favorites)
 
         # Broadcast update
-        socketio.emit('favorites_update', {
+        sio_bridge.emit('favorites_update', {
             'favorites': favorites
         }, namespace='/dlmm')
 
@@ -665,7 +614,7 @@ def api_dlmm_remove_favorite():
         db.save_setting('dlmm_favorites', favorites)
 
         # Broadcast update
-        socketio.emit('favorites_update', {
+        sio_bridge.emit('favorites_update', {
             'favorites': favorites
         }, namespace='/dlmm')
 
@@ -710,7 +659,7 @@ def api_dlmm_refresh_favorites():
         db.save_setting('dlmm_favorites', updated_favorites)
 
         # Broadcast update
-        socketio.emit('favorites_update', {
+        sio_bridge.emit('favorites_update', {
             'favorites': updated_favorites
         }, namespace='/dlmm')
 

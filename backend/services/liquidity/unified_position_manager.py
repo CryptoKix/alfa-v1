@@ -10,6 +10,8 @@ from typing import Optional, Dict, List, Any, Literal
 from dataclasses import dataclass
 from enum import Enum
 
+import sio_bridge
+
 logger = logging.getLogger("tactix.liquidity")
 
 LiquidityProtocol = Literal['meteora', 'orca']
@@ -116,9 +118,8 @@ class UnifiedPositionManager:
     Protocol-agnostic position manager that delegates to Meteora or Orca clients.
     """
 
-    def __init__(self, db, socketio, meteora_client, orca_client):
+    def __init__(self, db, meteora_client, orca_client):
         self.db = db
-        self.socketio = socketio
         self.meteora_client = meteora_client
         self.orca_client = orca_client
 
@@ -496,7 +497,7 @@ class UnifiedPositionManager:
         })
 
         # Broadcast position update
-        self.socketio.emit('position_created', {
+        sio_bridge.emit('position_created', {
             'protocol': protocol,
             'position_pubkey': position_pubkey,
             'pool_address': pool_address,
@@ -519,7 +520,7 @@ class UnifiedPositionManager:
         })
 
         # Broadcast position update
-        self.socketio.emit('position_closed', {
+        sio_bridge.emit('position_closed', {
             'position_pubkey': position_pubkey,
             'timestamp': time.time()
         }, namespace='/liquidity')
@@ -543,7 +544,7 @@ class UnifiedPositionManager:
             'auto_rebalance': auto_rebalance
         })
 
-        self.socketio.emit('position_settings_updated', {
+        sio_bridge.emit('position_settings_updated', {
             'position_pubkey': position_pubkey,
             'auto_rebalance': auto_rebalance,
             'timestamp': time.time()

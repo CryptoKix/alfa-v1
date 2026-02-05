@@ -25,7 +25,7 @@ _health_thread_started = False
 
 
 def _probe_sidecar(port: int):
-    """Probe a sidecar via raw TCP connect (eventlet-safe, no requests lib)."""
+    """Probe a sidecar via raw TCP connect."""
     try:
         start = time.monotonic()
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
@@ -39,7 +39,7 @@ def _probe_sidecar(port: int):
 
 
 def _probe_process(pattern: str):
-    """Check if a process matching pattern is running (eventlet-safe, no subprocess)."""
+    """Check if a process matching pattern is running."""
     try:
         for pid in os.listdir('/proc'):
             if not pid.isdigit():
@@ -58,7 +58,6 @@ def _probe_process(pattern: str):
 
 def _health_probe_loop():
     """Background loop that probes sidecars + processes every 10s."""
-    import eventlet
     while True:
         # Sidecars
         for name in ('meteora_sidecar', 'orca_sidecar'):
@@ -75,16 +74,16 @@ def _health_probe_loop():
             _health_cache['sniper_outrider']['status'] = status
             _health_cache['sniper_outrider']['checked_at'] = time.time()
 
-        eventlet.sleep(10)
+        time.sleep(10)
 
 
 def _ensure_health_thread():
-    """Start the background health probe as an eventlet greenthread."""
+    """Start the background health probe thread."""
     global _health_thread_started
     if not _health_thread_started:
         _health_thread_started = True
-        import eventlet
-        eventlet.spawn(_health_probe_loop)
+        import threading
+        threading.Thread(target=_health_probe_loop, daemon=True).start()
 
 
 @services_bp.route('/api/services/status', methods=['GET'])

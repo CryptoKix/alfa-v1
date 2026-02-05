@@ -13,7 +13,8 @@ from solders.system_program import TransferParams, transfer
 from spl.token.instructions import transfer_checked, TransferCheckedParams, get_associated_token_address, create_associated_token_account
 
 from config import WALLET_ADDRESS, JUPITER_API_KEY, JUPITER_QUOTE_API, JUPITER_SWAP_API, JUPITER_LIMIT_ORDER_API
-from extensions import db, socketio, solana_client, price_cache, price_cache_lock
+import sio_bridge
+from extensions import db, solana_client, price_cache, price_cache_lock
 from services.tokens import get_known_tokens, get_token_symbol
 from services.portfolio import broadcast_balance
 from services.session_keys import (
@@ -388,7 +389,7 @@ def api_submit_signed():
             })
 
         # Broadcast history update
-        socketio.emit('history_update', {'history': db.get_history(50, wallet_address=wallet_address)}, namespace='/history')
+        sio_bridge.emit('history_update', {'history': db.get_history(50, wallet_address=wallet_address)}, namespace='/history')
         broadcast_balance()
 
         return jsonify({

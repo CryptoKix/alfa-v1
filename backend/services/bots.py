@@ -3,11 +3,14 @@
 import json
 import time
 import threading
+import logging
 from decimal import Decimal, ROUND_DOWN
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from flask import current_app
 
-from extensions import db, socketio
+import sio_bridge
+from extensions import db
+
+logger = logging.getLogger("bots")
 from services.trading import execute_trade_logic
 from services.notifications import notify_bot_completion, send_discord_notification
 
@@ -106,7 +109,7 @@ def notify_grid_error(bot_alias, error_type, error_msg, level_info=None):
         print(f"Failed to send grid error notification: {e}")
 
     try:
-        socketio.emit('bot_error', {
+        sio_bridge.emit('bot_error', {
             'bot_alias': bot_alias,
             'error_type': error_type,
             'error_msg': str(error_msg),
@@ -136,7 +139,7 @@ def notify_twap_error(bot_alias, error_type, error_msg, run_info=None):
         print(f"Failed to send TWAP error notification: {e}")
 
     try:
-        socketio.emit('bot_error', {
+        sio_bridge.emit('bot_error', {
             'bot_alias': bot_alias,
             'error_type': error_type,
             'error_msg': str(error_msg),
@@ -166,7 +169,7 @@ def notify_vwap_error(bot_alias, error_type, error_msg, run_info=None):
         print(f"Failed to send VWAP error notification: {e}")
 
     try:
-        socketio.emit('bot_error', {
+        sio_bridge.emit('bot_error', {
             'bot_alias': bot_alias,
             'error_type': error_type,
             'error_msg': str(error_msg),
@@ -276,7 +279,7 @@ def process_grid_logic(bot, current_price):
                     notify_grid_error(bot_alias, "FLOOR_PAUSE", f"Bot paused at ${current_price:.4f}. Floor: ${floor_price}")
 
                 db.save_bot(fresh_bot['id'], fresh_bot['type'], fresh_bot['input_mint'], fresh_bot['output_mint'], fresh_bot['input_symbol'], fresh_bot['output_symbol'], config, state)
-                socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+                sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
                 return  # Exit early after floor action
 
         # Calculate next targets for logging
@@ -467,7 +470,7 @@ def process_grid_logic(bot, current_price):
                                 lvl['price'] -= step_size
 
                         state['trailing_cycle_count'] = trailing_cycle_count + 1
-                        socketio.emit('notification', {
+                        sio_bridge.emit('notification', {
                             'title': 'Grid Trailing Active',
                             'message': f"Bot {bot_alias} shifted {trail_direction}. Cycle {state['trailing_cycle_count']}/{trailing_max_cycles or '∞'}",
                             'type': 'info'
@@ -476,7 +479,7 @@ def process_grid_logic(bot, current_price):
                         # Max cycles reached, complete the bot
                         state['status'] = 'completed'
                         notify_bot_completion("GRID", bot_alias, state.get('profit_realized', 0))
-                        socketio.emit('notification', {
+                        sio_bridge.emit('notification', {
                             'title': 'Grid Trailing Complete',
                             'message': f"Bot {bot_alias} completed {trailing_max_cycles} trailing cycles.",
                             'type': 'success'
@@ -580,7 +583,7 @@ def process_twap_logic(bot, current_price):
                                 fresh_bot['input_mint'], fresh_bot['output_mint'],
                                 fresh_bot['input_symbol'], fresh_bot['output_symbol'],
                                 config, state, user_wallet)
-                    socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+                    sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
                     return
 
         # --- TAKE-PROFIT MONITORING PHASE ---
@@ -604,7 +607,7 @@ def process_twap_logic(bot, current_price):
                             state['status'] = 'completed'
                             state['phase'] = 'completed'
                             state['profit_realized'] = res.get('usd_value', 0) - state.get('total_cost', 0)
-                            socketio.emit('notification', {
+                            sio_bridge.emit('notification', {
                                 'title': 'Take-Profit Hit',
                                 'message': f"Sold {total_tokens:.4f} {fresh_bot['output_symbol']} @ ${current_price:.2f}",
                                 'type': 'success'
@@ -614,7 +617,7 @@ def process_twap_logic(bot, current_price):
                                         fresh_bot['input_mint'], fresh_bot['output_mint'],
                                         fresh_bot['input_symbol'], fresh_bot['output_symbol'],
                                         config, state, user_wallet)
-                            socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+                            sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
                         except Exception as e:
                             notify_twap_error(bot_alias, "TAKE_PROFIT_EXIT", str(e),
                                               f"Attempted to sell {total_tokens:.4f} tokens")
@@ -651,7 +654,7 @@ def process_twap_logic(bot, current_price):
                             fresh_bot['input_mint'], fresh_bot['output_mint'],
                             fresh_bot['input_symbol'], fresh_bot['output_symbol'],
                             config, state, user_wallet)
-                socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+                sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
 
             except Exception as e:
                 notify_twap_error(bot_alias, "EXECUTION", str(e),
@@ -784,7 +787,7 @@ def process_vwap_logic(bot, current_price):
                                 fresh_bot['input_mint'], fresh_bot['output_mint'],
                                 fresh_bot['input_symbol'], fresh_bot['output_symbol'],
                                 config, state, user_wallet)
-                    socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+                    sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
                     return
 
         # --- TAKE-PROFIT MONITORING PHASE ---
@@ -808,7 +811,7 @@ def process_vwap_logic(bot, current_price):
                             state['status'] = 'completed'
                             state['phase'] = 'completed'
                             state['profit_realized'] = res.get('usd_value', 0) - state.get('total_cost', 0)
-                            socketio.emit('notification', {
+                            sio_bridge.emit('notification', {
                                 'title': 'VWAP Take-Profit Hit',
                                 'message': f"Sold {total_tokens:.4f} {fresh_bot['output_symbol']} @ ${current_price:.2f}",
                                 'type': 'success'
@@ -818,7 +821,7 @@ def process_vwap_logic(bot, current_price):
                                         fresh_bot['input_mint'], fresh_bot['output_mint'],
                                         fresh_bot['input_symbol'], fresh_bot['output_symbol'],
                                         config, state, user_wallet)
-                            socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+                            sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
                         except Exception as e:
                             notify_vwap_error(bot_alias, "TAKE_PROFIT_EXIT", str(e),
                                               f"Attempted to sell {total_tokens:.4f} tokens")
@@ -871,7 +874,7 @@ def process_vwap_logic(bot, current_price):
                             fresh_bot['input_mint'], fresh_bot['output_mint'],
                             fresh_bot['input_symbol'], fresh_bot['output_symbol'],
                             config, state, user_wallet)
-                socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+                sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
 
             except Exception as e:
                 notify_vwap_error(bot_alias, "EXECUTION", str(e),
@@ -1047,7 +1050,7 @@ def process_limit_grid_logic(bot):
 
         if changed:
             db.save_bot(bot['id'], bot['type'], bot['input_mint'], bot['output_mint'], bot['input_symbol'], bot['output_symbol'], config, state)
-            socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+            sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
 
     except Exception as e:
         notify_grid_error(bot_alias, "LIMIT_GRID_CRITICAL", str(e))
@@ -1073,7 +1076,7 @@ def notify_indicator_error(bot_alias, error_type, error_msg, run_info=None):
         print(f"Failed to send indicator bot error notification: {e}")
 
     try:
-        socketio.emit('bot_error', {
+        sio_bridge.emit('bot_error', {
             'bot_alias': bot_alias,
             'error_type': error_type,
             'error_msg': str(error_msg),
@@ -1167,7 +1170,7 @@ def process_indicator_bot_logic(bot, current_price):
 
                 print(f"✅ {fresh_bot['type']} BUY SUCCESS: {bot_alias} | Got {tokens_received:.6f} tokens @ ${current_price:.4f}")
 
-                socketio.emit('notification', {
+                sio_bridge.emit('notification', {
                     'title': f'{fresh_bot["type"]} Buy Executed',
                     'message': f"{bot_alias}: {reason}",
                     'type': 'success'
@@ -1196,7 +1199,7 @@ def process_indicator_bot_logic(bot, current_price):
 
                 print(f"✅ {fresh_bot['type']} SELL SUCCESS: {bot_alias} | Profit: ${profit:.4f}")
 
-                socketio.emit('notification', {
+                sio_bridge.emit('notification', {
                     'title': f'{fresh_bot["type"]} Sell Executed',
                     'message': f"{bot_alias}: {reason} | P&L: ${profit:.2f}",
                     'type': 'success' if profit >= 0 else 'warning'
@@ -1207,7 +1210,7 @@ def process_indicator_bot_logic(bot, current_price):
                         fresh_bot['input_mint'], fresh_bot['output_mint'],
                         fresh_bot['input_symbol'], fresh_bot['output_symbol'],
                         config, state, user_wallet)
-            socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+            sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
 
         except BotTradeError as e:
             notify_indicator_error(bot_alias, "TRADE_EXECUTION", str(e),
@@ -1241,30 +1244,29 @@ def process_indicator_bot_logic(bot, current_price):
         in_flight_bots.discard(bot_id)
 
 
-def process_bot_safe(app, bot):
-    """Process a single bot with Flask app context (for ThreadPoolExecutor)."""
+def process_bot_safe(bot):
+    """Process a single bot (for ThreadPoolExecutor)."""
     try:
-        with app.app_context():
-            from extensions import price_cache, price_cache_lock
-            from services.strategies import INDICATOR_BOT_TYPES
+        from extensions import price_cache, price_cache_lock
+        from services.strategies import INDICATOR_BOT_TYPES
 
-            if bot['type'] in ['DCA', 'TWAP']:
-                # Issue 6: Use price_cache_lock for thread safety
-                with price_cache_lock:
-                    current_price = price_cache.get(bot['output_mint'], (0,))[0]
-                process_twap_logic(bot, current_price)
-            elif bot['type'] == 'VWAP':
-                # VWAP uses dedicated logic with volume-weighted execution
-                with price_cache_lock:
-                    current_price = price_cache.get(bot['output_mint'], (0,))[0]
-                process_vwap_logic(bot, current_price)
-            elif bot['type'] == 'LIMIT_GRID':
-                process_limit_grid_logic(bot)
-            elif bot['type'] in INDICATOR_BOT_TYPES:
-                # Indicator-based strategies (RSI, MACD, BB, EMA Cross, Multi)
-                with price_cache_lock:
-                    current_price = price_cache.get(bot['output_mint'], (0,))[0]
-                process_indicator_bot_logic(bot, current_price)
+        if bot['type'] in ['DCA', 'TWAP']:
+            # Issue 6: Use price_cache_lock for thread safety
+            with price_cache_lock:
+                current_price = price_cache.get(bot['output_mint'], (0,))[0]
+            process_twap_logic(bot, current_price)
+        elif bot['type'] == 'VWAP':
+            # VWAP uses dedicated logic with volume-weighted execution
+            with price_cache_lock:
+                current_price = price_cache.get(bot['output_mint'], (0,))[0]
+            process_vwap_logic(bot, current_price)
+        elif bot['type'] == 'LIMIT_GRID':
+            process_limit_grid_logic(bot)
+        elif bot['type'] in INDICATOR_BOT_TYPES:
+            # Indicator-based strategies (RSI, MACD, BB, EMA Cross, Multi)
+            with price_cache_lock:
+                current_price = price_cache.get(bot['output_mint'], (0,))[0]
+            process_indicator_bot_logic(bot, current_price)
     except Exception as e:
         bot_alias = bot.get('id', 'unknown')
         try:
@@ -1277,8 +1279,7 @@ def process_bot_safe(app, bot):
 class BotSchedulerService:
     """Thin wrapper exposing dca_scheduler as a TactixService."""
 
-    def __init__(self, app):
-        self._app = app
+    def __init__(self):
         self._thread = None
         self._running = False
 
@@ -1296,13 +1297,13 @@ class BotSchedulerService:
         return self._running and self._thread is not None and self._thread.is_alive()
 
     def _run(self):
-        dca_scheduler(self._app, self._is_running)
+        dca_scheduler(self._is_running)
 
     def _is_running(self):
         return self._running
 
 
-def dca_scheduler(app, running_check=None):
+def dca_scheduler(running_check=None):
     """DCA/TWAP/LIMIT_GRID/Indicator scheduler with concurrent bot processing (Issue 5)."""
     from services.strategies import INDICATOR_BOT_TYPES
 
@@ -1311,20 +1312,19 @@ def dca_scheduler(app, running_check=None):
 
     while running_check() if running_check else True:
         try:
-            with app.app_context():
-                active_bots = [
-                    bot for bot in db.get_all_bots()
-                    if bot['status'] == 'active' and bot['type'] in SUPPORTED_BOT_TYPES
-                ]
+            active_bots = [
+                bot for bot in db.get_all_bots()
+                if bot['status'] == 'active' and bot['type'] in SUPPORTED_BOT_TYPES
+            ]
 
-                if active_bots:
-                    # Issue 5: Use ThreadPoolExecutor for concurrent processing
-                    futures = [BOT_EXECUTOR.submit(process_bot_safe, app, bot) for bot in active_bots]
-                    for future in as_completed(futures, timeout=30):
-                        try:
-                            future.result()
-                        except Exception as e:
-                            print(f"Bot processing error: {e}")
+            if active_bots:
+                # Issue 5: Use ThreadPoolExecutor for concurrent processing
+                futures = [BOT_EXECUTOR.submit(process_bot_safe, bot) for bot in active_bots]
+                for future in as_completed(futures, timeout=30):
+                    try:
+                        future.result()
+                    except Exception as e:
+                        print(f"Bot processing error: {e}")
         except Exception as e:
             print(f"DCA Scheduler error: {e}")
         time.sleep(15)  # Poll every 15s

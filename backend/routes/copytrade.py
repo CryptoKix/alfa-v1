@@ -7,7 +7,8 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request, current_app
 
 from config import SOLANA_TRACKER_API_KEY
-from extensions import db, socketio, helius
+import sio_bridge
+from extensions import db, helius
 from service_registry import registry
 
 copytrade_bp = Blueprint('copytrade', __name__)
@@ -74,7 +75,7 @@ def api_copytrade_targets_add():
     if ct:
         ct.refresh()
 
-    socketio.emit('targets_update', {'targets': get_formatted_targets()}, namespace='/copytrade')
+    sio_bridge.emit('targets_update', {'targets': get_formatted_targets()}, namespace='/copytrade')
     return jsonify({"success": True})
 
 
@@ -86,7 +87,7 @@ def api_copytrade_targets_delete():
     if ct:
         ct.refresh()
 
-    socketio.emit('targets_update', {'targets': get_formatted_targets()}, namespace='/copytrade')
+    sio_bridge.emit('targets_update', {'targets': get_formatted_targets()}, namespace='/copytrade')
     return jsonify({"success": True})
 
 
@@ -94,7 +95,7 @@ def api_copytrade_targets_delete():
 def api_copytrade_targets_rename():
     data = request.json
     db.update_target_alias(data.get('address'), data.get('new_alias'))
-    socketio.emit('targets_update', {'targets': get_formatted_targets()}, namespace='/copytrade')
+    sio_bridge.emit('targets_update', {'targets': get_formatted_targets()}, namespace='/copytrade')
     return jsonify({"success": True})
 
 
@@ -121,7 +122,7 @@ def api_copytrade_targets_update():
     if ct:
         ct.refresh()
 
-    socketio.emit('targets_update', {'targets': get_formatted_targets()}, namespace='/copytrade')
+    sio_bridge.emit('targets_update', {'targets': get_formatted_targets()}, namespace='/copytrade')
     return jsonify({"success": True})
 
 

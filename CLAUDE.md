@@ -15,8 +15,8 @@ python supervisor.py          # Runs all 4 services with auto-restart
 
 ### Individual Services
 ```bash
-# Backend (Flask + Socket.IO on port 5001)
-cd backend && python app.py
+# Backend (FastAPI + python-socketio on port 5001)
+cd backend && python main.py
 
 # Price Server (dedicated price feed)
 python backend/price_server.py
@@ -52,12 +52,14 @@ pip install -r requirements.txt
 - **Store config:** `frontend/src/app/store.ts`
 - **Styling:** Tailwind CSS v4 with custom cyberpunk colors in `tailwind.config.js`
 
-### Backend (Python Flask)
-- **Entry point:** `backend/app.py` - Flask app, blueprint registration, engine initialization
+### Backend (FastAPI + python-socketio)
+- **Entry point:** `backend/main.py` - FastAPI app, WSGI-mounted Flask blueprints, python-socketio handlers, service registration
+- **Legacy entry:** `backend/app.py` - Old Flask entry point (kept for reference, not used)
 - **Config:** `backend/config.py` - loads `.env`, API keys, keypair, RPC URLs
 - **Database:** SQLite via `backend/database.py` - tables for trades, bots, copytrade_targets, arb_pairs, sniper_tracked, yield_positions
-- **Routes:** `backend/routes/` - REST API blueprints
+- **Routes:** `backend/routes/` - REST API blueprints (Flask, served via WSGI mount)
 - **Services:** `backend/services/` - background engines (bots, trading, portfolio, notifications)
+- **Socket bridge:** `backend/sio_bridge.py` - Thread-safe emit bridge for background threads → async Socket.IO
 
 ### Key Backend Engines
 - `backend/copy_trader.py` - Whale tracking via Helius WebSocket, decodes transactions, emits signals
@@ -84,7 +86,7 @@ Solana SDK integrations run as separate Node.js services:
 Read in this order for quickest onboarding:
 1. `frontend/src/app/store.ts` - Redux slice structure
 2. `frontend/src/services/socket.ts` - All WebSocket events and Redux integration
-3. `backend/app.py` - Flask setup and engine initialization
+3. `backend/main.py` - FastAPI entry point, Socket.IO handlers, service registration
 4. `backend/config.py` - Environment and API configuration
 5. `backend/copy_trader.py` - Example of a complete backend engine
 
@@ -117,8 +119,8 @@ Vite proxies `/socket.io/*` and `/api/*` to `http://localhost:5001` (configured 
 ## Important: Restarting Services
 
 **After making changes to backend Python files, restart the affected services:**
-- Flask backend changes: `kill -9 <pid>` (supervisor auto-restarts) or restart supervisor
-- Find PIDs: `ps aux | grep python.*app.py`
+- Backend changes: `kill -9 <pid>` (supervisor auto-restarts) or restart supervisor
+- Find PIDs: `ps aux | grep python.*main.py`
 - The supervisor (`python supervisor.py`) manages auto-restart of backend services
 
 **After making changes to Node.js sidecars:**

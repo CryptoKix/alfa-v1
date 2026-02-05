@@ -236,7 +236,8 @@ def execute_trade_with_session_key(
     from config import JUPITER_API_KEY, JUPITER_QUOTE_API, JUPITER_SWAP_API
     from services.tokens import get_known_tokens, get_token_symbol
     from services.portfolio import broadcast_balance
-    from extensions import socketio, price_cache, price_cache_lock
+    import sio_bridge
+    from extensions import price_cache, price_cache_lock
 
     keypair = get_session_keypair(user_wallet)
     if not keypair:
@@ -325,7 +326,7 @@ def execute_trade_with_session_key(
     })
 
     # Broadcast updates
-    socketio.emit('history_update', {'history': db.get_history(50, wallet_address=user_wallet)}, namespace='/history')
+    sio_bridge.emit('history_update', {'history': db.get_history(50, wallet_address=user_wallet)}, namespace='/history')
 
     return {
         "signature": sig,

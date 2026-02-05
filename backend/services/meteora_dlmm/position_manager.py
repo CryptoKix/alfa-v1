@@ -10,6 +10,7 @@ from datetime import datetime
 
 from .dlmm_client import dlmm_client, DLMMClient
 from .strategy_calculator import StrategyCalculator, RiskProfile, StrategyType
+import sio_bridge
 
 logger = logging.getLogger("tactix.dlmm.position")
 
@@ -17,9 +18,8 @@ logger = logging.getLogger("tactix.dlmm.position")
 class PositionManager:
     """Manages DLMM position lifecycle operations."""
 
-    def __init__(self, db, socketio, client: Optional[DLMMClient] = None):
+    def __init__(self, db, client: Optional[DLMMClient] = None):
         self.db = db
-        self.socketio = socketio
         self.client = client or dlmm_client
 
     def prepare_create_position(
@@ -350,7 +350,7 @@ class PositionManager:
 
     def _broadcast_position_update(self, wallet: str, action: str, position_pubkey: str):
         """Broadcast position update via Socket.IO."""
-        self.socketio.emit(
+        sio_bridge.emit(
             'position_update',
             {
                 'action': action,
@@ -362,7 +362,7 @@ class PositionManager:
 
     def _broadcast_rebalance_suggestion(self, wallet: str, position_pubkey: str, reason: str):
         """Broadcast rebalance suggestion via Socket.IO."""
-        self.socketio.emit(
+        sio_bridge.emit(
             'rebalance_suggestion',
             {
                 'wallet': wallet,

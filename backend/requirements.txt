@@ -1,10 +1,9 @@
+fastapi
+uvicorn[standard]
+python-socketio[asyncio]
 flask
 flask-cors
-flask-socketio
-flask-limiter
-python-socketio
-gevent
-gevent-websocket
+itsdangerous
 requests
 solana
 solders

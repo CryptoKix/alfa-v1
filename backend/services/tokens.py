@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Token discovery and management service."""
+import logging
 import requests
-from flask import current_app
 
 from config import SOLANA_RPC, WALLET_ADDRESS, DEFAULT_TOKENS
 from extensions import db, helius
+
+logger = logging.getLogger("tokens")
 
 # Fallback public RPC for when Helius is rate limited
 PUBLIC_RPC = "https://api.mainnet-beta.solana.com"
@@ -51,7 +53,7 @@ def get_token_accounts(use_fallback=False):
             if "error" in res and use_fallback:
                 error_code = res.get("error", {}).get("code", 0)
                 if error_code == -32429 or "rate" in str(res.get("error", {})).lower():
-                    current_app.logger.warning(f"Helius rate limited, using public RPC for token accounts")
+                    logger.warning(f"Helius rate limited, using public RPC for token accounts")
                     res = requests.post(PUBLIC_RPC, json=payload, timeout=10).json()
 
             if "result" not in res:
@@ -65,7 +67,7 @@ def get_token_accounts(use_fallback=False):
 
                 # Discover unknown tokens or tokens missing logos
                 if mint not in known or not known[mint].get('logo_uri'):
-                    current_app.logger.info(f"Discovering metadata for: {mint}")
+                    logger.info(f"Discovering metadata for: {mint}")
                     try:
                         # Get existing metadata if available
                         existing_meta = known.get(mint, {})
@@ -95,14 +97,14 @@ def get_token_accounts(use_fallback=False):
                         
                         db.save_token(mint, symbol, decimals, logo_uri)
                         known[mint] = {"symbol": symbol, "decimals": decimals, "logo_uri": logo_uri}
-                        current_app.logger.info(f"Updated metadata: {symbol} with logo: {logo_uri}")
+                        logger.info(f"Updated metadata: {symbol} with logo: {logo_uri}")
                     except Exception as e:
-                        current_app.logger.error(f"Discovery failed for {mint}: {e}")
+                        logger.error(f"Discovery failed for {mint}: {e}")
 
                 accounts.append({"mint": mint, "balance": balance})
 
         except Exception as e:
-            current_app.logger.error(f"RPC Error in get_token_accounts: {e}")
+            logger.error(f"RPC Error in get_token_accounts: {e}")
             continue
 
     return accounts

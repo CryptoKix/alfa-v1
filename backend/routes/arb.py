@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from extensions import socketio, db, helius
+from extensions import db, helius
 from services.tokens import get_token_symbol
 from service_registry import registry
 

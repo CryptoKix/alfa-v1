@@ -11,6 +11,8 @@ from typing import Optional, Dict, List, Tuple, Literal
 from dataclasses import dataclass, field, asdict
 from collections import deque
 
+import sio_bridge
+
 logger = logging.getLogger("tactix.position_monitor")
 
 LiquidityProtocol = Literal['meteora', 'orca']
@@ -120,9 +122,8 @@ class PositionMonitor:
     - Price volatility (optional)
     """
 
-    def __init__(self, db, socketio, position_manager, price_service=None):
+    def __init__(self, db, position_manager, price_service=None):
         self.db = db
-        self.socketio = socketio
         self.position_manager = position_manager
         self.price_service = price_service
 
@@ -179,7 +180,7 @@ class PositionMonitor:
             self.settings.check_interval_seconds = max(5, min(300, updates['checkIntervalSeconds']))
 
         # Emit settings update
-        self.socketio.emit('monitor_settings_update', self.settings.to_dict(), namespace='/liquidity')
+        sio_bridge.emit('monitor_settings_update', self.settings.to_dict(), namespace='/liquidity')
 
         logger.info("[PositionMonitor] Settings updated: %s", self.settings.to_dict())
         return self.settings
@@ -203,7 +204,7 @@ class PositionMonitor:
                 status = self._evaluate_position(position)
                 if status:
                     # Emit position status via Socket.IO
-                    self.socketio.emit('position_status', status.to_dict(), namespace='/liquidity')
+                    sio_bridge.emit('position_status', status.to_dict(), namespace='/liquidity')
             except Exception as e:
                 logger.error("[PositionMonitor] Error evaluating position %s: %s",
                            position.get('position_pubkey'), e)

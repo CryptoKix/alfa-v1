@@ -9,7 +9,7 @@ import threading
 SERVICES = [
     {
         "name": "Backend",
-        "command": ["python3", "-u", "backend/app.py"],
+        "command": ["python3", "-u", "backend/main.py"],
         "log": "backend/server.log",
         "cwd": ".",
         "restart_delay": 2
@@ -32,6 +32,13 @@ SERVICES = [
         "name": "Meteora Sidecar",
         "command": ["npm", "start"],
         "log": "backend/meteora_sidecar.log",
+        "cwd": "backend/meteora_sidecar",
+        "restart_delay": 3
+    },
+    {
+        "name": "Orca Sidecar",
+        "command": ["npm", "run", "start:orca"],
+        "log": "backend/meteora_sidecar/orca_sidecar.log",
         "cwd": "backend/meteora_sidecar",
         "restart_delay": 3
     },

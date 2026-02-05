@@ -2,8 +2,8 @@ import time
 import threading
 import logging
 from collections import defaultdict
-from flask import current_app
-from extensions import db, socketio
+import sio_bridge
+from extensions import db
 from services.trading import execute_trade_logic
 
 logger = logging.getLogger("wolfpack")
@@ -54,7 +54,7 @@ class WolfPackEngine:
         self.config.update(new_config)
         db.save_setting("wolfpack_config", self.config)
         logger.info(f"🐺 Config Updated: {self.config}")
-        socketio.emit('wolfpack_update', self.get_status(), namespace='/bots')
+        sio_bridge.emit('wolfpack_update', self.get_status(), namespace='/bots')
 
     def get_status(self):
         return {
@@ -132,7 +132,7 @@ class WolfPackEngine:
                 self.execute_wolf_attack(mint, data['symbol'])
 
         # Emit updates to UI
-        socketio.emit('wolfpack_update', self.get_status(), namespace='/bots')
+        sio_bridge.emit('wolfpack_update', self.get_status(), namespace='/bots')
 
     def execute_wolf_attack(self, mint, symbol):
         try:
@@ -176,7 +176,7 @@ class WolfPackEngine:
             })
             self.recent_attacks = self.recent_attacks[:50] # Cap limit
             
-            socketio.emit('notification', {
+            sio_bridge.emit('notification', {
                 'title': 'Wolf Pack Attack',
                 'message': f"Consensus reached! Bought {symbol} with {amount} SOL.",
                 'type': 'success'

@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from collections import defaultdict
 
+import sio_bridge
+
 logger = logging.getLogger("tactix.rebalance")
 
 LiquidityProtocol = Literal['meteora', 'orca']
@@ -190,9 +192,8 @@ class RebalanceEngine:
     - Hysteresis buffer to prevent flip-flopping at boundaries
     """
 
-    def __init__(self, db, socketio, position_manager, session_key_service=None):
+    def __init__(self, db, position_manager, session_key_service=None):
         self.db = db
-        self.socketio = socketio
         self.position_manager = position_manager
         self.session_key_service = session_key_service
         self._running = False
@@ -499,13 +500,13 @@ class RebalanceEngine:
         else:
             # Emit suggestion to user
             logger.info(f"[Rebalance] Suggesting rebalance for position {position_key}")
-            self.socketio.emit('rebalance_suggestion', suggestion.to_dict(), namespace='/liquidity')
+            sio_bridge.emit('rebalance_suggestion', suggestion.to_dict(), namespace='/liquidity')
 
     def _execute_auto_rebalance(self, suggestion: RebalanceSuggestion):
         """Execute automatic rebalance using session keys."""
         try:
             # Emit started event
-            self.socketio.emit('rebalance_started', {
+            sio_bridge.emit('rebalance_started', {
                 'position_pubkey': suggestion.position_pubkey,
                 'timestamp': time.time()
             }, namespace='/liquidity')
@@ -515,7 +516,7 @@ class RebalanceEngine:
             if not session_key:
                 logger.warning(f"[Rebalance] No session key for {suggestion.user_wallet}")
                 # Fall back to manual mode
-                self.socketio.emit('rebalance_suggestion', suggestion.to_dict(), namespace='/liquidity')
+                sio_bridge.emit('rebalance_suggestion', suggestion.to_dict(), namespace='/liquidity')
                 return
 
             # Step 1: Close old position
@@ -581,13 +582,13 @@ class RebalanceEngine:
             # Emit completed event with stats
             result_dict = result.to_dict()
             result_dict['stats'] = stats.to_dict()
-            self.socketio.emit('rebalance_completed', result_dict, namespace='/liquidity')
+            sio_bridge.emit('rebalance_completed', result_dict, namespace='/liquidity')
 
             logger.info(f"[Rebalance] Completed rebalance for {suggestion.position_pubkey} (total: {stats.total_rebalances})")
 
         except Exception as e:
             logger.error(f"[Rebalance] Auto-rebalance failed: {e}")
-            self.socketio.emit('rebalance_failed', {
+            sio_bridge.emit('rebalance_failed', {
                 'position_pubkey': suggestion.position_pubkey,
                 'error': str(e),
                 'timestamp': time.time()

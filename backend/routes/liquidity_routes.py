@@ -8,7 +8,8 @@ import time
 import logging
 from flask import Blueprint, jsonify, request
 
-from extensions import db, socketio
+import sio_bridge
+from extensions import db
 from services.liquidity import (
     OrcaClient,
     UnifiedPositionManager,
@@ -29,13 +30,13 @@ rebalance_engine = None
 position_monitor = None
 
 
-def init_liquidity_services(sio, session_key_service=None):
-    """Initialize liquidity services with socketio instance."""
+def init_liquidity_services(session_key_service=None):
+    """Initialize liquidity services."""
     global position_manager, rebalance_engine, position_monitor
 
-    position_manager = UnifiedPositionManager(db, sio, meteora_client, orca_client)
-    rebalance_engine = RebalanceEngine(db, sio, position_manager, session_key_service)
-    position_monitor = PositionMonitor(db, sio, position_manager)
+    position_manager = UnifiedPositionManager(db, meteora_client, orca_client)
+    rebalance_engine = RebalanceEngine(db, position_manager, session_key_service)
+    position_monitor = PositionMonitor(db, position_manager)
 
     logger.info("[Liquidity] Services initialized")
 
@@ -716,7 +717,7 @@ def api_liquidity_execute_rebalance():
         rebalance_engine.dismiss_suggestion(data['position_pubkey'])
 
         # Emit completion event
-        socketio.emit('rebalance_completed', {
+        sio_bridge.emit('rebalance_completed', {
             'oldPositionPubkey': data['position_pubkey'],
             'newPositionPubkey': data['new_position_pubkey'],
             'timestamp': time.time()
@@ -861,71 +862,4 @@ def api_liquidity_monitor_position_status(position_pubkey: str):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-# ==================== Socket.IO Handlers ====================
-
-@socketio.on('connect', namespace='/liquidity')
-def handle_liquidity_connect():
-    """Handle liquidity socket connection."""
-    logger.info("[Liquidity] Client connected")
-
-    # Send current sidecar health status
-    try:
-        health = position_manager.check_sidecar_health()
-        socketio.emit('health_update', health, namespace='/liquidity')
-    except Exception as e:
-        logger.error(f"[Liquidity] Failed to send health update: {e}")
-
-
-@socketio.on('request_pools', namespace='/liquidity')
-def handle_request_pools(data):
-    """Send pools to requesting client."""
-    protocol = data.get('protocol') if data else None
-
-    try:
-        pools = position_manager.get_all_pools(protocol=protocol)
-        pools_data = [p.to_dict() for p in pools[:100]]
-
-        socketio.emit('pools_update', {
-            'pools': pools_data,
-            'protocol': protocol or 'all',
-            'timestamp': time.time()
-        }, namespace='/liquidity')
-    except Exception as e:
-        logger.error(f"[Liquidity] Socket pools request error: {e}")
-
-
-@socketio.on('request_positions', namespace='/liquidity')
-def handle_request_positions(data):
-    """Send user's positions."""
-    wallet = data.get('wallet') if data else None
-    protocol = data.get('protocol') if data else None
-
-    if not wallet:
-        return
-
-    try:
-        positions = position_manager.get_positions(wallet, protocol, 'active')
-
-        socketio.emit('positions_update', {
-            'positions': positions,
-            'protocol': protocol or 'all',
-            'timestamp': time.time()
-        }, namespace='/liquidity')
-    except Exception as e:
-        logger.error(f"[Liquidity] Socket positions request error: {e}")
-
-
-@socketio.on('request_rebalance_suggestions', namespace='/liquidity')
-def handle_request_rebalance_suggestions(data):
-    """Send rebalance suggestions."""
-    wallet = data.get('wallet') if data else None
-
-    try:
-        suggestions = rebalance_engine.get_pending_suggestions(wallet)
-
-        socketio.emit('rebalance_suggestions_update', {
-            'suggestions': suggestions,
-            'timestamp': time.time()
-        }, namespace='/liquidity')
-    except Exception as e:
-        logger.error(f"[Liquidity] Socket suggestions request error: {e}")
+# Socket.IO handlers for liquidity namespace are registered in main.py

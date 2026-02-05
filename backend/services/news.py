@@ -8,7 +8,8 @@ import hashlib
 import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
-from extensions import db, socketio
+import sio_bridge
+from extensions import db
 
 logger = logging.getLogger("news_service")
 logger.setLevel(logging.INFO)
@@ -229,7 +230,7 @@ class NewsService:
             new_items.reverse() 
             self.news_cache = (new_items + self.news_cache)[:100]
             
-            socketio.emit('news_update', {"news": self.news_cache}, namespace='/intel')
+            sio_bridge.emit('news_update', {"news": self.news_cache}, namespace='/intel')
             logger.info(f"📰 Intel: Discovered {len(new_items)} new signals")
 
 # Global Instance

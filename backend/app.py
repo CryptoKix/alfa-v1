@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """Main entry point for SolanaAutoTrade."""
-import eventlet
-eventlet.monkey_patch()
-
 import logging
 import signal
 import sys
+import threading
 from flask import request, render_template, jsonify
 
 # Configure logging
@@ -14,6 +12,7 @@ logger = logging.getLogger("tactix")
 
 from config import SERVER_HOST, SERVER_PORT, WALLET_ADDRESS, HELIUS_API_KEY, BASE_DIR
 from extensions import create_app, socketio, helius, db
+import sio_bridge
 from routes import api_bp, copytrade_bp, wallet_bp, yield_bp, dlmm_bp, liquidity_bp, skr_bp, register_websocket_handlers, init_dlmm_services, init_liquidity_services
 from routes.arb import arb_bp
 from routes.services import services_bp
@@ -39,6 +38,9 @@ from service_registry import registry, ServiceDescriptor as SD
 
 # Create Flask application
 app = create_app()
+
+# Initialize sio_bridge in Flask mode (wraps flask_socketio for thread-safe emit)
+sio_bridge.init(socketio, is_async=False)
 
 # Clear any stale is_processing flags from previous runs
 db.clear_stale_processing_flags()
@@ -66,11 +68,11 @@ app.register_blueprint(dlmm_bp)
 app.register_blueprint(liquidity_bp)
 app.register_blueprint(skr_bp)
 
-# Initialize DLMM services with socketio
-init_dlmm_services(socketio)
+# Initialize DLMM services
+init_dlmm_services()
 
-# Initialize unified Liquidity services with socketio
-init_liquidity_services(socketio)
+# Initialize unified Liquidity services
+init_liquidity_services()
 
 # Register WebSocket handlers
 register_websocket_handlers()
@@ -88,12 +90,12 @@ import config as _config
 registry.register(
     SD("copy_trader", "Copy Trader", "Whale wallet tracking via Helius WebSocket",
        "Users", "cyan", needs_stream="set_stream_manager"),
-    CopyTraderEngine(helius, db, socketio, execute_trade_logic))
+    CopyTraderEngine(helius, db, execute_trade_logic))
 
 registry.register(
     SD("arb_engine", "Arb Scanner", "Cross-DEX spread detection",
        "TrendingUp", "green"),
-    ArbEngine(helius, db, socketio))
+    ArbEngine(helius, db))
 
 registry.register(
     SD("wolf_pack", "Wolf Pack", "Whale consensus trading",
@@ -108,7 +110,7 @@ registry.register(
 registry.register(
     SD("dlmm_sniper", "DLMM Sniper", "Meteora pool detection",
        "Layers", "purple"),
-    init_dlmm_sniper(db, socketio, HELIUS_API_KEY))
+    init_dlmm_sniper(db, HELIUS_API_KEY))
 
 registry.register(
     SD("network_monitor", "Network Monitor", "Security surveillance & alerts",
@@ -118,7 +120,7 @@ registry.register(
 registry.register(
     SD("skr_staking", "SKR Staking Monitor", "SKR staking event tracking",
        "Lock", "cyan", needs_stream="set_stream_manager"),
-    SKRStakingService(helius, db, socketio))
+    SKRStakingService(helius, db))
 
 registry.register(
     SD("shyft_stream", "Shyft gRPC Stream", "Yellowstone gRPC + RabbitStream real-time feeds",
@@ -129,12 +131,12 @@ registry.register(
     SD("portfolio", "Portfolio Tracker", "Balance polling & broadcast",
        "Wallet", "cyan", toggleable=False, auto_start=True,
        needs_stream="set_stream_manager"),
-    PortfolioService(app))
+    PortfolioService())
 
 registry.register(
     SD("bot_scheduler", "Bot Scheduler", "DCA/TWAP/Grid bot execution",
        "Bot", "purple", toggleable=False, auto_start=True),
-    BotSchedulerService(app))
+    BotSchedulerService())
 
 
 def handle_shutdown(signum, frame):
@@ -177,8 +179,8 @@ if __name__ == '__main__':
     #
     # Users can enable them via the ControlPanel widget when needed.
 
-    # Defer notification until after eventlet hub starts (avoid blocking before socketio.run)
-    eventlet.spawn_after(2, notify_system_status, "ONLINE", "TacTix.sol System Core has initialized. Services await manual activation.")
+    # Defer notification until after server starts
+    threading.Timer(2, notify_system_status, args=("ONLINE", "TacTix.sol System Core has initialized. Services await manual activation.")).start()
 
     # SECURITY: Log system startup
     audit_logger.log_system_start()

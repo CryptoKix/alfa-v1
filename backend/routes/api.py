@@ -7,7 +7,8 @@ from datetime import datetime
 from decimal import Decimal
 from flask import Blueprint, render_template, jsonify, request, current_app
 
-from extensions import db, socketio, price_cache, price_cache_lock, last_price_update
+import sio_bridge
+from extensions import db, price_cache, price_cache_lock, last_price_update
 from services.tokens import get_known_tokens, get_token_symbol
 from services.trading import execute_trade_logic
 from services.bots import process_grid_logic, update_bot_performance
@@ -254,7 +255,7 @@ def api_sniper_test_signal():
     # Save to DB so it shows in the tracked list
     db.save_sniped_token(test_token)
     # Broadcast to UI
-    socketio.emit('new_token_detected', test_token, namespace='/sniper')
+    sio_bridge.emit('new_token_detected', test_token, namespace='/sniper')
     return jsonify({"success": True, "token": test_token})
 
 
@@ -571,7 +572,7 @@ def api_dca_add():
     # user_wallet: If provided, bot uses session key delegation for browser wallet users
     user_wallet = data.get('userWallet')
     db.save_bot(bot_id, bot_type, data['inputMint'], data['outputMint'], get_token_symbol(data['inputMint']), get_token_symbol(data['outputMint']), config, state, user_wallet)
-    socketio.emit('bots_update', {'bots': get_formatted_bots(), 'timestamp': time.time()}, namespace='/bots')
+    sio_bridge.emit('bots_update', {'bots': get_formatted_bots(), 'timestamp': time.time()}, namespace='/bots')
     return jsonify({"success": True, "id": bot_id})
 
 @api_bp.route('/api/dca/delete', methods=['POST'])
@@ -588,7 +589,7 @@ def api_dca_delete():
             notify_bot_completion(bot['type'], config.get('alias') or bot['id'], state.get('profit_realized', 0))
             conn.execute("UPDATE bots SET status = 'completed' WHERE id = ?", (bot_id,))
             conn.commit()
-    socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+    sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
     return jsonify({"success": True})
 
 @api_bp.route('/api/dca/pause', methods=['POST'])
@@ -598,7 +599,7 @@ def api_dca_pause():
     status = request.json.get('status')
     with db._get_connection() as conn:
         conn.execute("UPDATE bots SET status = ? WHERE id = ?", (status, bot_id))
-    socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+    sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
     return jsonify({"success": True})
 
 @api_bp.route('/api/dca/rename', methods=['POST'])
@@ -615,7 +616,7 @@ def api_dca_rename():
             config['alias'] = new_alias
             conn.execute("UPDATE bots SET config_json = ? WHERE id = ?", (json.dumps(config), bot_id))
             conn.commit()
-    socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+    sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
     return jsonify({"success": True})
 
 @api_bp.route('/api/dca/update', methods=['POST'])
@@ -632,7 +633,7 @@ def api_dca_update():
             for key, value in updates.items(): config[key] = value
             conn.execute("UPDATE bots SET config_json = ? WHERE id = ?", (json.dumps(config), bot_id))
             conn.commit()
-    socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+    sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
     return jsonify({"success": True})
 
 @api_bp.route('/api/trade', methods=['POST'])
@@ -792,7 +793,7 @@ def internal_webhook():
             price_cache[mint] = (price, time.time())
 
         extensions.last_price_update = time.time()
-        socketio.emit('price_update', {'mint': mint, 'price': price}, namespace='/prices')
+        sio_bridge.emit('price_update', {'mint': mint, 'price': price}, namespace='/prices')
 
         # Trigger grid bots
         active_bots = db.get_all_bots()
@@ -813,7 +814,7 @@ def internal_webhook():
         # Ensure UI gets the latest performance metrics immediately
         if bots_changed:
             from services.bots import get_formatted_bots
-            socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+            sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
 
     return jsonify({"status": "success"}), 200
 
@@ -1150,7 +1151,7 @@ def internal_sniper_webhook():
 
 
 
-    socketio.emit('new_token_detected', token_data, namespace='/sniper')
+    sio_bridge.emit('new_token_detected', token_data, namespace='/sniper')
 
 
 

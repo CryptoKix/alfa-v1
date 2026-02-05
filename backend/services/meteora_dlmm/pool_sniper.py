@@ -10,6 +10,7 @@ import threading
 import requests
 from typing import Optional, Dict, List, Callable
 from datetime import datetime
+import sio_bridge
 
 logger = logging.getLogger("tactix.dlmm.sniper")
 
@@ -27,13 +28,11 @@ class DLMMPoolSniper:
     def __init__(
         self,
         db,
-        socketio,
         helius_api_key: str,
         position_manager=None,
         on_pool_detected: Optional[Callable] = None
     ):
         self.db = db
-        self.socketio = socketio
         self.helius_api_key = helius_api_key
         self.position_manager = position_manager
         self.on_pool_detected = on_pool_detected
@@ -44,15 +43,20 @@ class DLMMPoolSniper:
         self._processed_signatures: set = set()
 
     def start(self):
-        """Start the sniper engine."""
+        """Start the sniper engine.
+
+        Ensures the DB settings 'enabled' flag is set so the poll loop
+        doesn't immediately stop itself on the first iteration.
+        """
         if self._running:
             logger.warning("[DLMM Sniper] Already running")
             return
 
-        settings = self.db.get_dlmm_sniper_settings()
-        if not settings.get('enabled', False):
-            logger.info("[DLMM Sniper] Disabled in settings, not starting")
-            return
+        # Sync DB enabled flag — the user explicitly asked to start
+        try:
+            self.db.update_dlmm_sniper_settings({'enabled': True})
+        except Exception:
+            pass
 
         self._running = True
         self._thread = threading.Thread(target=self._poll_loop, daemon=True)
@@ -62,6 +66,12 @@ class DLMMPoolSniper:
     def stop(self):
         """Stop the sniper engine."""
         self._running = False
+
+        try:
+            self.db.update_dlmm_sniper_settings({'enabled': False})
+        except Exception:
+            pass
+
         if self._thread:
             self._thread.join(timeout=10)
             self._thread = None
@@ -287,7 +297,7 @@ class DLMMPoolSniper:
             self.db.save_dlmm_sniped_pool(pool_data)
 
             # Broadcast via Socket.IO
-            self.socketio.emit('dlmm_pool_detected', pool_data, namespace='/dlmm')
+            sio_bridge.emit('dlmm_pool_detected', pool_data, namespace='/dlmm')
 
             logger.info(f"[DLMM Sniper] New pool detected: {pool_data['pool_address']}")
 
@@ -330,10 +340,10 @@ class DLMMPoolSniper:
 dlmm_sniper: Optional[DLMMPoolSniper] = None
 
 
-def init_dlmm_sniper(db, socketio, helius_api_key: str, position_manager=None) -> DLMMPoolSniper:
+def init_dlmm_sniper(db, helius_api_key: str, position_manager=None) -> DLMMPoolSniper:
     """Initialize the DLMM pool sniper."""
     global dlmm_sniper
-    dlmm_sniper = DLMMPoolSniper(db, socketio, helius_api_key, position_manager)
+    dlmm_sniper = DLMMPoolSniper(db, helius_api_key, position_manager)
     return dlmm_sniper
 
 

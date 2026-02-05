@@ -5,8 +5,8 @@ import threading
 import json
 import logging
 from datetime import datetime
-from flask import current_app
-from extensions import db, socketio, helius
+import sio_bridge
+from extensions import db, helius
 from config import HELIUS_API_KEY
 
 logger = logging.getLogger("sniper_engine")
@@ -43,7 +43,7 @@ class SniperEngine:
         if self._running: return
         self._running = True
         # Use SocketIO's background task runner which handles Eventlet context correctly
-        socketio.start_background_task(self._run_engine_loop)
+        sio_bridge.start_background_task(self._run_engine_loop)
         print("🎯 Sniper Discovery Engine Started (SocketIO Task)")
 
     def _run_engine_loop(self):
@@ -82,7 +82,7 @@ class SniperEngine:
                     
                     for sig in new_sigs:
                         # Process in background to keep polling fast
-                        socketio.start_background_task(self.process_launch, sig, dex_name)
+                        sio_bridge.start_background_task(self.process_launch, sig, dex_name)
             except:
                 pass
 
@@ -145,7 +145,7 @@ class SniperEngine:
 
                 db.save_sniped_token(token_data)
                 logger.info(f"🚀 SNIPER ALERT: {token_data['symbol']} | LIQ: {sol_delta:.2f} SOL")
-                socketio.emit('new_token_detected', token_data, namespace='/sniper')
+                sio_bridge.emit('new_token_detected', token_data, namespace='/sniper')
 
                 if self.settings.get('autoSnipe'):
                     self.attempt_auto_snipe(token_data)
@@ -174,7 +174,7 @@ class SniperEngine:
                 )
             except TradeGuardError as e:
                 logger.warning(f"⚠️ Sniper trade blocked by guard: {e}")
-                socketio.emit('notification', {
+                sio_bridge.emit('notification', {
                     'title': 'Auto-Snipe Blocked',
                     'message': str(e),
                     'type': 'warning'
@@ -183,7 +183,7 @@ class SniperEngine:
 
             logger.info(f"🤖 AUTO-BUY INITIATED: {token_data['symbol']} for {buy_amount} SOL (slippage: {slippage_pct}%)")
 
-            socketio.start_background_task(
+            sio_bridge.start_background_task(
                 execute_trade_logic,
                 "So11111111111111111111111111111111111111112",
                 token_data['mint'],
@@ -193,7 +193,7 @@ class SniperEngine:
                 priority_fee=float(self.settings.get('priorityFee', 0.005))
             )
 
-            socketio.emit('notification', {
+            sio_bridge.emit('notification', {
                 'title': 'Auto-Snipe Fired',
                 'message': f"Mirroring launch: {token_data['symbol']}",
                 'type': 'success'

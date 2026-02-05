@@ -3,7 +3,6 @@
 import base64
 import requests
 import time
-from flask import current_app
 
 from solders.transaction import VersionedTransaction, Transaction
 from solders.message import to_bytes_versioned, Message, MessageV0
@@ -13,7 +12,8 @@ from solders.system_program import TransferParams, transfer
 from spl.token.instructions import transfer_checked, TransferCheckedParams, get_associated_token_address, create_associated_token_account
 
 from config import KEYPAIR, WALLET_ADDRESS, JUPITER_API_KEY, JUPITER_QUOTE_API, JUPITER_SWAP_API, JUPITER_LIMIT_ORDER_API
-from extensions import db, solana_client, socketio, price_cache, price_cache_lock
+import sio_bridge
+from extensions import db, solana_client, price_cache, price_cache_lock
 from services.tokens import get_known_tokens, get_token_symbol
 from services.portfolio import broadcast_balance
 from services.notifications import notify_trade
@@ -231,7 +231,7 @@ def execute_transfer(recipient_address, amount, mint="So111111111111111111111111
         "status": "success"
     })
 
-    socketio.emit('history_update', {'history': db.get_history(50, wallet_address=WALLET_ADDRESS)}, namespace='/history')
+    sio_bridge.emit('history_update', {'history': db.get_history(50, wallet_address=WALLET_ADDRESS)}, namespace='/history')
     broadcast_balance()
 
     return sig
@@ -372,7 +372,7 @@ def execute_trade_logic(input_mint, output_mint, amount, source="Manual", slippa
             print(f"Trade guard record error (non-fatal): {e}")
 
     # Broadcast updates
-    socketio.emit('history_update', {'history': db.get_history(50, wallet_address=WALLET_ADDRESS)}, namespace='/history')
+    sio_bridge.emit('history_update', {'history': db.get_history(50, wallet_address=WALLET_ADDRESS)}, namespace='/history')
     broadcast_balance()
 
     # Discord Notification
@@ -519,7 +519,7 @@ def execute_trade_with_jito(input_mint, output_mint, amount, source="Manual", sl
     })
 
     # Broadcast updates
-    socketio.emit('history_update', {'history': db.get_history(50, wallet_address=WALLET_ADDRESS)}, namespace='/history')
+    sio_bridge.emit('history_update', {'history': db.get_history(50, wallet_address=WALLET_ADDRESS)}, namespace='/history')
     broadcast_balance()
 
     # Discord Notification

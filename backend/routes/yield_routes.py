@@ -4,7 +4,8 @@ import time
 import base64
 from flask import Blueprint, jsonify, request
 
-from extensions import db, socketio
+import sio_bridge
+from extensions import db
 from services.yield_hunter import (
     get_all_opportunities,
     get_opportunities_by_protocol,
@@ -163,7 +164,7 @@ def api_record_yield_position():
             )
 
             # Broadcast position update
-            socketio.emit('position_update', {
+            sio_bridge.emit('position_update', {
                 'action': 'deposit',
                 'wallet': data['wallet_address'],
                 'position_id': position_id
@@ -184,7 +185,7 @@ def api_record_yield_position():
             )
 
             # Broadcast position update
-            socketio.emit('position_update', {
+            sio_bridge.emit('position_update', {
                 'action': 'withdraw',
                 'wallet': data['wallet_address'],
                 'vault_address': data['vault_address']
@@ -636,7 +637,7 @@ def api_yield_execute():
             )
 
             # Broadcast position update
-            socketio.emit('position_update', {
+            sio_bridge.emit('position_update', {
                 'action': 'deposit',
                 'wallet': wallet,
                 'position_id': position_id,
@@ -651,7 +652,7 @@ def api_yield_execute():
                 withdraw_signature=signature
             )
 
-            socketio.emit('position_update', {
+            sio_bridge.emit('position_update', {
                 'action': 'withdraw',
                 'wallet': wallet,
                 'vault_address': position_data.get('vault_address', ''),
@@ -671,42 +672,7 @@ def api_yield_execute():
         }), 500
 
 
-# Socket.IO handlers for yield namespace
-@socketio.on('connect', namespace='/yield')
-def handle_yield_connect():
-    """Handle yield socket connection."""
-    print(f"[Yield] Client connected")
-
-
-@socketio.on('request_opportunities', namespace='/yield')
-def handle_request_opportunities():
-    """Send current yield opportunities to requesting client."""
-    try:
-        opportunities = get_all_opportunities()
-        opps_data = [opp.to_dict() for opp in opportunities]
-        socketio.emit('opportunities_update', {
-            'opportunities': opps_data,
-            'timestamp': time.time()
-        }, namespace='/yield')
-    except Exception as e:
-        print(f"[Yield] Error fetching opportunities: {e}")
-
-
-@socketio.on('request_positions', namespace='/yield')
-def handle_request_positions(data):
-    """Send user's yield positions."""
-    wallet = data.get('wallet') if data else None
-    if not wallet:
-        return
-
-    try:
-        positions = db.get_yield_positions(wallet, 'active')
-        socketio.emit('positions_update', {
-            'positions': positions,
-            'timestamp': time.time()
-        }, namespace='/yield')
-    except Exception as e:
-        print(f"[Yield] Error fetching positions: {e}")
+# Socket.IO handlers for yield namespace are registered in main.py
 
 
 # =============================================================================
@@ -776,7 +742,7 @@ def api_create_yield_strategy():
         )
 
         # Broadcast to WebSocket
-        socketio.emit('strategy_created', {
+        sio_bridge.emit('strategy_created', {
             'strategy_id': strategy_id,
             'wallet': data['wallet_address'],
             'strategy_type': data['strategy_type']

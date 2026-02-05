@@ -2,7 +2,8 @@
 """SKR Staking Dashboard API routes and Socket.IO handlers."""
 import time
 from flask import Blueprint, jsonify, request
-from extensions import db, socketio
+import sio_bridge
+from extensions import db
 from service_registry import registry
 
 skr_bp = Blueprint('skr', __name__)
@@ -60,56 +61,4 @@ def api_skr_whales():
     return jsonify({'success': True, 'whales': whales, 'timestamp': time.time()})
 
 
-# ─── Socket.IO Handlers ─────────────────────────────────────────────────
-
-
-@socketio.on('connect', namespace='/skr')
-def handle_skr_connect():
-    print(f"[SKR] Client connected")
-
-
-@socketio.on('disconnect', namespace='/skr')
-def handle_skr_disconnect():
-    print(f"[SKR] Client disconnected")
-
-
-@socketio.on('request_stats', namespace='/skr')
-def handle_request_stats():
-    service = get_skr_service()
-    if service:
-        stats = service.get_stats()
-        stats['timestamp'] = time.time()
-        socketio.emit('stats_update', stats, namespace='/skr')
-
-
-@socketio.on('request_events', namespace='/skr')
-def handle_request_events(data=None):
-    limit = (data or {}).get('limit', 100)
-    events = db.get_skr_staking_events(limit=limit)
-    socketio.emit('events_update', {
-        'events': events,
-        'timestamp': time.time()
-    }, namespace='/skr')
-
-
-@socketio.on('request_snapshots', namespace='/skr')
-def handle_request_snapshots(data=None):
-    period = (data or {}).get('period', '7d')
-    period_map = {'4h': 1, '24h': 6, '7d': 42, '30d': 180}
-    limit = period_map.get(period, 42)
-    snapshots = db.get_skr_staking_snapshots(limit=limit)
-    socketio.emit('snapshots_update', {
-        'snapshots': snapshots,
-        'period': period,
-        'timestamp': time.time()
-    }, namespace='/skr')
-
-
-@socketio.on('request_whales', namespace='/skr')
-def handle_request_whales(data=None):
-    limit = (data or {}).get('limit', 50)
-    whales = db.get_skr_whale_leaderboard(limit=limit)
-    socketio.emit('whales_update', {
-        'whales': whales,
-        'timestamp': time.time()
-    }, namespace='/skr')
+# Socket.IO handlers for skr namespace are registered in main.py

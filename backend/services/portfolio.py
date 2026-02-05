@@ -4,11 +4,11 @@ import time
 import json
 import logging
 from datetime import datetime
-from flask import current_app
 from solders.pubkey import Pubkey
 
 from config import WALLET_ADDRESS, SOLANA_RPC
-from extensions import db, solana_client, socketio, price_cache, price_cache_lock
+import sio_bridge
+from extensions import db, solana_client, price_cache, price_cache_lock
 from services.tokens import get_known_tokens, get_token_accounts
 
 logger = logging.getLogger("portfolio")
@@ -59,7 +59,7 @@ def _on_balance_change(pubkey: str, lamports: int, data: bytes, slot: int):
         if old_sol > 0 and new_sol > old_sol + 0.0001:
             diff = new_sol - old_sol
             try:
-                socketio.emit('notification', {
+                sio_bridge.emit('notification', {
                     'title': 'Funds Received',
                     'message': f"Received {diff:.4f} SOL (via gRPC)",
                     'type': 'success'
@@ -87,7 +87,7 @@ def broadcast_balance():
             sol_res = solana_client.get_balance(Pubkey.from_string(WALLET_ADDRESS))
             sol_balance = sol_res.value / 1e9
         except Exception as e:
-            current_app.logger.warning(f"Helius SOL balance failed ({type(e).__name__}), using public RPC")
+            logger.warning(f"Helius SOL balance failed ({type(e).__name__}), using public RPC")
             try:
                 res = requests.post(PUBLIC_RPC, json={
                     "jsonrpc": "2.0", "id": 1,
@@ -96,7 +96,7 @@ def broadcast_balance():
                 }, timeout=10).json()
                 sol_balance = res.get("result", {}).get("value", 0) / 1e9
             except Exception as e2:
-                current_app.logger.error(f"Public RPC SOL balance also failed: {e2}")
+                logger.error(f"Public RPC SOL balance also failed: {e2}")
 
         if sol_balance is None:
             sol_balance = 0.0
@@ -104,7 +104,7 @@ def broadcast_balance():
         if "SOL" in last_known_balances:
             if sol_balance > last_known_balances["SOL"] + 0.0001:
                 diff = sol_balance - last_known_balances["SOL"]
-                socketio.emit('notification', {
+                sio_bridge.emit('notification', {
                     'title': 'Funds Received',
                     'message': f"Received {diff:.4f} SOL",
                     'type': 'success'
@@ -137,7 +137,7 @@ def broadcast_balance():
             if mint in last_known_balances:
                 if balance > last_known_balances[mint] + 0.000001:
                     diff = balance - last_known_balances[mint]
-                    socketio.emit('notification', {
+                    sio_bridge.emit('notification', {
                         'title': 'Funds Received',
                         'message': f"Received {diff:.4f} {symbol}",
                         'type': 'success'
@@ -170,7 +170,7 @@ def broadcast_balance():
                     holdings_24h_ago = json.loads(snap_row[1] or "[]")
         except: pass
 
-        socketio.emit('balance_update', {
+        sio_bridge.emit('balance_update', {
             'holdings': enriched,
             'holdings_24h_ago': holdings_24h_ago,
             'total_usd': float(total_usd),
@@ -181,13 +181,12 @@ def broadcast_balance():
         }, namespace='/portfolio')
 
     except Exception as e:
-        current_app.logger.error(f"Broadcast Balance Error: {e}")
+        logger.error(f"Broadcast Balance Error: {e}")
 
 class PortfolioService:
     """Thin wrapper exposing balance_poller + gRPC wiring as a TactixService."""
 
-    def __init__(self, app):
-        self._app = app
+    def __init__(self):
         self._thread = None
         self._running = False
 
@@ -209,13 +208,13 @@ class PortfolioService:
         return self._running and self._thread is not None and self._thread.is_alive()
 
     def _run(self):
-        balance_poller(self._app, self._is_running)
+        balance_poller(self._is_running)
 
     def _is_running(self):
         return self._running
 
 
-def balance_poller(app, running_check=None):
+def balance_poller(running_check=None):
     """Poll balances periodically. Runs at 5-minute intervals when gRPC is
     active (for token balance reconciliation), 30s otherwise."""
     GRPC_RECONCILE_INTERVAL = 300  # 5 minutes when gRPC handles SOL changes
@@ -223,8 +222,7 @@ def balance_poller(app, running_check=None):
 
     while running_check() if running_check else True:
         try:
-            with app.app_context():
-                broadcast_balance()
+            broadcast_balance()
         except:
             pass
 

@@ -14,6 +14,7 @@ from typing import Dict, List, Optional
 
 from helius_infrastructure import HeliusClient
 from database import TactixDB
+import sio_bridge
 
 logger = logging.getLogger("skr_staking")
 logger.setLevel(logging.INFO)
@@ -51,10 +52,9 @@ class SKRStakingService:
     2. WebSocket: programSubscribe for real-time event detection
     """
 
-    def __init__(self, helius_client: HeliusClient, db: TactixDB, socketio):
+    def __init__(self, helius_client: HeliusClient, db: TactixDB):
         self.helius = helius_client
         self.db = db
-        self.socketio = socketio
 
         self._running = False
         self._thread = None
@@ -477,7 +477,7 @@ class SKRStakingService:
 
         # Broadcast individual event in real-time
         try:
-            self.socketio.emit('staking_event', event, namespace='/skr')
+            sio_bridge.emit('staking_event', event, namespace='/skr')
         except Exception as e:
             logger.debug(f"[SKR] Emit error: {e}")
 
@@ -516,7 +516,7 @@ class SKRStakingService:
     def _broadcast_stats(self):
         """Emit current stats to all connected /skr clients."""
         try:
-            self.socketio.emit('stats_update', {
+            sio_bridge.emit('stats_update', {
                 'total_staked': self._total_staked,
                 'total_stakers': self._total_stakers,
                 'circulating_supply': self._circulating_supply,

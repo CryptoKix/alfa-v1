@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from services.jito import send_jito_bundle, build_tip_transaction
 from services.tokens import get_token_symbol
 from services.blockhash_cache import get_fresh_blockhash
+import sio_bridge
 
 # Force logging to console
 logger = logging.getLogger("arb_engine")
@@ -19,10 +20,9 @@ if not logger.handlers:
     logger.addHandler(ch)
 
 class ArbEngine:
-    def __init__(self, helius_client, db, socketio):
+    def __init__(self, helius_client, db):
         self.helius = helius_client
         self.db = db
-        self.socketio = socketio
         self._running = False
         self._thread = None
         
@@ -43,7 +43,7 @@ class ArbEngine:
         """Load pairs from database or use defaults if empty."""
         try:
             # Tell frontend to clear matrix to avoid stale/stuck rows
-            self.socketio.emit('matrix_clear', {}, namespace='/arb')
+            sio_bridge.emit('matrix_clear', {}, namespace='/arb')
             
             db_pairs = self.db.get_arb_pairs()
             if not db_pairs:
@@ -151,7 +151,7 @@ class ArbEngine:
             matrix_data["venues"][q["venue"]] = price
             
         if matrix_data["venues"]:
-            self.socketio.emit('price_matrix_update', matrix_data, namespace='/arb')
+            sio_bridge.emit('price_matrix_update', matrix_data, namespace='/arb')
 
         if len(valid_quotes) > 1:
             valid_quotes.sort(key=lambda x: int(x["outAmount"]), reverse=True)
@@ -191,7 +191,7 @@ class ArbEngine:
                     "best_quote": best,
                     "worst_quote": worst
                 }
-                self.socketio.emit('arb_opportunity', opp, namespace='/arb')
+                sio_bridge.emit('arb_opportunity', opp, namespace='/arb')
                 
                 # --- Auto Strike Logic ---
                 if self.auto_strike and spread_pct >= self.min_profit_pct and net_profit_usd > 0:
@@ -379,14 +379,14 @@ class ArbEngine:
 
             if success:
                 logger.info(f"✅ Arb bundle submitted successfully!")
-                self.socketio.emit('notification', {
+                sio_bridge.emit('notification', {
                     'title': 'Arb Strike Executed',
                     'message': f"Atomic arb: {worst_venue} → {best_venue}, expected profit: {profit_readable:.4f} {opp['output_symbol']}",
                     'type': 'success'
                 }, namespace='/arb')
             else:
                 logger.error(f"❌ Bundle submission failed: {results}")
-                self.socketio.emit('notification', {
+                sio_bridge.emit('notification', {
                     'title': 'Arb Strike Failed',
                     'message': f"Bundle rejected by Jito",
                     'type': 'error'
@@ -394,7 +394,7 @@ class ArbEngine:
 
         except Exception as e:
             logger.error(f"Strike Error: {e}", exc_info=True)
-            self.socketio.emit('notification', {
+            sio_bridge.emit('notification', {
                 'title': 'Arb Strike Error',
                 'message': str(e),
                 'type': 'error'

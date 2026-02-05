@@ -9,6 +9,7 @@ from functools import partial
 from helius_infrastructure import HeliusClient, Programs, SubscriptionType
 from database import TactixDB
 from config import WALLET_ADDRESS
+import sio_bridge
 
 MAJOR_TOKENS = ['So11111111111111111111111111111111111111112', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN']
 
@@ -21,10 +22,9 @@ if not logger.handlers:
 
 
 class CopyTraderEngine:
-    def __init__(self, helius_client: HeliusClient, db: TactixDB, socketio, execute_trade_func):
+    def __init__(self, helius_client: HeliusClient, db: TactixDB, execute_trade_func):
         self.helius = helius_client
         self.db = db
-        self.socketio = socketio
 
         # Validate execute_trade_func
         if execute_trade_func is None:
@@ -506,7 +506,7 @@ class CopyTraderEngine:
                         for mint, diff in changes.items():
                             if diff > 0.000001:
                                 symbol = self.resolve_token(mint)
-                                self.socketio.emit('notification', {
+                                sio_bridge.emit('notification', {
                                     'title': 'Funds Received',
                                     'message': f"Received {diff:.4f} {symbol}",
                                     'type': 'success'
@@ -583,7 +583,7 @@ class CopyTraderEngine:
         try:
             if self.execute_trade is None:
                 logger.error("execute_trade function not configured")
-                self.socketio.emit('notification', {
+                sio_bridge.emit('notification', {
                     'title': 'Copy Trade Failed',
                     'message': 'Trade execution not configured',
                     'type': 'error'
@@ -603,7 +603,7 @@ class CopyTraderEngine:
             # Handle result
             if result and isinstance(result, dict):
                 if result.get('success'):
-                    self.socketio.emit('notification', {
+                    sio_bridge.emit('notification', {
                         'title': 'Copy Trade Executed',
                         'message': f"Copied {alias}: {amount:.4f} {sent_symbol} -> {recv_symbol}",
                         'type': 'success'
@@ -611,7 +611,7 @@ class CopyTraderEngine:
                     logger.info(f"Copy trade executed: {result.get('signature', 'unknown')}")
                 else:
                     error = result.get('error', 'Unknown error')
-                    self.socketio.emit('notification', {
+                    sio_bridge.emit('notification', {
                         'title': 'Copy Trade Failed',
                         'message': f"Failed to copy {alias}: {error}",
                         'type': 'error'
@@ -623,7 +623,7 @@ class CopyTraderEngine:
 
         except Exception as e:
             logger.error(f"Copy trade execution error: {e}")
-            self.socketio.emit('notification', {
+            sio_bridge.emit('notification', {
                 'title': 'Copy Trade Error',
                 'message': f"Error copying {alias}: {str(e)[:50]}",
                 'type': 'error'
@@ -670,7 +670,7 @@ class CopyTraderEngine:
                                 logger.debug(f"Signal save failed (likely duplicate): {e}")
 
                             # Emit to frontend
-                            self.socketio.emit('signal_detected', signal_data, namespace='/copytrade')
+                            sio_bridge.emit('signal_detected', signal_data, namespace='/copytrade')
                             logger.info(f"Decoded {alias} Swap: {sent_token['amount']:.4f} {sent_token['symbol']} -> {recv_token['amount']:.4f} {recv_token['symbol']}")
 
                             # --- Auto-Execution Logic ---
@@ -709,7 +709,7 @@ class CopyTraderEngine:
 
             if not self._is_token_safe(token_to_check, config):
                 logger.warning(f"Copy trade blocked: Token {token_to_check[:8]}... failed safety checks")
-                self.socketio.emit('notification', {
+                sio_bridge.emit('notification', {
                     'title': 'Copy Trade Blocked',
                     'message': f"Token safety check failed for {recv_token['symbol'] if sent_token['mint'] == 'So11111111111111111111111111111111111111112' else sent_token['symbol']}",
                     'type': 'warning'
@@ -791,7 +791,7 @@ class CopyTraderEngine:
                     daemon=True
                 ).start()
 
-                self.socketio.emit('notification', {
+                sio_bridge.emit('notification', {
                     'title': 'Copy Trade Triggered',
                     'message': f"Copying {alias}: {trade_amount:.4f} {sent_token['symbol']} -> {recv_token['symbol']}",
                     'type': 'info'
@@ -799,7 +799,7 @@ class CopyTraderEngine:
 
         except Exception as e:
             logger.error(f"Auto-Execute Error: {e}")
-            self.socketio.emit('notification', {
+            sio_bridge.emit('notification', {
                 'title': 'Copy Trade Error',
                 'message': f"Auto-execute failed: {str(e)[:50]}",
                 'type': 'error'

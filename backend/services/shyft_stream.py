@@ -1,27 +1,21 @@
 """
 ShyftStreamManager — Singleton gRPC streaming client for Shyft Yellowstone + RabbitStream.
 
-Runs gRPC async streams in a dedicated thread with its own asyncio event loop,
-bridging to the main eventlet thread via thread-safe callbacks.
+Runs synchronous (blocking) gRPC streams in dedicated daemon threads.
+Callbacks are invoked directly from the stream thread.
 
 Two streaming channels:
   - Yellowstone gRPC (Geyser): account/slot/program subscriptions (post-execution, full metadata)
   - RabbitStream: transaction streaming from shreds (pre-execution, 15-100ms faster, no logs/meta)
 """
 
-import asyncio
-import base64
 import logging
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Dict, List, Optional
 
-import eventlet.patcher
 import grpc
-
-# Use real OS threads for asyncio loops — eventlet green threads block the hub
-# when running asyncio.run_until_complete()
-_real_threading = eventlet.patcher.original('threading')
 
 from generated import geyser_pb2, geyser_pb2_grpc
 
@@ -33,6 +27,7 @@ INITIAL_BACKOFF = 1.0
 MAX_BACKOFF = 60.0
 BACKOFF_MULTIPLIER = 2.0
 PING_INTERVAL = 30  # seconds between keepalive pings
+CHANNEL_READY_TIMEOUT = 15  # seconds
 
 
 class ShyftStreamManager:
@@ -61,12 +56,14 @@ class ShyftStreamManager:
 
         # Runtime state
         self._running = False
-        self._geyser_thread: Optional[threading.Thread] = None
-        self._rabbit_thread: Optional[threading.Thread] = None
-        self._geyser_loop: Optional[asyncio.AbstractEventLoop] = None
-        self._rabbit_loop: Optional[asyncio.AbstractEventLoop] = None
+        self._stop_event = threading.Event()
+        self._geyser_thread: Optional[object] = None
+        self._rabbit_thread: Optional[object] = None
         self._geyser_connected = False
         self._rabbit_connected = False
+
+        # Callback thread pool — keeps gRPC reader thread free from blocking I/O
+        self._callback_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix='shyft-cb')
 
         # Stats
         self._geyser_updates = 0
@@ -75,7 +72,7 @@ class ShyftStreamManager:
         self._rabbit_errors = 0
         self._last_geyser_update = 0.0
         self._last_rabbit_update = 0.0
-        self._lock = _real_threading.Lock()
+        self._lock = threading.Lock()
 
     # ─── Service Pattern ──────────────────────────────────────────────
 
@@ -88,11 +85,11 @@ class ShyftStreamManager:
             return
 
         self._running = True
+        self._stop_event = threading.Event()
 
         # Start Geyser thread if there are subscriptions
-        # Use real OS threads — asyncio event loops block eventlet green threads
         if self._slot_subs or self._account_subs or self._program_subs:
-            self._geyser_thread = _real_threading.Thread(
+            self._geyser_thread = threading.Thread(
                 target=self._run_geyser_thread, daemon=True, name="shyft-geyser"
             )
             self._geyser_thread.start()
@@ -100,7 +97,7 @@ class ShyftStreamManager:
 
         # Start RabbitStream thread if there are transaction subscriptions
         if self._tx_subs:
-            self._rabbit_thread = _real_threading.Thread(
+            self._rabbit_thread = threading.Thread(
                 target=self._run_rabbit_thread, daemon=True, name="shyft-rabbit"
             )
             self._rabbit_thread.start()
@@ -112,14 +109,9 @@ class ShyftStreamManager:
     def stop(self):
         """Stop all streaming."""
         self._running = False
+        self._stop_event.set()
         self._geyser_connected = False
         self._rabbit_connected = False
-
-        # Cancel async loops
-        for loop in [self._geyser_loop, self._rabbit_loop]:
-            if loop and loop.is_running():
-                loop.call_soon_threadsafe(loop.stop)
-
         self._geyser_thread = None
         self._rabbit_thread = None
         logger.info("[ShyftStream] Stopped")
@@ -199,31 +191,21 @@ class ShyftStreamManager:
             self._rabbit_thread.start()
             logger.info("[ShyftStream] RabbitStream thread started (late)")
 
-    # ─── Geyser Stream (Yellowstone gRPC) ─────────────────────────────
+    # ─── Geyser Stream (Synchronous gRPC) ─────────────────────────────
 
     def _run_geyser_thread(self):
-        """Thread entry: create event loop and run geyser stream."""
-        self._geyser_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._geyser_loop)
-        try:
-            self._geyser_loop.run_until_complete(self._geyser_stream_loop())
-        except Exception as e:
-            logger.error(f"[ShyftStream] Geyser thread exited: {e}")
-        finally:
-            self._geyser_connected = False
-
-    async def _geyser_stream_loop(self):
-        """Reconnecting geyser stream loop with exponential backoff."""
+        """Thread entry: synchronous geyser stream with reconnection."""
         backoff = INITIAL_BACKOFF
 
         while self._running:
             try:
-                await self._run_geyser_stream()
-            except grpc.aio.AioRpcError as e:
+                self._run_geyser_stream()
+                backoff = INITIAL_BACKOFF  # Reset on clean disconnect
+            except grpc.RpcError as e:
                 self._geyser_connected = False
                 with self._lock:
                     self._geyser_errors += 1
-                logger.warning(f"[ShyftStream] Geyser gRPC error: {e.code()} {e.details()}")
+                logger.warning(f"[ShyftStream] Geyser gRPC error: {e}")
             except Exception as e:
                 self._geyser_connected = False
                 with self._lock:
@@ -232,55 +214,66 @@ class ShyftStreamManager:
 
             if self._running:
                 logger.info(f"[ShyftStream] Geyser reconnecting in {backoff:.1f}s")
-                await asyncio.sleep(backoff)
+                if self._stop_event.wait(timeout=backoff):
+                    break  # Stop requested during backoff
                 backoff = min(backoff * BACKOFF_MULTIPLIER, MAX_BACKOFF)
 
-    async def _run_geyser_stream(self):
-        """Single geyser connection session."""
-        # Build channel with auth metadata
+    def _run_geyser_stream(self):
+        """Single synchronous geyser connection session."""
         credentials = grpc.ssl_channel_credentials()
-        channel = grpc.aio.secure_channel(
+        channel = grpc.secure_channel(
             self._geyser_endpoint,
             credentials,
             options=[
                 ('grpc.max_receive_message_length', 64 * 1024 * 1024),  # 64MB
                 ('grpc.keepalive_time_ms', 10000),
                 ('grpc.keepalive_timeout_ms', 5000),
+                ('grpc.keepalive_permit_without_calls', 1),
             ],
         )
 
+        # Wait for channel to be ready (with timeout)
+        try:
+            grpc.channel_ready_future(channel).result(timeout=CHANNEL_READY_TIMEOUT)
+            logger.info("[ShyftStream] Geyser channel ready")
+        except grpc.FutureTimeoutError:
+            channel.close()
+            raise Exception(f"Geyser channel connect timeout ({CHANNEL_READY_TIMEOUT}s) to {self._geyser_endpoint}")
+
         stub = geyser_pb2_grpc.GeyserStub(channel)
         metadata = [('x-token', self._token)]
-
-        # Build subscribe request with all registered subscriptions
         request = self._build_geyser_request()
+        stop_event = self._stop_event
 
-        logger.info(f"[ShyftStream] Connecting to Geyser at {self._geyser_endpoint}")
-
-        async def request_iterator():
-            """Yield the initial subscribe request then keep alive with pings."""
+        def request_iter():
+            """Yield initial subscription then periodic pings."""
             yield request
             ping_id = 0
-            while self._running:
-                await asyncio.sleep(PING_INTERVAL)
+            while not stop_event.is_set():
+                if stop_event.wait(timeout=PING_INTERVAL):
+                    return  # Stop requested
                 ping_id += 1
-                ping_req = geyser_pb2.SubscribeRequest(
+                yield geyser_pb2.SubscribeRequest(
                     ping=geyser_pb2.SubscribeRequestPing(id=ping_id)
                 )
-                yield ping_req
+
+        logger.info(f"[ShyftStream] Subscribing to Geyser at {self._geyser_endpoint}")
 
         try:
-            stream = stub.Subscribe(request_iterator(), metadata=metadata)
-            self._geyser_connected = True
-            logger.info("[ShyftStream] Geyser stream connected")
+            stream = stub.Subscribe(request_iter(), metadata=metadata)
 
-            async for update in stream:
+            first = True
+            for update in stream:
                 if not self._running:
                     break
+                if first:
+                    self._geyser_connected = True
+                    logger.info("[ShyftStream] Geyser stream connected — first update received")
+                    first = False
                 self._dispatch_geyser_update(update)
 
         finally:
-            await channel.close()
+            channel.close()
             self._geyser_connected = False
 
     def _build_geyser_request(self) -> geyser_pb2.SubscribeRequest:
@@ -327,8 +320,21 @@ class ShyftStreamManager:
         )
         return request
 
+    def _safe_submit(self, fn, *args):
+        """Submit a callback to the thread pool with error logging."""
+        def _wrapper():
+            try:
+                fn(*args)
+            except Exception as e:
+                logger.error(f"[ShyftStream] Callback error in {fn}: {e}")
+        self._callback_pool.submit(_wrapper)
+
     def _dispatch_geyser_update(self, update):
-        """Route a geyser SubscribeUpdate to the appropriate callback(s)."""
+        """Route a geyser SubscribeUpdate to the appropriate callback(s).
+
+        Callbacks are dispatched to a thread pool so the gRPC reader thread
+        is never blocked by slow I/O (e.g. RPC calls in blockhash_cache).
+        """
         with self._lock:
             self._geyser_updates += 1
             self._last_geyser_update = time.time()
@@ -339,44 +345,33 @@ class ShyftStreamManager:
             slot_update = update.slot
             status_name = geyser_pb2.SlotStatus.Name(slot_update.status)
             for callback in self._slot_subs.values():
-                try:
-                    callback(slot_update.slot, status_name)
-                except Exception as e:
-                    logger.error(f"[ShyftStream] Slot callback error: {e}")
+                self._safe_submit(callback, slot_update.slot, status_name)
 
         elif update_type == 'account':
             acct_update = update.account
             acct_info = acct_update.account
-            pubkey_b58 = base64.b58encode(acct_info.pubkey).decode() if len(acct_info.pubkey) == 32 else acct_info.pubkey.hex()
-            owner_b58 = base64.b58encode(acct_info.owner).decode() if len(acct_info.owner) == 32 else acct_info.owner.hex()
             slot = acct_update.slot
 
-            # Try to use solders for proper base58 encoding
             try:
                 from solders.pubkey import Pubkey
                 pubkey_b58 = str(Pubkey.from_bytes(acct_info.pubkey))
-                owner_b58 = str(Pubkey.from_bytes(acct_info.owner))
             except Exception:
-                pass
+                pubkey_b58 = acct_info.pubkey.hex()
 
             filter_names = list(update.filters)
+            data = bytes(acct_info.data)
+            lamports = acct_info.lamports
 
             # Dispatch to account subscriptions
             for name, sub in self._account_subs.items():
                 if pubkey_b58 in sub['accounts']:
-                    try:
-                        sub['callback'](pubkey_b58, acct_info.lamports, bytes(acct_info.data), slot)
-                    except Exception as e:
-                        logger.error(f"[ShyftStream] Account callback error ({name}): {e}")
+                    self._safe_submit(sub['callback'], pubkey_b58, lamports, data, slot)
 
             # Dispatch to program subscriptions
             for name, sub in self._program_subs.items():
                 filter_key = f'program_{name}'
                 if filter_key in filter_names:
-                    try:
-                        sub['callback'](pubkey_b58, bytes(acct_info.data), slot)
-                    except Exception as e:
-                        logger.error(f"[ShyftStream] Program callback error ({name}): {e}")
+                    self._safe_submit(sub['callback'], pubkey_b58, data, slot)
 
         elif update_type == 'transaction':
             tx_update = update.transaction
@@ -403,10 +398,7 @@ class ShyftStreamManager:
             for name, sub in self._tx_subs.items():
                 include_set = set(sub['account_include'])
                 if include_set.intersection(account_keys):
-                    try:
-                        sub['callback'](sig_b58, account_keys, slot)
-                    except Exception as e:
-                        logger.error(f"[ShyftStream] Tx callback error ({name}): {e}")
+                    self._safe_submit(sub['callback'], sig_b58, account_keys, slot)
 
         elif update_type == 'ping':
             pass  # Server keepalive
@@ -416,28 +408,18 @@ class ShyftStreamManager:
     # ─── RabbitStream (shred-level transactions) ──────────────────────
 
     def _run_rabbit_thread(self):
-        """Thread entry: create event loop and run RabbitStream."""
-        self._rabbit_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._rabbit_loop)
-        try:
-            self._rabbit_loop.run_until_complete(self._rabbit_stream_loop())
-        except Exception as e:
-            logger.error(f"[ShyftStream] RabbitStream thread exited: {e}")
-        finally:
-            self._rabbit_connected = False
-
-    async def _rabbit_stream_loop(self):
-        """Reconnecting RabbitStream loop with exponential backoff."""
+        """Thread entry: synchronous RabbitStream with reconnection."""
         backoff = INITIAL_BACKOFF
 
         while self._running:
             try:
-                await self._run_rabbit_stream()
-            except grpc.aio.AioRpcError as e:
+                self._run_rabbit_stream()
+                backoff = INITIAL_BACKOFF
+            except grpc.RpcError as e:
                 self._rabbit_connected = False
                 with self._lock:
                     self._rabbit_errors += 1
-                logger.warning(f"[ShyftStream] RabbitStream gRPC error: {e.code()} {e.details()}")
+                logger.warning(f"[ShyftStream] RabbitStream gRPC error: {e}")
             except Exception as e:
                 self._rabbit_connected = False
                 with self._lock:
@@ -446,56 +428,69 @@ class ShyftStreamManager:
 
             if self._running:
                 logger.info(f"[ShyftStream] RabbitStream reconnecting in {backoff:.1f}s")
-                await asyncio.sleep(backoff)
+                if self._stop_event.wait(timeout=backoff):
+                    break
                 backoff = min(backoff * BACKOFF_MULTIPLIER, MAX_BACKOFF)
 
-    async def _run_rabbit_stream(self):
-        """Single RabbitStream connection session.
+    def _run_rabbit_stream(self):
+        """Single synchronous RabbitStream connection session.
 
         RabbitStream uses the same Yellowstone gRPC protocol but on a different
         endpoint. It streams transactions from shreds (pre-execution) so no
         logs/meta are available — only the raw transaction + account keys.
         """
         credentials = grpc.ssl_channel_credentials()
-        channel = grpc.aio.secure_channel(
+        channel = grpc.secure_channel(
             self._rabbit_endpoint,
             credentials,
             options=[
                 ('grpc.max_receive_message_length', 64 * 1024 * 1024),
                 ('grpc.keepalive_time_ms', 10000),
                 ('grpc.keepalive_timeout_ms', 5000),
+                ('grpc.keepalive_permit_without_calls', 1),
             ],
         )
 
+        try:
+            grpc.channel_ready_future(channel).result(timeout=CHANNEL_READY_TIMEOUT)
+            logger.info("[ShyftStream] RabbitStream channel ready")
+        except grpc.FutureTimeoutError:
+            channel.close()
+            raise Exception(f"RabbitStream channel connect timeout ({CHANNEL_READY_TIMEOUT}s) to {self._rabbit_endpoint}")
+
         stub = geyser_pb2_grpc.GeyserStub(channel)
         metadata = [('x-token', self._token)]
-
-        # Build transaction-only subscribe request
         request = self._build_rabbit_request()
+        stop_event = self._stop_event
 
-        logger.info(f"[ShyftStream] Connecting to RabbitStream at {self._rabbit_endpoint}")
-
-        async def request_iterator():
+        def request_iter():
             yield request
             ping_id = 0
-            while self._running:
-                await asyncio.sleep(PING_INTERVAL)
+            while not stop_event.is_set():
+                if stop_event.wait(timeout=PING_INTERVAL):
+                    return
                 ping_id += 1
                 yield geyser_pb2.SubscribeRequest(
                     ping=geyser_pb2.SubscribeRequestPing(id=ping_id)
                 )
 
-        try:
-            stream = stub.Subscribe(request_iterator(), metadata=metadata)
-            self._rabbit_connected = True
-            logger.info("[ShyftStream] RabbitStream connected")
+        logger.info(f"[ShyftStream] Subscribing to RabbitStream at {self._rabbit_endpoint}")
 
-            async for update in stream:
+        try:
+            stream = stub.Subscribe(request_iter(), metadata=metadata)
+
+            first = True
+            for update in stream:
                 if not self._running:
                     break
 
                 update_type = update.WhichOneof('update_oneof')
                 if update_type == 'transaction':
+                    if first:
+                        self._rabbit_connected = True
+                        logger.info("[ShyftStream] RabbitStream connected — first update received")
+                        first = False
+
                     with self._lock:
                         self._rabbit_updates += 1
                         self._last_rabbit_update = time.time()
@@ -522,13 +517,16 @@ class ShyftStreamManager:
                     for name, sub in self._tx_subs.items():
                         include_set = set(sub['account_include'])
                         if include_set.intersection(account_keys):
-                            try:
-                                sub['callback'](sig_b58, account_keys, slot)
-                            except Exception as e:
-                                logger.error(f"[ShyftStream] RabbitStream tx callback error ({name}): {e}")
+                            self._safe_submit(sub['callback'], sig_b58, account_keys, slot)
+
+                elif update_type == 'ping' or update_type == 'pong':
+                    if first:
+                        self._rabbit_connected = True
+                        logger.info("[ShyftStream] RabbitStream connected (ping/pong)")
+                        first = False
 
         finally:
-            await channel.close()
+            channel.close()
             self._rabbit_connected = False
 
     def _build_rabbit_request(self) -> geyser_pb2.SubscribeRequest:
