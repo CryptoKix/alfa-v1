@@ -3,8 +3,6 @@
 import eventlet
 eventlet.monkey_patch()
 
-import os
-import threading
 import logging
 import signal
 import sys
@@ -16,18 +14,17 @@ logger = logging.getLogger("tactix")
 
 from config import SERVER_HOST, SERVER_PORT, WALLET_ADDRESS, HELIUS_API_KEY, BASE_DIR
 from extensions import create_app, socketio, helius, db
-from routes import api_bp, copytrade_bp, wallet_bp, yield_bp, dlmm_bp, liquidity_bp, skr_bp, register_websocket_handlers, init_dlmm_services, init_liquidity_services, init_skr_service
-from routes.arb import arb_bp, set_arb_engine
-from routes.copytrade import set_copy_trader
-from routes.services import services_bp, init_services  # Service control routes
-from routes.auth import auth_bp  # Authentication routes
-from middleware.auth import init_auth  # Authentication middleware
-from middleware.rate_limit import init_rate_limiter, add_rate_limit_headers  # Rate limiting
-from services.audit import audit_logger, AuditEventType  # Audit logging
-from services.network_monitor import network_monitor  # Network security monitor
-from services.portfolio import balance_poller, broadcast_balance
+from routes import api_bp, copytrade_bp, wallet_bp, yield_bp, dlmm_bp, liquidity_bp, skr_bp, register_websocket_handlers, init_dlmm_services, init_liquidity_services
+from routes.arb import arb_bp
+from routes.services import services_bp
+from routes.auth import auth_bp
+from middleware.auth import init_auth
+from middleware.rate_limit import init_rate_limiter, add_rate_limit_headers
+from services.audit import audit_logger, AuditEventType
+from services.network_monitor import network_monitor
+from services.portfolio import PortfolioService
 from arb_engine import ArbEngine
-from services.bots import dca_scheduler
+from services.bots import BotSchedulerService
 from services.trading import execute_trade_logic
 from copy_trader import CopyTraderEngine
 from services.notifications import send_discord_notification, notify_system_status
@@ -37,6 +34,8 @@ from services.wolfpack import wolf_pack
 from services.meteora_dlmm import init_dlmm_sniper, get_dlmm_sniper
 from services.blockhash_cache import get_blockhash_cache
 from services.skr_staking import SKRStakingService
+from services.shyft_stream import ShyftStreamManager
+from service_registry import registry, ServiceDescriptor as SD
 
 # Create Flask application
 app = create_app()
@@ -83,25 +82,68 @@ def not_found(e):
         return jsonify({"error": "Not Found"}), 404
     return render_template('index.html')
 
-# Initialize engines (but don't auto-start high-RPS modules)
-copy_trader = CopyTraderEngine(helius, db, socketio, execute_trade_logic)
-arb_engine = ArbEngine(helius, db, socketio)
-set_arb_engine(arb_engine)
-set_copy_trader(copy_trader)
+# ─── Service Registration ─────────────────────────────────────────────
+import config as _config
 
-# Initialize DLMM sniper (detection-only by default)
-dlmm_sniper = init_dlmm_sniper(db, socketio, HELIUS_API_KEY)
+registry.register(
+    SD("copy_trader", "Copy Trader", "Whale wallet tracking via Helius WebSocket",
+       "Users", "cyan", needs_stream="set_stream_manager"),
+    CopyTraderEngine(helius, db, socketio, execute_trade_logic))
 
-# Initialize SKR staking monitor
-skr_service = SKRStakingService(helius, db, socketio)
-init_skr_service(skr_service)
+registry.register(
+    SD("arb_engine", "Arb Scanner", "Cross-DEX spread detection",
+       "TrendingUp", "green"),
+    ArbEngine(helius, db, socketio))
 
-# Initialize service control references
-init_services(copy_trader, arb_engine, wolf_pack, news_service, dlmm_sniper, network_monitor, skr_staking=skr_service)
+registry.register(
+    SD("wolf_pack", "Wolf Pack", "Whale consensus trading",
+       "Crosshair", "purple"),
+    wolf_pack)
+
+registry.register(
+    SD("news", "Intel Feed", "News & social aggregation",
+       "Newspaper", "pink"),
+    news_service)
+
+registry.register(
+    SD("dlmm_sniper", "DLMM Sniper", "Meteora pool detection",
+       "Layers", "purple"),
+    init_dlmm_sniper(db, socketio, HELIUS_API_KEY))
+
+registry.register(
+    SD("network_monitor", "Network Monitor", "Security surveillance & alerts",
+       "Shield", "cyan"),
+    network_monitor)
+
+registry.register(
+    SD("skr_staking", "SKR Staking Monitor", "SKR staking event tracking",
+       "Lock", "cyan", needs_stream="set_stream_manager"),
+    SKRStakingService(helius, db, socketio))
+
+registry.register(
+    SD("shyft_stream", "Shyft gRPC Stream", "Yellowstone gRPC + RabbitStream real-time feeds",
+       "Radio", "green"),
+    ShyftStreamManager(_config))
+
+registry.register(
+    SD("portfolio", "Portfolio Tracker", "Balance polling & broadcast",
+       "Wallet", "cyan", toggleable=False, auto_start=True,
+       needs_stream="set_stream_manager"),
+    PortfolioService(app))
+
+registry.register(
+    SD("bot_scheduler", "Bot Scheduler", "DCA/TWAP/Grid bot execution",
+       "Bot", "purple", toggleable=False, auto_start=True),
+    BotSchedulerService(app))
+
 
 def handle_shutdown(signum, frame):
     """Graceful shutdown handler for Discord notification."""
-    logger.info(f"🛑 Received signal {signum}. Shutting down...")
+    logger.info(f"Received signal {signum}. Shutting down...")
+    try:
+        registry.stop_all()
+    except:
+        pass
     try:
         notify_system_status("OFFLINE", "TacTix.sol System Core is shutting down.")
     except:
@@ -112,13 +154,19 @@ signal.signal(signal.SIGTERM, handle_shutdown)
 signal.signal(signal.SIGINT, handle_shutdown)
 
 if __name__ == '__main__':
-    # Core services - always run
-    threading.Thread(target=dca_scheduler, args=(app,), daemon=True).start()
-    threading.Thread(target=balance_poller, args=(app,), daemon=True).start()
-
     # Start blockhash cache for low-latency arb execution
     blockhash_cache = get_blockhash_cache()
+    blockhash_cache.set_stream_manager(registry.get('shyft_stream'))
     logger.info("BlockhashCache initialized for low-latency transactions")
+
+    # Wire gRPC stream into all services that declared needs_stream
+    registry.set_stream_manager(registry.get('shyft_stream'))
+
+    # Start Shyft gRPC streams (after all subscriptions are registered)
+    registry.get('shyft_stream').start()
+
+    # Auto-start core services (portfolio, bot_scheduler)
+    registry.start_all(auto_only=True)
 
     # High-RPS modules - DO NOT auto-start
     # These are now controlled via /api/services endpoints and ControlPanel UI:
@@ -129,7 +177,8 @@ if __name__ == '__main__':
     #
     # Users can enable them via the ControlPanel widget when needed.
 
-    notify_system_status("ONLINE", "TacTix.sol System Core has initialized. Services await manual activation.")
+    # Defer notification until after eventlet hub starts (avoid blocking before socketio.run)
+    eventlet.spawn_after(2, notify_system_status, "ONLINE", "TacTix.sol System Core has initialized. Services await manual activation.")
 
     # SECURITY: Log system startup
     audit_logger.log_system_start()

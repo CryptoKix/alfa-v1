@@ -1,121 +1,104 @@
 #!/usr/bin/env python3
 """Service control API routes for on-demand module activation."""
+import threading
+import time
+import logging
+import os
+import socket as _socket
+
 from flask import Blueprint, jsonify, request
 from services.blockhash_cache import get_blockhash_cache
+from service_registry import registry
+
+logger = logging.getLogger("services_route")
 
 services_bp = Blueprint('services', __name__)
 
-# Service references - set by app.py after initialization
-_copy_trader = None
-_arb_engine = None
-_wolf_pack = None
-_news_service = None
-_dlmm_sniper = None
-_network_monitor = None
-_skr_staking = None
-
-def init_services(copy_trader, arb_engine, wolf_pack, news_service, dlmm_sniper=None, network_monitor=None, skr_staking=None):
-    """Initialize service references from app.py"""
-    global _copy_trader, _arb_engine, _wolf_pack, _news_service, _dlmm_sniper, _network_monitor, _skr_staking
-    _copy_trader = copy_trader
-    _arb_engine = arb_engine
-    _wolf_pack = wolf_pack
-    _news_service = news_service
-    _dlmm_sniper = dlmm_sniper
-    _network_monitor = network_monitor
-    _skr_staking = skr_staking
-
-SERVICE_MAP = {
-    'copy_trader': lambda: _copy_trader,
-    'arb_engine': lambda: _arb_engine,
-    'wolf_pack': lambda: _wolf_pack,
-    'news': lambda: _news_service,
-    'dlmm_sniper': lambda: _dlmm_sniper,
-    'network_monitor': lambda: _network_monitor,
-    'skr_staking': lambda: _skr_staking
+# ─── Background Health Cache ─────────────────────────────────────────
+_health_cache = {
+    'meteora_sidecar': {'status': 'unknown', 'response_ms': None, 'port': 5002, 'checked_at': 0},
+    'orca_sidecar': {'status': 'unknown', 'response_ms': None, 'port': 5003, 'checked_at': 0},
+    'sniper_outrider': {'status': 'unknown', 'checked_at': 0},
 }
+_health_lock = threading.Lock()
+_health_thread_started = False
 
-SERVICE_INFO = {
-    'copy_trader': {
-        'name': 'Copy Trader',
-        'description': 'Whale wallet tracking via Helius WebSocket',
-        'icon': 'Users',
-        'color': 'cyan'
-    },
-    'arb_engine': {
-        'name': 'Arb Scanner',
-        'description': 'Cross-DEX spread detection',
-        'icon': 'TrendingUp',
-        'color': 'green'
-    },
-    'wolf_pack': {
-        'name': 'Wolf Pack',
-        'description': 'Whale consensus trading',
-        'icon': 'Crosshair',
-        'color': 'purple'
-    },
-    'news': {
-        'name': 'Intel Feed',
-        'description': 'News & social aggregation',
-        'icon': 'Newspaper',
-        'color': 'pink'
-    },
-    'dlmm_sniper': {
-        'name': 'DLMM Sniper',
-        'description': 'Meteora pool detection',
-        'icon': 'Layers',
-        'color': 'purple'
-    },
-    'network_monitor': {
-        'name': 'Network Monitor',
-        'description': 'Security surveillance & alerts',
-        'icon': 'Shield',
-        'color': 'cyan'
-    },
-    'skr_staking': {
-        'name': 'SKR Staking Monitor',
-        'description': 'SKR staking event tracking',
-        'icon': 'Lock',
-        'color': 'cyan'
-    }
-}
+
+def _probe_sidecar(port: int):
+    """Probe a sidecar via raw TCP connect (eventlet-safe, no requests lib)."""
+    try:
+        start = time.monotonic()
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        s.settimeout(1)
+        s.connect(('127.0.0.1', port))
+        s.close()
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+        return ('running', elapsed_ms)
+    except Exception:
+        return ('stopped', None)
+
+
+def _probe_process(pattern: str):
+    """Check if a process matching pattern is running (eventlet-safe, no subprocess)."""
+    try:
+        for pid in os.listdir('/proc'):
+            if not pid.isdigit():
+                continue
+            try:
+                with open(f'/proc/{pid}/cmdline', 'rb') as f:
+                    cmdline = f.read().decode('utf-8', errors='ignore')
+                if pattern in cmdline:
+                    return 'running'
+            except (PermissionError, FileNotFoundError, ProcessLookupError):
+                continue
+        return 'stopped'
+    except Exception:
+        return 'unknown'
+
+
+def _health_probe_loop():
+    """Background loop that probes sidecars + processes every 10s."""
+    import eventlet
+    while True:
+        # Sidecars
+        for name in ('meteora_sidecar', 'orca_sidecar'):
+            port = _health_cache[name]['port']
+            status, ms = _probe_sidecar(port)
+            with _health_lock:
+                _health_cache[name]['status'] = status
+                _health_cache[name]['response_ms'] = ms
+                _health_cache[name]['checked_at'] = time.time()
+
+        # Sniper outrider process check
+        status = _probe_process("sniper_outrider.py")
+        with _health_lock:
+            _health_cache['sniper_outrider']['status'] = status
+            _health_cache['sniper_outrider']['checked_at'] = time.time()
+
+        eventlet.sleep(10)
+
+
+def _ensure_health_thread():
+    """Start the background health probe as an eventlet greenthread."""
+    global _health_thread_started
+    if not _health_thread_started:
+        _health_thread_started = True
+        import eventlet
+        eventlet.spawn(_health_probe_loop)
 
 
 @services_bp.route('/api/services/status', methods=['GET'])
 def get_services_status():
     """Get status of all toggleable services."""
-    statuses = {}
-    for key, getter in SERVICE_MAP.items():
-        try:
-            service = getter()
-            is_running = False
-            if service is not None:
-                is_running = service.is_running()
-            statuses[key] = {
-                **SERVICE_INFO.get(key, {}),
-                'running': is_running,
-                'initialized': service is not None
-            }
-        except Exception as e:
-            print(f"Error getting status for {key}: {e}")
-            statuses[key] = {
-                **SERVICE_INFO.get(key, {}),
-                'running': False,
-                'initialized': False,
-                'error': str(e)
-            }
-    return jsonify(statuses)
+    return jsonify(registry.get_all_status())
 
 
 @services_bp.route('/api/services/<service_name>/toggle', methods=['POST'])
 def toggle_service(service_name):
     """Toggle a service on/off."""
-    if service_name not in SERVICE_MAP:
+    service = registry.get(service_name)
+    if service is None:
         return jsonify({'error': f'Unknown service: {service_name}'}), 404
-
-    service = SERVICE_MAP[service_name]()
-    if not service:
-        return jsonify({'error': f'Service not initialized: {service_name}'}), 500
 
     try:
         if service.is_running():
@@ -138,12 +121,9 @@ def toggle_service(service_name):
 @services_bp.route('/api/services/<service_name>/start', methods=['POST'])
 def start_service(service_name):
     """Start a specific service."""
-    if service_name not in SERVICE_MAP:
+    service = registry.get(service_name)
+    if service is None:
         return jsonify({'error': f'Unknown service: {service_name}'}), 404
-
-    service = SERVICE_MAP[service_name]()
-    if not service:
-        return jsonify({'error': f'Service not initialized: {service_name}'}), 500
 
     try:
         if not service.is_running():
@@ -160,12 +140,9 @@ def start_service(service_name):
 @services_bp.route('/api/services/<service_name>/stop', methods=['POST'])
 def stop_service(service_name):
     """Stop a specific service."""
-    if service_name not in SERVICE_MAP:
+    service = registry.get(service_name)
+    if service is None:
         return jsonify({'error': f'Unknown service: {service_name}'}), 404
-
-    service = SERVICE_MAP[service_name]()
-    if not service:
-        return jsonify({'error': f'Service not initialized: {service_name}'}), 500
 
     try:
         if service.is_running():
@@ -187,3 +164,85 @@ def get_blockhash_stats():
         return jsonify(cache.get_stats())
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@services_bp.route('/api/services/shyft_stream/stats', methods=['GET'])
+def get_shyft_stream_stats():
+    """Get Shyft gRPC stream connection statistics."""
+    try:
+        service = registry.get('shyft_stream')
+        if not service:
+            return jsonify({'error': 'Shyft stream not initialized'}), 500
+        return jsonify(service.get_stats())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ─── Combined Monitor Endpoint ──────────────────────────────────────
+
+@services_bp.route('/api/services/monitor', methods=['GET'])
+def get_monitor_data():
+    """Combined monitoring endpoint — never blocks on HTTP.
+
+    Returns system_services, trading_modules, blockhash, shyft, and sidecar
+    health from background cache.
+    """
+    _ensure_health_thread()
+
+    # 1) System services — all reads from cache or in-memory, no blocking
+    import extensions
+    system_services = []
+    svc_defs = [
+        {"id": "backend", "name": "Backend API", "description": "Flask API & Socket.IO server", "port": 5001, "log_file": "backend/server.log"},
+        {"id": "price_server", "name": "Price Server", "description": "Real-time price feed updates", "port": None, "log_file": "backend/price_server.log"},
+        {"id": "sniper_outrider", "name": "Sniper Outrider", "description": "New token discovery scanner", "port": None, "log_file": "backend/sniper_outrider.log"},
+        {"id": "meteora_sidecar", "name": "Meteora Sidecar", "description": "DLMM SDK transaction builder", "port": 5002, "log_file": "backend/meteora_sidecar.log"},
+        {"id": "orca_sidecar", "name": "Orca Sidecar", "description": "Whirlpools SDK transaction builder", "port": 5003, "log_file": "backend/meteora_sidecar/orca_sidecar.log"},
+    ]
+
+    for svc in svc_defs:
+        status = "unknown"
+        try:
+            if svc["id"] == "backend":
+                status = "running"
+            elif svc["id"] == "price_server":
+                status = "running" if (time.time() - extensions.last_price_update) < 15 else "stopped"
+            elif svc["id"] in _health_cache:
+                with _health_lock:
+                    status = _health_cache[svc["id"]]["status"]
+        except Exception:
+            status = "error"
+        system_services.append({**svc, "status": status, "last_log": ""})
+
+    # 2) Trading modules from registry
+    trading_modules = registry.get_all_status()
+
+    # 3) Blockhash cache stats
+    blockhash = {}
+    try:
+        cache = get_blockhash_cache()
+        blockhash = cache.get_stats()
+    except Exception:
+        pass
+
+    # 4) Shyft stream stats
+    shyft = {}
+    try:
+        svc = registry.get('shyft_stream')
+        if svc:
+            shyft = svc.get_stats()
+    except Exception:
+        pass
+
+    # 5) Sidecar latency from cache
+    with _health_lock:
+        sidecars = {k: dict(v) for k, v in _health_cache.items() if 'port' in v}
+
+    return jsonify({
+        'system_services': system_services,
+        'trading_modules': trading_modules,
+        'blockhash': blockhash,
+        'shyft': shyft,
+        'sidecars': sidecars,
+        'timestamp': time.time(),
+    })

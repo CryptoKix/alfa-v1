@@ -3,21 +3,13 @@
 import time
 from flask import Blueprint, jsonify, request
 from extensions import db, socketio
+from service_registry import registry
 
 skr_bp = Blueprint('skr', __name__)
 
-# Service reference - set by app.py after initialization
-_skr_service = None
-
-
-def init_skr_service(skr_service):
-    """Initialize the SKR service reference."""
-    global _skr_service
-    _skr_service = skr_service
-
 
 def get_skr_service():
-    return _skr_service
+    return registry.get('skr_staking')
 
 
 # ─── REST Endpoints ──────────────────────────────────────────────────────

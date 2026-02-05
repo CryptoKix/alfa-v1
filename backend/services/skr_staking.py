@@ -60,6 +60,7 @@ class SKRStakingService:
         self._thread = None
         self._ws_thread = None
         self._loop = None
+        self._stream_manager = None
 
         # In-memory state
         self._current_accounts: Dict[str, Dict] = {}
@@ -73,20 +74,26 @@ class SKRStakingService:
         self._whale_cache_time: float = 0
         self._circ_supply_time: float = 0
         self._account_size: Optional[int] = None  # discovered on first poll
+        self._grpc_account_updates: int = 0
 
         # Thread safety
         self._lock = threading.Lock()
 
     def start(self):
-        """Start polling thread and WebSocket thread."""
+        """Start polling thread (and WebSocket if no gRPC stream)."""
         if self._running:
             return
         self._running = True
         self._thread = threading.Thread(target=self._poll_loop, daemon=True)
         self._thread.start()
-        self._ws_thread = threading.Thread(target=self._run_ws_listener, daemon=True)
-        self._ws_thread.start()
-        logger.info("[SKR] Staking monitor started")
+
+        # Only start WebSocket if gRPC is not configured (gRPC replaces WS)
+        if not self._stream_manager:
+            self._ws_thread = threading.Thread(target=self._run_ws_listener, daemon=True)
+            self._ws_thread.start()
+            logger.info("[SKR] Staking monitor started (polling + WebSocket)")
+        else:
+            logger.info("[SKR] Staking monitor started (gRPC + reconciliation polling)")
 
     def stop(self):
         """Stop all monitoring."""
@@ -103,6 +110,79 @@ class SKRStakingService:
     def is_running(self):
         return self._running
 
+    def set_stream_manager(self, stream_manager):
+        """Register gRPC program subscription for real-time account changes.
+
+        Replaces the old WebSocket subscription + reduces polling to a
+        10-minute reconciliation cycle. Individual account changes arrive
+        in real-time (<2s) via Geyser program subscription.
+        """
+        self._stream_manager = stream_manager
+        stream_manager.subscribe_program(
+            'skr_staking',
+            SKR_PROGRAM_ID,
+            self._on_grpc_account_update,
+            data_size=169  # Only 169-byte staking accounts, skip config accounts
+        )
+        logger.info("[SKR] Registered gRPC program subscription for real-time staking events")
+
+    def _on_grpc_account_update(self, pubkey: str, data: bytes, slot: int):
+        """Handle real-time program account change from gRPC Geyser stream.
+
+        Called for each individual 169-byte staking account change.
+        """
+        self._grpc_account_updates += 1
+
+        if len(data) != 169:
+            return
+
+        parsed = self._parse_stake_account(data)
+        if not parsed:
+            return
+
+        with self._lock:
+            existing = self._current_accounts.get(pubkey)
+
+            if existing:
+                old_amt = existing['staked_amount']
+                new_amt = parsed['staked_amount']
+                delta = new_amt - old_amt
+
+                if abs(delta) > 0.001:
+                    event = {
+                        'event_type': 'stake' if delta > 0 else 'unstake',
+                        'wallet_address': parsed['wallet'],
+                        'amount': abs(delta),
+                        'guardian': parsed.get('guardian_name'),
+                        'signature': f"grpc-{pubkey[:16]}-{int(time.time() * 1000)}",
+                        'slot': slot,
+                        'block_time': int(time.time())
+                    }
+                    self._process_event(event)
+                    self._current_accounts[pubkey] = parsed
+                    logger.info(f"[SKR] gRPC: {'Stake' if delta > 0 else 'Unstake'} {abs(delta):,.0f} SKR by {parsed['wallet'][:8]}...")
+            else:
+                # New account — stake event
+                if parsed['staked_amount'] > 0:
+                    # Only emit event if we've done at least one full poll
+                    # (otherwise we'd flood with events on startup)
+                    if self._current_accounts:
+                        event = {
+                            'event_type': 'stake',
+                            'wallet_address': parsed['wallet'],
+                            'amount': parsed['staked_amount'],
+                            'guardian': parsed.get('guardian_name'),
+                            'signature': f"grpc-new-{pubkey[:16]}-{int(time.time() * 1000)}",
+                            'slot': slot,
+                            'block_time': int(time.time())
+                        }
+                        self._process_event(event)
+                        logger.info(f"[SKR] gRPC: New stake {parsed['staked_amount']:,.0f} SKR by {parsed['wallet'][:8]}...")
+                    self._current_accounts[pubkey] = parsed
+
+            # Update staker count
+            self._total_stakers = len(set(p['wallet'] for p in self._current_accounts.values()))
+
     def get_stats(self) -> Dict:
         """Return current stats dict (for REST API)."""
         return {
@@ -113,12 +193,22 @@ class SKRStakingService:
             'is_running': self._running,
             'recent_events_count': len(self._recent_events),
             'account_size': self._account_size,
+            'grpc_active': self._stream_manager is not None,
+            'grpc_account_updates': self._grpc_account_updates,
         }
 
     # ─── Polling Loop ────────────────────────────────────────────────────
 
     def _poll_loop(self):
-        """Main polling loop - fetches all staking accounts periodically."""
+        """Main polling loop - fetches all staking accounts periodically.
+
+        When gRPC is active, the full getProgramAccounts poll runs every
+        10 minutes as reconciliation (not primary detection). Share price,
+        vault balance, and circulating supply continue on their normal timers.
+        """
+        GRPC_RECONCILE_INTERVAL = 600  # 10 minutes when gRPC is active
+        poll_interval = POLL_INTERVAL
+
         logger.info("[SKR] Polling loop started")
         while self._running:
             try:
@@ -131,7 +221,14 @@ class SKRStakingService:
                 self._broadcast_stats()
             except Exception as e:
                 logger.error(f"[SKR] Poll error: {e}", exc_info=True)
-            time.sleep(POLL_INTERVAL)
+
+            # Use longer interval if gRPC is delivering account updates
+            if self._stream_manager and self._grpc_account_updates > 0:
+                poll_interval = GRPC_RECONCILE_INTERVAL
+            else:
+                poll_interval = POLL_INTERVAL
+
+            time.sleep(poll_interval)
 
     def _fetch_share_price(self):
         """Fetch the current share price from the 193-byte config account."""

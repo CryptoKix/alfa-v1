@@ -8,17 +8,13 @@ from flask import Blueprint, jsonify, request, current_app
 
 from config import SOLANA_TRACKER_API_KEY
 from extensions import db, socketio, helius
+from service_registry import registry
 
 copytrade_bp = Blueprint('copytrade', __name__)
 
-# Copy trader engine reference (set by app.py)
-copy_trader = None
 
-
-def set_copy_trader(engine):
-    """Set the copy trader engine reference."""
-    global copy_trader
-    copy_trader = engine
+def _ct():
+    return registry.get('copy_trader')
 
 
 def fetch_wallet_pnl(wallet_address):
@@ -74,8 +70,9 @@ def api_copytrade_targets_add():
         'active'
     )
 
-    if copy_trader:
-        copy_trader.refresh()
+    ct = _ct()
+    if ct:
+        ct.refresh()
 
     socketio.emit('targets_update', {'targets': get_formatted_targets()}, namespace='/copytrade')
     return jsonify({"success": True})
@@ -85,8 +82,9 @@ def api_copytrade_targets_add():
 def api_copytrade_targets_delete():
     db.delete_target(request.json.get('address'))
 
-    if copy_trader:
-        copy_trader.refresh()
+    ct = _ct()
+    if ct:
+        ct.refresh()
 
     socketio.emit('targets_update', {'targets': get_formatted_targets()}, namespace='/copytrade')
     return jsonify({"success": True})
@@ -119,8 +117,9 @@ def api_copytrade_targets_update():
     if status:
         db.update_target_status(address, status)
 
-    if copy_trader:
-        copy_trader.refresh()
+    ct = _ct()
+    if ct:
+        ct.refresh()
 
     socketio.emit('targets_update', {'targets': get_formatted_targets()}, namespace='/copytrade')
     return jsonify({"success": True})
@@ -153,6 +152,7 @@ def api_copytrade_history(address):
     try:
         signatures = helius.rpc.get_signatures_for_address(address, limit=10)
         history = []
+        ct = _ct()
 
         for sig_info in signatures:
             sig = sig_info.get('signature')
@@ -167,8 +167,8 @@ def api_copytrade_history(address):
                 'status': 'error' if err else 'success'
             }
 
-            if not err and copy_trader:
-                details = copy_trader.decode_swap(sig, address)
+            if not err and ct:
+                details = ct.decode_swap(sig, address)
                 if details:
                     item['sent'] = details['sent']
                     item['received'] = details['received']

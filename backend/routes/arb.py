@@ -1,35 +1,35 @@
 from flask import Blueprint, jsonify, request
 from extensions import socketio, db, helius
 from services.tokens import get_token_symbol
+from service_registry import registry
 
 arb_bp = Blueprint('arb', __name__)
 
-# Arb engine reference (set by app.py)
-arb_engine = None
 
-def set_arb_engine(engine):
-    global arb_engine
-    arb_engine = engine
+def _arb():
+    return registry.get('arb_engine')
 
 @arb_bp.route('/api/arb/start', methods=['POST'])
 def api_arb_start():
-    if arb_engine:
+    engine = _arb()
+    if engine:
         data = request.json or {}
         auto_strike = data.get('autoStrike', False)
         jito_tip = float(data.get('jitoTip', 0.001))
         min_profit = float(data.get('minProfit', 0.1))
-        
-        arb_engine.update_config(auto_strike, jito_tip, min_profit)
-        arb_engine.start()
+
+        engine.update_config(auto_strike, jito_tip, min_profit)
+        engine.start()
         return jsonify({"success": True, "message": "Arb Engine Configured & Initialized"})
     return jsonify({"success": False, "error": "Arb Engine not found"}), 500
 
 @arb_bp.route('/api/arb/status')
 def api_arb_status():
-    if arb_engine:
+    engine = _arb()
+    if engine:
         return jsonify({
-            "running": arb_engine._running,
-            "pairs": len(arb_engine.monitored_pairs)
+            "running": engine._running,
+            "pairs": len(engine.monitored_pairs)
         })
     return jsonify({"running": False}), 404
 
@@ -60,9 +60,10 @@ def api_arb_pairs_add():
     
     db.save_arb_pair(input_mint, output_mint, input_symbol, output_symbol, raw_amount)
     
-    if arb_engine:
-        arb_engine.refresh()
-        
+    engine = _arb()
+    if engine:
+        engine.refresh()
+
     return jsonify({"success": True})
 
 @arb_bp.route('/api/arb/pairs/delete', methods=['POST'])
@@ -70,8 +71,9 @@ def api_arb_pairs_delete():
     pair_id = request.json.get('id')
     db.delete_arb_pair(pair_id)
 
-    if arb_engine:
-        arb_engine.refresh()
+    engine = _arb()
+    if engine:
+        engine.refresh()
 
     return jsonify({"success": True})
 
@@ -79,7 +81,8 @@ def api_arb_pairs_delete():
 @arb_bp.route('/api/arb/strike', methods=['POST'])
 def api_arb_strike():
     """Manually trigger an arb strike for a specific opportunity."""
-    if not arb_engine:
+    engine = _arb()
+    if not engine:
         return jsonify({"success": False, "error": "Arb Engine not initialized"}), 500
 
     data = request.json
@@ -102,7 +105,7 @@ def api_arb_strike():
 
     # Execute the strike
     try:
-        arb_engine.execute_atomic_strike(opp)
+        engine.execute_atomic_strike(opp)
         return jsonify({"success": True, "message": "Strike executed"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

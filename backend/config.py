@@ -36,6 +36,12 @@ BIRDEYE_OHLCV_API = "https://public-api.birdeye.so/defi/ohlcv"
 HELIUS_GRPC_ENDPOINT = "laserstream-mainnet-ewr.helius-rpc.com:443"
 HELIUS_GRPC_TOKEN = HELIUS_API_KEY  # Use same API key as x-token
 
+# Shyft Yellowstone gRPC & RabbitStream endpoints
+# Build plan ($199/mo): gRPC, RabbitStream, 100 RPC req/sec, staked connections
+SHYFT_GRPC_ENDPOINT = os.getenv("SHYFT_GRPC_ENDPOINT", "grpc.shyft.to:443")
+SHYFT_GRPC_TOKEN = os.getenv("SHYFT_GRPC_TOKEN", "")
+SHYFT_RABBIT_ENDPOINT = os.getenv("SHYFT_RABBIT_ENDPOINT", "rabbitstream.ams.shyft.to:443")
+
 # Helius staked connection for priority tx sending
 HELIUS_STAKED_RPC = f"https://staked.helius-rpc.com/?api-key={HELIUS_API_KEY}"
 

@@ -1274,14 +1274,42 @@ def process_bot_safe(app, bot):
             pass
         notify_grid_error(bot_alias, "SCHEDULER", str(e))
 
-def dca_scheduler(app):
+class BotSchedulerService:
+    """Thin wrapper exposing dca_scheduler as a TactixService."""
+
+    def __init__(self, app):
+        self._app = app
+        self._thread = None
+        self._running = False
+
+    def start(self):
+        if self._running:
+            return
+        self._running = True
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self._running = False
+
+    def is_running(self):
+        return self._running and self._thread is not None and self._thread.is_alive()
+
+    def _run(self):
+        dca_scheduler(self._app, self._is_running)
+
+    def _is_running(self):
+        return self._running
+
+
+def dca_scheduler(app, running_check=None):
     """DCA/TWAP/LIMIT_GRID/Indicator scheduler with concurrent bot processing (Issue 5)."""
     from services.strategies import INDICATOR_BOT_TYPES
 
     # All supported bot types
     SUPPORTED_BOT_TYPES = {'DCA', 'TWAP', 'VWAP', 'LIMIT_GRID'} | INDICATOR_BOT_TYPES
 
-    while True:
+    while running_check() if running_check else True:
         try:
             with app.app_context():
                 active_bots = [

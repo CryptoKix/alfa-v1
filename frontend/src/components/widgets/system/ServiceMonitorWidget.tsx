@@ -1,37 +1,18 @@
-import { useState, useEffect } from 'react'
-import { Server, Activity, FileText, RefreshCw, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState } from 'react'
+import { Server, FileText, RefreshCw, CheckCircle, XCircle, AlertCircle, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { WidgetContainer } from '../base/WidgetContainer'
-
-interface Service {
-  id: string
-  name: string
-  description: string
-  port: number | null
-  status: 'running' | 'stopped' | 'error' | 'unknown'
-  last_log: string
-}
+import { useMonitorStore, useMonitorSubscription } from '@/hooks/useMonitorData'
 
 export function ServiceMonitorWidget() {
-  const [services, setServices] = useState<Service[]>([])
-  const [loading, setLoading] = useState(true)
+  useMonitorSubscription()
+  const services = useMonitorStore(s => s.systemServices)
+  const loading = useMonitorStore(s => s.loading)
+  const fetchMonitor = useMonitorStore(s => s.refresh)
+
   const [expandedLogs, setExpandedLogs] = useState<string | null>(null)
   const [logContent, setLogContent] = useState<string>('')
   const [logLoading, setLogLoading] = useState(false)
-
-  const fetchServices = async () => {
-    try {
-      const res = await fetch('/api/system/services')
-      const data = await res.json()
-      if (data.success) {
-        setServices(data.services)
-      }
-    } catch (e) {
-      console.error('Failed to fetch services:', e)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const fetchLogs = async (serviceId: string) => {
     setLogLoading(true)
@@ -41,18 +22,12 @@ export function ServiceMonitorWidget() {
       if (data.success) {
         setLogContent(data.logs)
       }
-    } catch (e) {
+    } catch {
       setLogContent('Failed to load logs')
     } finally {
       setLogLoading(false)
     }
   }
-
-  useEffect(() => {
-    fetchServices()
-    const interval = setInterval(fetchServices, 10000) // Poll every 10s
-    return () => clearInterval(interval)
-  }, [])
 
   const toggleLogs = (serviceId: string) => {
     if (expandedLogs === serviceId) {
@@ -98,7 +73,7 @@ export function ServiceMonitorWidget() {
       badgeVariant={runningCount === totalCount ? 'green' : runningCount > 0 ? 'yellow' : 'red'}
       actions={
         <button
-          onClick={() => { setLoading(true); fetchServices(); }}
+          onClick={() => fetchMonitor()}
           className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-white/40 hover:text-accent-cyan transition-colors font-semibold"
         >
           <RefreshCw className={cn('w-3 h-3', loading && 'animate-spin')} />

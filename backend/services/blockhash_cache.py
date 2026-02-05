@@ -39,9 +39,65 @@ class BlockhashCache:
         self._thread: Optional[threading.Thread] = None
         self._ws_thread: Optional[threading.Thread] = None
 
+        # gRPC stream integration
+        self._stream_manager = None
+        self._grpc_active = False  # True when receiving gRPC slot updates
+        self._last_grpc_slot_time: float = 0
+
         # Stats
         self._fetch_count = 0
         self._cache_hits = 0
+        self._grpc_slot_updates = 0
+
+    def set_stream_manager(self, stream_manager):
+        """Register gRPC slot subscription for real-time updates.
+
+        When active, replaces the 400ms polling loop — blockhash is fetched
+        only when a new slot is confirmed (1 RPC call per slot vs ~2.5/slot).
+        Polling is kept as fallback if gRPC drops.
+        """
+        self._stream_manager = stream_manager
+        stream_manager.subscribe_slots('blockhash_cache', self._on_slot_update)
+        logger.info("BlockhashCache: registered gRPC slot subscription")
+
+    def _on_slot_update(self, slot: int, status: str):
+        """Callback from ShyftStreamManager on slot updates.
+
+        Only fetch a new blockhash when the slot actually advances.
+        """
+        with self._lock:
+            self._grpc_slot_updates += 1
+            self._last_grpc_slot_time = time.time()
+
+            if not self._grpc_active:
+                self._grpc_active = True
+                logger.info("BlockhashCache: gRPC slot stream active — polling reduced to fallback")
+
+            if slot <= self._slot:
+                return  # No new slot, skip fetch
+            self._slot = slot
+
+        # Fetch blockhash for the new slot (single RPC call, no getSlot needed)
+        try:
+            response = requests.post(
+                self.rpc_url,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "getLatestBlockhash",
+                    "params": [{"commitment": "confirmed"}]
+                },
+                timeout=2
+            )
+            if response.status_code == 200:
+                result = response.json().get("result", {}).get("value", {})
+                with self._lock:
+                    self._blockhash = result.get("blockhash")
+                    self._last_valid_block_height = result.get("lastValidBlockHeight", 0)
+                    self._last_update = time.time()
+                    self._fetch_count += 1
+        except Exception as e:
+            logger.debug(f"BlockhashCache: gRPC-triggered fetch failed: {e}")
 
     def start(self):
         """Start the background refresh thread."""
@@ -53,14 +109,15 @@ class BlockhashCache:
         # Initial fetch
         self._refresh_blockhash()
 
-        # Start polling thread
+        # Start polling thread (runs at reduced rate when gRPC is active)
         self._thread = threading.Thread(target=self._refresh_loop, daemon=True)
         self._thread.start()
 
-        # Try to start WebSocket for slot notifications
-        self._start_websocket()
+        # Try to start WebSocket for slot notifications (fallback if no gRPC)
+        if not self._stream_manager:
+            self._start_websocket()
 
-        logger.info(f"BlockhashCache started (interval={self.refresh_interval*1000}ms)")
+        logger.info(f"BlockhashCache started (interval={self.refresh_interval*1000}ms, grpc={'yes' if self._stream_manager else 'no'})")
 
     def stop(self):
         """Stop the background refresh."""
@@ -112,17 +169,47 @@ class BlockhashCache:
                 "age_ms": int((time.time() - self._last_update) * 1000),
                 "fetch_count": self._fetch_count,
                 "cache_hits": self._cache_hits,
-                "hit_rate": f"{self._cache_hits / max(1, self._fetch_count + self._cache_hits) * 100:.1f}%"
+                "hit_rate": f"{self._cache_hits / max(1, self._fetch_count + self._cache_hits) * 100:.1f}%",
+                "grpc_active": self._grpc_active,
+                "grpc_slot_updates": self._grpc_slot_updates,
             }
 
     def _refresh_loop(self):
-        """Background thread that refreshes blockhash."""
+        """Background thread that refreshes blockhash.
+
+        When gRPC slot stream is active, polling runs at 10s intervals as
+        a fallback safety net. If gRPC goes stale (>5s without update),
+        polling resumes at the fast interval.
+        """
+        GRPC_STALE_THRESHOLD = 5.0  # seconds
+        FALLBACK_INTERVAL = 10.0    # slow poll when gRPC is healthy
+
         while self._running:
             try:
-                self._refresh_blockhash()
+                # Determine if gRPC is healthy
+                grpc_healthy = False
+                if self._grpc_active:
+                    age = time.time() - self._last_grpc_slot_time
+                    grpc_healthy = age < GRPC_STALE_THRESHOLD
+                    if not grpc_healthy and self._grpc_active:
+                        logger.warning("BlockhashCache: gRPC slot stream stale, resuming fast polling")
+                        self._grpc_active = False
+
+                if grpc_healthy:
+                    # gRPC is driving updates — just sleep longer as safety net
+                    time.sleep(FALLBACK_INTERVAL)
+                    # Only fetch if blockhash is stale (>2s old)
+                    with self._lock:
+                        age = time.time() - self._last_update
+                    if age > 2.0:
+                        self._refresh_blockhash()
+                else:
+                    # No gRPC — poll at fast interval
+                    self._refresh_blockhash()
+                    time.sleep(self.refresh_interval)
             except Exception as e:
                 logger.error(f"Blockhash refresh error: {e}")
-            time.sleep(self.refresh_interval)
+                time.sleep(self.refresh_interval)
 
     def _refresh_blockhash(self):
         """Fetch fresh blockhash from RPC."""

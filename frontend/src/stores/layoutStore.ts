@@ -348,32 +348,36 @@ export const pageLayouts: Record<string, Layouts> = {
   },
   control: {
     lg: [
-      // Service monitor takes top portion
+      // Top row: Service monitor + Connection monitor
       { i: 'service-monitor', x: 0, y: 0, w: 14, h: 8, minW: 8, minH: 6 },
-      // Trading modules grid on right
-      { i: 'trading-modules', x: 14, y: 0, w: 10, h: 8, minW: 6, minH: 6 },
-      // Alerts at bottom
-      { i: 'alerts', x: 0, y: 8, w: 24, h: 12, minW: 8, minH: 6 },
+      { i: 'connection-monitor', x: 14, y: 0, w: 10, h: 8, minW: 6, minH: 6 },
+      // Bottom row: Trading modules + Alerts
+      { i: 'trading-modules', x: 0, y: 8, w: 12, h: 12, minW: 6, minH: 8 },
+      { i: 'alerts', x: 12, y: 8, w: 12, h: 12, minW: 6, minH: 6 },
     ],
     md: [
       { i: 'service-monitor', x: 0, y: 0, w: 12, h: 8, minW: 8, minH: 6 },
-      { i: 'trading-modules', x: 12, y: 0, w: 8, h: 8, minW: 6, minH: 6 },
-      { i: 'alerts', x: 0, y: 8, w: 20, h: 12, minW: 6, minH: 6 },
+      { i: 'connection-monitor', x: 12, y: 0, w: 8, h: 8, minW: 6, minH: 6 },
+      { i: 'trading-modules', x: 0, y: 8, w: 10, h: 12, minW: 6, minH: 8 },
+      { i: 'alerts', x: 10, y: 8, w: 10, h: 12, minW: 5, minH: 6 },
     ],
     sm: [
       { i: 'service-monitor', x: 0, y: 0, w: 12, h: 8, minW: 6, minH: 6 },
-      { i: 'trading-modules', x: 0, y: 8, w: 12, h: 8, minW: 6, minH: 6 },
-      { i: 'alerts', x: 0, y: 16, w: 12, h: 8, minW: 4, minH: 6 },
+      { i: 'connection-monitor', x: 0, y: 8, w: 12, h: 7, minW: 6, minH: 5 },
+      { i: 'trading-modules', x: 0, y: 15, w: 12, h: 10, minW: 6, minH: 8 },
+      { i: 'alerts', x: 0, y: 25, w: 12, h: 8, minW: 4, minH: 6 },
     ],
     xs: [
       { i: 'service-monitor', x: 0, y: 0, w: 8, h: 8, minW: 4, minH: 6 },
-      { i: 'trading-modules', x: 0, y: 8, w: 8, h: 8, minW: 4, minH: 6 },
-      { i: 'alerts', x: 0, y: 16, w: 8, h: 8, minW: 4, minH: 6 },
+      { i: 'connection-monitor', x: 0, y: 8, w: 8, h: 7, minW: 4, minH: 5 },
+      { i: 'trading-modules', x: 0, y: 15, w: 8, h: 10, minW: 4, minH: 8 },
+      { i: 'alerts', x: 0, y: 25, w: 8, h: 8, minW: 4, minH: 6 },
     ],
     xxs: [
       { i: 'service-monitor', x: 0, y: 0, w: 4, h: 8, minW: 4, minH: 6 },
-      { i: 'trading-modules', x: 0, y: 8, w: 4, h: 8, minW: 4, minH: 6 },
-      { i: 'alerts', x: 0, y: 16, w: 4, h: 8, minW: 4, minH: 6 },
+      { i: 'connection-monitor', x: 0, y: 8, w: 4, h: 7, minW: 4, minH: 5 },
+      { i: 'trading-modules', x: 0, y: 15, w: 4, h: 10, minW: 4, minH: 8 },
+      { i: 'alerts', x: 0, y: 25, w: 4, h: 8, minW: 4, minH: 6 },
     ],
   },
 }
@@ -445,6 +449,7 @@ export const availableWidgets: Record<string, Array<{ id: string; name: string; 
   control: [
     { id: 'service-monitor', name: 'Service Monitor', description: 'Backend service status' },
     { id: 'trading-modules', name: 'Trading Modules', description: 'Trading service controls' },
+    { id: 'connection-monitor', name: 'Connections', description: 'gRPC, RabbitStream & sidecar latency' },
     { id: 'alerts', name: 'Alerts', description: 'System notifications' },
   ],
 }
@@ -551,16 +556,25 @@ export const useLayoutStore = create<LayoutState>()(
     }),
     {
       name: 'tactix-layouts',
-      version: 3, // Bump this when adding new widgets to force layout refresh
+      version: 4, // Bump this when adding new widgets to force layout refresh
       partialize: (state) => ({ layouts: state.layouts, hiddenWidgets: state.hiddenWidgets }),
       migrate: (persistedState: any, version: number) => {
         if (version < 3) {
-          // Reset skr page layout to pick up new SKR staking widgets
           return {
             ...persistedState,
             layouts: {
               ...persistedState?.layouts,
               skr: undefined,
+            },
+          }
+        }
+        if (version < 4) {
+          // Reset control page layout to pick up new ConnectionMonitor widget
+          return {
+            ...persistedState,
+            layouts: {
+              ...persistedState?.layouts,
+              control: undefined,
             },
           }
         }

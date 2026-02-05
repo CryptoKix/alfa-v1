@@ -1,5 +1,35 @@
 # Tactix-Gem Project Changelog
 
+## [2026-02-05] - Service Registry, gRPC Streaming & Control Panel Overhaul
+
+### Refactor: Centralized Service Registry
+- **ServiceRegistry Singleton:** Created `backend/service_registry.py` with `TactixService` protocol, `ServiceDescriptor` dataclass, and `ServiceRegistry` class managing lifecycle, metadata, gRPC wiring, and status reporting.
+- **Declarative Registration:** Replaced 160-line manual wiring in `app.py` with declarative `registry.register(SD(...), instance)` calls — adding a new service now touches 1 file instead of 3-5.
+- **Auto gRPC Wiring:** Services declare `needs_stream="set_stream_manager"` in their descriptor; `registry.set_stream_manager(sm)` auto-wires all of them in a single call, replacing 4 manual `set_stream_manager()` calls.
+- **Auto-Start:** Core services (`PortfolioService`, `BotSchedulerService`) use `auto_start=True`; `registry.start_all(auto_only=True)` replaces manual `threading.Thread` spawns.
+- **Graceful Shutdown:** `registry.stop_all()` in signal handler replaces bare `sys.exit(0)`.
+- **Route Cleanup:** Deleted `SERVICE_MAP`, `SERVICE_INFO`, `init_services()` and all 8 module-level globals from `routes/services.py`. Removed `set_arb_engine()`, `set_copy_trader()`, `init_skr_service()` setter pattern from route files. All routes now use `registry.get('key')`.
+- **Service Wrappers:** Added `PortfolioService` (wraps `balance_poller()`) and `BotSchedulerService` (wraps `dca_scheduler()`) as thin `TactixService`-compliant classes with stoppable loop support.
+
+### Feature: Shyft gRPC + RabbitStream Integration
+- **ShyftStreamManager:** New `backend/services/shyft_stream.py` singleton managing Yellowstone gRPC subscriptions and RabbitStream transaction feeds.
+- **Proto Generation:** Added `backend/proto/geyser.proto` + `solana-storage.proto` with `generate.sh` build script producing stubs in `backend/generated/`.
+- **BlockhashCache gRPC:** Slot subscription reduces RPC calls from 2.5/slot to 1/slot with 400ms stale fallback.
+- **SKR Staking gRPC:** Program subscription with 169-byte account filter for real-time staking events, 10-minute reconciliation poll.
+- **Copy Trader RabbitStream:** Transaction subscription for 15-100ms faster whale detection.
+- **Portfolio gRPC:** Account subscription for real-time SOL balance changes, 5-minute token reconciliation.
+
+### Feature: Connection Monitor Widget
+- **New Widget:** `ConnectionMonitorWidget.tsx` displays real-time connection status for all Socket.IO namespaces and backend services.
+- **Monitor Hook:** `useMonitorData.ts` centralizes polling of `/api/services/monitor` endpoint.
+
+### Feature: Control Panel Redesign
+- **Service Monitor Widget:** Redesigned to display system services and trading modules from unified `/api/services/monitor` endpoint.
+- **Trading Modules Widget:** Updated to use registry-backed status data.
+
+### Infrastructure
+- **Layout Store:** Updated layout version for new Control Panel widgets.
+
 ## [2026-01-15] - Live Intelligence, Supervisor Management & Grid Precision
 
 ### Feature: Live Whale Detection Scan

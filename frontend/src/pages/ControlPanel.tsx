@@ -2,6 +2,7 @@ import { WidgetGrid } from '@/components/layout/WidgetGrid'
 import { AlertsWidget } from '@/components/widgets/AlertsWidget'
 import { ServiceMonitorWidget } from '@/components/widgets/system/ServiceMonitorWidget'
 import { TradingModulesWidget } from '@/components/widgets/system/TradingModulesWidget'
+import { ConnectionMonitorWidget } from '@/components/widgets/system/ConnectionMonitorWidget'
 
 const ControlPanel = () => {
   return (
@@ -12,6 +13,9 @@ const ControlPanel = () => {
         </div>
         <div key="trading-modules">
           <TradingModulesWidget />
+        </div>
+        <div key="connection-monitor">
+          <ConnectionMonitorWidget />
         </div>
         <div key="alerts">
           <AlertsWidget />

@@ -1,20 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Power, Zap, Users, Newspaper, Skull, Shield, Lock, Crosshair } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { WidgetContainer } from '../base/WidgetContainer'
-
-interface ServiceStatus {
-  name: string
-  description: string
-  running: boolean
-  initialized: boolean
-  icon?: string
-  color?: string
-}
-
-interface SystemStatus {
-  [key: string]: ServiceStatus
-}
+import { useMonitorStore, useMonitorSubscription } from '@/hooks/useMonitorData'
 
 const modules = [
   { id: 'arb_engine', name: 'Arb Engine', icon: Zap, description: 'High-frequency scan & execute' },
@@ -27,24 +15,11 @@ const modules = [
 ]
 
 export function TradingModulesWidget() {
-  const [status, setStatus] = useState<SystemStatus>({})
+  useMonitorSubscription()
+  const tradingModules = useMonitorStore(s => s.tradingModules)
+  const refreshAfterToggle = useMonitorStore(s => s.refreshAfterToggle)
+
   const [loading, setLoading] = useState<string | null>(null)
-
-  const fetchStatus = async () => {
-    try {
-      const res = await fetch('/api/services/status')
-      const data = await res.json()
-      setStatus(data)
-    } catch (e) {
-      console.error('Failed to fetch status', e)
-    }
-  }
-
-  useEffect(() => {
-    fetchStatus()
-    const interval = setInterval(fetchStatus, 5000)
-    return () => clearInterval(interval)
-  }, [])
 
   const toggleService = async (serviceId: string) => {
     setLoading(serviceId)
@@ -53,7 +28,7 @@ export function TradingModulesWidget() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })
-      await fetchStatus()
+      await refreshAfterToggle()
     } catch (e) {
       console.error('Toggle failed', e)
     } finally {
@@ -62,7 +37,7 @@ export function TradingModulesWidget() {
   }
 
   const isServiceRunning = (serviceId: string): boolean => {
-    return status[serviceId]?.running ?? false
+    return tradingModules[serviceId]?.running ?? false
   }
 
   const activeCount = modules.filter(m => isServiceRunning(m.id)).length

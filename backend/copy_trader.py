@@ -37,6 +37,7 @@ class CopyTraderEngine:
         self._loop = None
         self._thread = None
         self._token_cache = {}
+        self._stream_manager = None
 
         # Thread safety
         self._ws_lock = threading.Lock()
@@ -52,6 +53,95 @@ class CopyTraderEngine:
 
         # Pending target updates (thread-safe queue)
         self._pending_target_refresh = False
+
+        # RabbitStream stats
+        self._rabbit_detections = 0
+
+    def set_stream_manager(self, stream_manager):
+        """Register RabbitStream for earliest whale transaction detection.
+
+        RabbitStream catches transactions from shreds (pre-execution), 15-100ms
+        faster than WebSocket logsSubscribe. It has NO logs/meta, so we still
+        need getTransaction() for full decode — but we trigger it immediately
+        instead of waiting for WebSocket notification.
+
+        The WebSocket subscription is kept as fallback.
+        """
+        self._stream_manager = stream_manager
+        # Register subscription — actual target list is updated in _update_rabbit_targets()
+        logger.info("[CopyTrader] RabbitStream integration configured (targets will be registered on start)")
+
+    def _update_rabbit_targets(self):
+        """Update RabbitStream subscription with current target wallets."""
+        if not self._stream_manager:
+            return
+
+        target_addresses = list(self.active_targets.keys())
+        if not target_addresses:
+            return
+
+        # Include user wallet if available
+        if WALLET_ADDRESS and WALLET_ADDRESS != "Unknown":
+            target_addresses.append(WALLET_ADDRESS)
+
+        self._stream_manager.subscribe_transactions(
+            'copytrade',
+            target_addresses,
+            self._on_rabbit_tx
+        )
+        logger.info(f"[CopyTrader] RabbitStream subscription updated: {len(target_addresses)} wallets")
+
+    def _on_rabbit_tx(self, signature: str, account_keys: list, slot: int):
+        """Handle pre-execution transaction from RabbitStream.
+
+        This fires 15-100ms before the WebSocket logsSubscribe notification.
+        We immediately trigger getTransaction() fetch to decode the swap.
+        """
+        # Check deduplication
+        if self._is_signature_processed(signature):
+            return
+
+        self._rabbit_detections += 1
+
+        # Determine which target wallet is involved
+        target_wallet = None
+        is_user_wallet = False
+        for key in account_keys:
+            if key in self.active_targets:
+                target_wallet = key
+                break
+            if key == WALLET_ADDRESS:
+                is_user_wallet = True
+
+        if target_wallet:
+            # Process as whale swap — fire in the asyncio loop if available
+            logger.info(f"[CopyTrader] RabbitStream: whale tx from {target_wallet[:8]}... sig={signature[:16]}...")
+            if self._loop and self._loop.is_running():
+                asyncio.run_coroutine_threadsafe(
+                    self.process_whale_swap(signature, target_wallet),
+                    self._loop
+                )
+            else:
+                # No event loop — process in thread
+                threading.Thread(
+                    target=self._sync_process_whale_swap,
+                    args=(signature, target_wallet),
+                    daemon=True
+                ).start()
+        elif is_user_wallet:
+            if self._loop and self._loop.is_running():
+                asyncio.run_coroutine_threadsafe(
+                    self.process_user_transfer(signature, WALLET_ADDRESS),
+                    self._loop
+                )
+
+    def _sync_process_whale_swap(self, signature: str, wallet_address: str):
+        """Synchronous wrapper for process_whale_swap when no event loop is available."""
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(self.process_whale_swap(signature, wallet_address))
+        finally:
+            loop.close()
 
     def start(self):
         if self._thread: return
@@ -114,6 +204,10 @@ class CopyTraderEngine:
             self._last_target_reload = now
             self._pending_target_refresh = False
 
+            # Update RabbitStream subscription when targets change
+            if old_keys != new_keys:
+                self._update_rabbit_targets()
+
             return old_keys != new_keys  # Return True if targets changed
 
         return False
@@ -125,6 +219,9 @@ class CopyTraderEngine:
                 targets = self.db.get_all_targets()
                 self.active_targets = {t['address']: t for t in targets if t['status'] == 'active'}
                 self._last_target_reload = time.time()
+
+                # Register RabbitStream subscription with current targets
+                self._update_rabbit_targets()
 
                 async with self.helius.websocket() as ws:
                     with self._ws_lock:
