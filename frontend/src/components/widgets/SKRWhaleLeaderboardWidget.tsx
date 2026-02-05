@@ -16,9 +16,9 @@ export const SKRWhaleLeaderboardWidget: React.FC = () => {
   useEffect(() => {
     const fetchWhales = async () => {
       try {
-        const res = await fetch('/api/skr/leaderboard')
+        const res = await fetch('/api/skr/whales')
         const data = await res.json()
-        setWhales(data)
+        setWhales(Array.isArray(data.whales) ? data.whales : [])
       } catch (e) {
         console.error('Failed to fetch SKR whales', e)
       } finally {

@@ -4,10 +4,10 @@ import { cn } from '@/lib/utils'
 
 interface Movement {
   signature: string
-  timestamp: number
+  block_time: number
   slot: number
   amount: number
-  type: 'Stake' | 'Unstake'
+  event_type: string
 }
 
 export const SKRWhaleFeedWidget: React.FC = () => {
@@ -17,9 +17,9 @@ export const SKRWhaleFeedWidget: React.FC = () => {
   useEffect(() => {
     const fetchMovements = async () => {
       try {
-        const res = await fetch('/api/skr/movements')
+        const res = await fetch('/api/skr/events')
         const data = await res.json()
-        setMovements(data)
+        setMovements(Array.isArray(data.events) ? data.events : [])
       } catch (e) {
         console.error('Failed to fetch SKR movements', e)
       } finally {
@@ -52,35 +52,38 @@ export const SKRWhaleFeedWidget: React.FC = () => {
           </div>
         ) : (
           <>
-            {movements.map((move) => (
+            {movements.map((move) => {
+              const isStake = move.event_type === 'stake'
+              const amountUi = move.amount
+              return (
               <div
                 key={move.signature}
                 className={cn(
                   "p-3 rounded-xl border flex items-center justify-between group transition-all",
-                  move.type === 'Stake'
+                  isStake
                     ? "bg-accent-cyan/5 border-accent-cyan/10 hover:border-accent-cyan/30"
                     : "bg-accent-pink/5 border-accent-pink/10 hover:border-accent-pink/30"
                 )}
               >
                  <div className="flex items-center gap-3">
                     <span className="text-[10px] text-white font-mono font-bold uppercase shrink-0">
-                       {new Date(move.timestamp * 1000).toLocaleTimeString([], { hour12: false })}
+                       {move.block_time ? new Date(move.block_time * 1000).toLocaleTimeString([], { hour12: false }) : '—'}
                     </span>
                     <div className={cn(
                         "p-2 rounded-lg",
-                        move.type === 'Stake' ? "bg-accent-cyan/10 text-accent-cyan" : "bg-accent-pink/10 text-accent-pink"
+                        isStake ? "bg-accent-cyan/10 text-accent-cyan" : "bg-accent-pink/10 text-accent-pink"
                     )}>
-                        {move.type === 'Stake' ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
+                        {isStake ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
                     </div>
                     <div className="flex items-center gap-2">
                        <span className={cn(
                          "text-[10px] font-black uppercase tracking-widest",
-                         move.type === 'Stake' ? "text-accent-cyan" : "text-accent-pink"
+                         isStake ? "text-accent-cyan" : "text-accent-pink"
                        )}>
-                         {move.type}
+                         {move.event_type}
                        </span>
                        <span className="text-[10px] font-mono font-black text-white">
-                          {move.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          {amountUi.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                        </span>
                     </div>
                  </div>
@@ -88,15 +91,16 @@ export const SKRWhaleFeedWidget: React.FC = () => {
                  <div className="text-right">
                     <div className={cn(
                         "text-[10px] font-mono font-black transition-colors duration-500",
-                        move.amount > 250000
-                          ? (move.type === 'Stake' ? "text-accent-cyan animate-pulse" : "text-accent-pink animate-pulse")
+                        amountUi > 250000
+                          ? (isStake ? "text-accent-cyan animate-pulse" : "text-accent-pink animate-pulse")
                           : "text-text-muted"
                     )}>
-                       {move.amount > 250000 ? 'HEAVY' : 'NORMAL'}
+                       {amountUi > 250000 ? 'HEAVY' : 'NORMAL'}
                     </div>
                  </div>
               </div>
-            ))}
+              )
+            })}
           </>
         )}
       </div>

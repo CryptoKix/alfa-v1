@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { Landmark, TrendingUp, Users, Shield, ArrowUpRight, Gift, CheckCircle } from 'lucide-react'
 
 interface StakingStats {
-  total_accounts: number
   total_staked: number
-  claim_vault_balance: number
-  total_claims: number
-  token_symbol: string
+  total_stakers: number
+  supply_pct_staked: number
+  is_running: boolean
+  recent_events_count: number
 }
 
 export const SKRStakingWidget: React.FC = () => {
@@ -18,7 +18,7 @@ export const SKRStakingWidget: React.FC = () => {
       try {
         const res = await fetch('/api/skr/stats')
         const data = await res.json()
-        setStats(data)
+        setStats(data.data || data)
       } catch (e) {
         console.error('Failed to fetch SKR stats', e)
       } finally {
@@ -68,33 +68,33 @@ export const SKRStakingWidget: React.FC = () => {
         <div className="p-3 rounded-xl bg-white/10 border border-white/20 flex items-center justify-between shadow-[0_0_15px_rgba(255,255,255,0.02)]">
            <div className="flex items-center gap-2">
               <Users size={12} className="text-white" />
-              <span className="text-[11px] font-black uppercase tracking-widest text-white">Accounts</span>
+              <span className="text-[11px] font-black uppercase tracking-widest text-white">Stakers</span>
            </div>
            <div className="text-[11px] font-mono font-black text-white">
-              {(stats?.total_accounts || 0).toLocaleString()}
+              {(stats?.total_stakers || 0).toLocaleString()}
            </div>
         </div>
 
         <div className="p-3 rounded-xl bg-accent-cyan/5 border border-accent-cyan/10 flex items-center justify-between">
            <div className="flex items-center gap-2">
               <CheckCircle size={12} className="text-accent-cyan" />
-              <span className="text-[11px] font-black uppercase tracking-widest text-accent-cyan">Claims</span>
+              <span className="text-[11px] font-black uppercase tracking-widest text-accent-cyan">% Supply</span>
            </div>
-           <div className="text-[11px] font-mono font-black text-accent-cyan">
-              {(stats?.total_claims || 0).toLocaleString()}
+           <div className="flex items-baseline gap-1">
+              <span className="text-[11px] font-mono font-black text-accent-cyan">
+                {(stats?.supply_pct_staked || 0).toFixed(2)}
+              </span>
+              <span className="text-[7px] font-bold text-accent-cyan">%</span>
            </div>
         </div>
 
         <div className="p-3 rounded-xl bg-accent-cyan/5 border border-accent-cyan/10 flex items-center justify-between">
            <div className="flex items-center gap-2">
               <Gift size={12} className="text-accent-cyan" />
-              <span className="text-[11px] font-black uppercase tracking-widest text-accent-cyan">Airdrop</span>
+              <span className="text-[11px] font-black uppercase tracking-widest text-accent-cyan">Events</span>
            </div>
-           <div className="flex items-baseline gap-1">
-              <span className="text-[11px] font-mono font-black text-accent-cyan">
-                {(stats?.claim_vault_balance || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </span>
-              <span className="text-[7px] font-bold text-accent-cyan">SKR</span>
+           <div className="text-[11px] font-mono font-black text-accent-cyan">
+              {(stats?.recent_events_count || 0).toLocaleString()}
            </div>
         </div>
 
