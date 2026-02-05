@@ -7,7 +7,8 @@ time-critical operations like arbitrage execution.
 Modes:
 1. Fast-polling (default): Refresh every 400ms via HTTP
 2. WebSocket: Subscribe to slot updates (Helius Enhanced WebSockets)
-3. gRPC: Full LaserStream integration (requires proto setup)
+3. gRPC blocks_meta (preferred): Blockhash + block_height delivered directly
+   via Geyser SubscribeUpdateBlockMeta — zero RPC calls when active
 """
 
 import threading
@@ -41,63 +42,45 @@ class BlockhashCache:
 
         # gRPC stream integration
         self._stream_manager = None
-        self._grpc_active = False  # True when receiving gRPC slot updates
-        self._last_grpc_slot_time: float = 0
+        self._grpc_active = False  # True when receiving gRPC blocks_meta updates
+        self._last_grpc_update_time: float = 0
 
         # Stats
         self._fetch_count = 0
         self._cache_hits = 0
-        self._grpc_slot_updates = 0
+        self._grpc_block_updates = 0
 
     def set_stream_manager(self, stream_manager):
-        """Register gRPC slot subscription for real-time updates.
+        """Register gRPC blocks_meta subscription for real-time updates.
 
-        When active, replaces the 400ms polling loop — blockhash is fetched
-        only when a new slot is confirmed (1 RPC call per slot vs ~2.5/slot).
-        Polling is kept as fallback if gRPC drops.
+        When active, blockhash + block_height arrive directly in the gRPC
+        message — zero RPC calls needed. Polling is kept as fallback if gRPC drops.
         """
         self._stream_manager = stream_manager
-        stream_manager.subscribe_slots('blockhash_cache', self._on_slot_update)
-        logger.info("BlockhashCache: registered gRPC slot subscription")
+        stream_manager.subscribe_blocks_meta('blockhash_cache', self._on_block_meta)
+        logger.info("BlockhashCache: registered gRPC blocks_meta subscription")
 
-    def _on_slot_update(self, slot: int, status: str):
-        """Callback from ShyftStreamManager on slot updates.
+    def _on_block_meta(self, slot: int, blockhash: str, block_height: int):
+        """Callback from ShyftStreamManager on block_meta updates.
 
-        Only fetch a new blockhash when the slot actually advances.
+        Receives blockhash and block_height directly — no RPC call needed.
+        last_valid_block_height = block_height + 150 (Solana MAX_PROCESSING_AGE).
         """
         with self._lock:
-            self._grpc_slot_updates += 1
-            self._last_grpc_slot_time = time.time()
+            self._grpc_block_updates += 1
+            self._last_grpc_update_time = time.time()
 
             if not self._grpc_active:
                 self._grpc_active = True
-                logger.info("BlockhashCache: gRPC slot stream active — polling reduced to fallback")
+                logger.info("BlockhashCache: gRPC blocks_meta stream active — polling reduced to fallback")
 
             if slot <= self._slot:
-                return  # No new slot, skip fetch
-            self._slot = slot
+                return  # No new slot, skip
 
-        # Fetch blockhash for the new slot (single RPC call, no getSlot needed)
-        try:
-            response = requests.post(
-                self.rpc_url,
-                json={
-                    "jsonrpc": "2.0",
-                    "id": 1,
-                    "method": "getLatestBlockhash",
-                    "params": [{"commitment": "confirmed"}]
-                },
-                timeout=2
-            )
-            if response.status_code == 200:
-                result = response.json().get("result", {}).get("value", {})
-                with self._lock:
-                    self._blockhash = result.get("blockhash")
-                    self._last_valid_block_height = result.get("lastValidBlockHeight", 0)
-                    self._last_update = time.time()
-                    self._fetch_count += 1
-        except Exception as e:
-            logger.debug(f"BlockhashCache: gRPC-triggered fetch failed: {e}")
+            self._slot = slot
+            self._blockhash = blockhash
+            self._last_valid_block_height = block_height + 150
+            self._last_update = time.time()
 
     def start(self):
         """Start the background refresh thread."""
@@ -171,7 +154,7 @@ class BlockhashCache:
                 "cache_hits": self._cache_hits,
                 "hit_rate": f"{self._cache_hits / max(1, self._fetch_count + self._cache_hits) * 100:.1f}%",
                 "grpc_active": self._grpc_active,
-                "grpc_slot_updates": self._grpc_slot_updates,
+                "grpc_block_updates": self._grpc_block_updates,
             }
 
     def _refresh_loop(self):
@@ -189,10 +172,10 @@ class BlockhashCache:
                 # Determine if gRPC is healthy
                 grpc_healthy = False
                 if self._grpc_active:
-                    age = time.time() - self._last_grpc_slot_time
+                    age = time.time() - self._last_grpc_update_time
                     grpc_healthy = age < GRPC_STALE_THRESHOLD
                     if not grpc_healthy and self._grpc_active:
-                        logger.warning("BlockhashCache: gRPC slot stream stale, resuming fast polling")
+                        logger.warning("BlockhashCache: gRPC blocks_meta stream stale, resuming fast polling")
                         self._grpc_active = False
 
                 if grpc_healthy:

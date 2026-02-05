@@ -18,6 +18,7 @@ const {
   ParsablePosition,
   increaseLiquidityQuoteByInputToken,
   decreaseLiquidityQuoteByLiquidity,
+  swapQuoteByInputToken,
   SwapQuote,
   IGNORE_CACHE
 } = require('@orca-so/whirlpools-sdk');
@@ -637,6 +638,51 @@ class OrcaInstructionBuilder {
         amountOwed: r.amountOwed.toString(),
         growthInsideCheckpoint: r.growthInsideCheckpoint.toString()
       }))
+    };
+  }
+
+  /**
+   * Build a swap transaction for a given Orca Whirlpool.
+   * Returns a base64-encoded unsigned VersionedTransaction.
+   *
+   * @param {Object} params
+   * @param {string} params.poolAddress  - Whirlpool address
+   * @param {string} params.userWallet   - Payer/signer pubkey
+   * @param {string} params.inputMint    - Input token mint
+   * @param {number} params.amount       - Raw input amount (lamports/atoms)
+   * @param {number} [params.slippagePct=0.5] - Slippage tolerance (e.g. 0.5 = 0.5%)
+   */
+  async buildSwap({ poolAddress, userWallet, inputMint, amount, slippagePct = 0.5 }) {
+    const whirlpool = await this.client.getPool(new PublicKey(poolAddress));
+    const data = whirlpool.getData();
+    const tokenAInfo = whirlpool.getTokenAInfo();
+    const tokenBInfo = whirlpool.getTokenBInfo();
+
+    const inputPubkey = new PublicKey(inputMint);
+    const slippage = Percentage.fromFraction(Math.floor(slippagePct * 100), 10000);
+
+    const quote = await swapQuoteByInputToken(
+      whirlpool, inputPubkey, new BN(amount), slippage,
+      ORCA_WHIRLPOOL_PROGRAM_ID, this.fetcher, IGNORE_CACHE
+    );
+
+    const tx = await whirlpool.swap(quote);
+    const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
+    const instructions = tx.compressIx(true);
+
+    const messageV0 = new TransactionMessage({
+      payerKey: new PublicKey(userWallet),
+      recentBlockhash: blockhash,
+      instructions
+    }).compileToV0Message();
+
+    const transaction = new VersionedTransaction(messageV0);
+    return {
+      transaction: Buffer.from(transaction.serialize()).toString('base64'),
+      estimatedAmountOut: quote.estimatedAmountOut.toString(),
+      otherAmountThreshold: quote.otherAmountThreshold.toString(),
+      blockhash,
+      lastValidBlockHeight
     };
   }
 

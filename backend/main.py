@@ -621,6 +621,7 @@ from services.skr_staking import SKRStakingService
 from services.shyft_stream import ShyftStreamManager
 from services.network_monitor import network_monitor
 from services.audit import audit_logger
+from services.raydium_amm import RaydiumPoolRegistry
 
 registry.register(
     SD("copy_trader", "Copy Trader", "Whale wallet tracking via Helius WebSocket",
@@ -631,6 +632,13 @@ registry.register(
     SD("arb_engine", "Arb Scanner", "Cross-DEX spread detection",
        "TrendingUp", "green"),
     ArbEngine(helius, db))
+
+registry.register(
+    SD("raydium_registry", "Raydium Pool Registry",
+       "Real-time Raydium V4 pool state via gRPC",
+       "Layers", "purple", toggleable=False, auto_start=True,
+       needs_stream="set_stream_manager"),
+    RaydiumPoolRegistry())
 
 registry.register(
     SD("wolf_pack", "Wolf Pack", "Whale consensus trading",
@@ -694,6 +702,21 @@ async def startup():
 
     # Auto-start core services
     registry.start_all(auto_only=True)
+
+    # Wire Raydium registry → Arb Engine for direct DEX swap building
+    arb = registry.get('arb_engine')
+    raydium = registry.get('raydium_registry')
+    if arb and raydium:
+        arb.set_raydium_registry(raydium)
+        # Discover Raydium V4 pools for monitored arb pairs
+        try:
+            pairs = [(p["input"], p["output"]) for p in arb.monitored_pairs]
+            if pairs:
+                threading.Thread(
+                    target=raydium.discover_pools, args=(pairs,), daemon=True
+                ).start()
+        except Exception as e:
+            logger.warning(f"Raydium pool discovery failed (non-fatal): {e}")
 
     # Defer notification
     threading.Timer(2, notify_system_status,

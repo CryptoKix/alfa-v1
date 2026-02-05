@@ -36,7 +36,8 @@ class ShyftStreamManager:
 
     Usage:
         manager = ShyftStreamManager(config)
-        manager.subscribe_slots('blockhash', callback)
+        manager.subscribe_slots('my_slot_sub', callback)
+        manager.subscribe_blocks_meta('blockhash', callback)
         manager.subscribe_program('skr', program_id, callback, data_size=169)
         manager.subscribe_accounts('portfolio', [wallet], callback)
         manager.subscribe_transactions('copytrade', wallets, callback)
@@ -50,6 +51,7 @@ class ShyftStreamManager:
 
         # Subscription registrations (name → config)
         self._slot_subs: Dict[str, Callable] = {}
+        self._blocks_meta_subs: Dict[str, Callable] = {}  # name → callback(slot, blockhash, block_height)
         self._account_subs: Dict[str, dict] = {}      # name → {accounts: [], callback: fn}
         self._program_subs: Dict[str, dict] = {}       # name → {program_id, callback, data_size}
         self._tx_subs: Dict[str, dict] = {}            # name → {account_include: [], callback: fn}
@@ -88,7 +90,7 @@ class ShyftStreamManager:
         self._stop_event = threading.Event()
 
         # Start Geyser thread if there are subscriptions
-        if self._slot_subs or self._account_subs or self._program_subs:
+        if self._slot_subs or self._blocks_meta_subs or self._account_subs or self._program_subs:
             self._geyser_thread = threading.Thread(
                 target=self._run_geyser_thread, daemon=True, name="shyft-geyser"
             )
@@ -129,6 +131,16 @@ class ShyftStreamManager:
         """
         self._slot_subs[name] = callback
         logger.info(f"[ShyftStream] Registered slot subscription: {name}")
+        self._maybe_start_geyser()
+
+    def subscribe_blocks_meta(self, name: str, callback: Callable):
+        """
+        Subscribe to block metadata updates via Geyser.
+
+        callback(slot: int, blockhash: str, block_height: int)
+        """
+        self._blocks_meta_subs[name] = callback
+        logger.info(f"[ShyftStream] Registered blocks_meta subscription: {name}")
         self._maybe_start_geyser()
 
     def subscribe_accounts(self, name: str, accounts: List[str], callback: Callable):
@@ -281,12 +293,17 @@ class ShyftStreamManager:
         accounts = {}
         slots = {}
         transactions = {}
+        blocks_meta = {}
 
         # Slot subscriptions
         if self._slot_subs:
             slots['slot_sub'] = geyser_pb2.SubscribeRequestFilterSlots(
                 filter_by_commitment=True
             )
+
+        # Blocks meta subscriptions
+        if self._blocks_meta_subs:
+            blocks_meta['blocks_meta_sub'] = geyser_pb2.SubscribeRequestFilterBlocksMeta()
 
         # Account subscriptions (direct account addresses)
         all_account_addrs = []
@@ -316,6 +333,7 @@ class ShyftStreamManager:
             accounts=accounts,
             slots=slots,
             transactions=transactions,
+            blocks_meta=blocks_meta,
             commitment=geyser_pb2.CONFIRMED,
         )
         return request
@@ -333,7 +351,7 @@ class ShyftStreamManager:
         """Route a geyser SubscribeUpdate to the appropriate callback(s).
 
         Callbacks are dispatched to a thread pool so the gRPC reader thread
-        is never blocked by slow I/O (e.g. RPC calls in blockhash_cache).
+        is never blocked by slow I/O in subscriber callbacks.
         """
         with self._lock:
             self._geyser_updates += 1
@@ -399,6 +417,12 @@ class ShyftStreamManager:
                 include_set = set(sub['account_include'])
                 if include_set.intersection(account_keys):
                     self._safe_submit(sub['callback'], sig_b58, account_keys, slot)
+
+        elif update_type == 'block_meta':
+            bm = update.block_meta
+            block_height = bm.block_height.block_height if bm.block_height else 0
+            for callback in self._blocks_meta_subs.values():
+                self._safe_submit(callback, bm.slot, bm.blockhash, block_height)
 
         elif update_type == 'ping':
             pass  # Server keepalive
@@ -566,6 +590,7 @@ class ShyftStreamManager:
                 'geyser_age_ms': int((time.time() - self._last_geyser_update) * 1000) if self._last_geyser_update else None,
                 'rabbit_age_ms': int((time.time() - self._last_rabbit_update) * 1000) if self._last_rabbit_update else None,
                 'slot_subs': list(self._slot_subs.keys()),
+                'blocks_meta_subs': list(self._blocks_meta_subs.keys()),
                 'account_subs': list(self._account_subs.keys()),
                 'program_subs': list(self._program_subs.keys()),
                 'tx_subs': list(self._tx_subs.keys()),

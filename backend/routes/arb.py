@@ -17,8 +17,9 @@ def api_arb_start():
         auto_strike = data.get('autoStrike', False)
         jito_tip = float(data.get('jitoTip', 0.001))
         min_profit = float(data.get('minProfit', 0.1))
+        scan_interval = float(data.get('scanInterval', 2.0))
 
-        engine.update_config(auto_strike, jito_tip, min_profit)
+        engine.update_config(auto_strike, jito_tip, min_profit, scan_interval=scan_interval)
         engine.start()
         return jsonify({"success": True, "message": "Arb Engine Configured & Initialized"})
     return jsonify({"success": False, "error": "Arb Engine not found"}), 500

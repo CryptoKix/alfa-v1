@@ -226,6 +226,28 @@ app.post('/build/close-position', async (req, res) => {
   }
 })
 
+// Build swap transaction for arb/direct routing
+app.post('/build/swap', async (req, res) => {
+  if (!orcaBuilder) return res.status(503).json({ error: 'Orca not initialized' });
+  const { poolAddress, inputMint, amount, userWallet, slippagePct } = req.body;
+  if (!poolAddress || !inputMint || !amount || !userWallet) {
+    return res.status(400).json({ error: 'Missing: poolAddress, inputMint, amount, userWallet' });
+  }
+  try {
+    const result = await orcaBuilder.buildSwap({
+      poolAddress,
+      inputMint,
+      amount: parseInt(amount),
+      userWallet,
+      slippagePct: slippagePct !== undefined ? parseFloat(slippagePct) : 0.5
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('[Orca] Build swap error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Calculate tick range for a risk profile
 app.post('/calculate-tick-range', async (req, res) => {
   try {
