@@ -4,10 +4,11 @@ import threading
 import time
 from typing import List, Dict, Any
 import requests
-from config import JUPITER_QUOTE_API, JUPITER_API_KEY, JUPITER_SWAP_API, WALLET_ADDRESS
+from config import JUPITER_QUOTE_API, JUPITER_API_KEY, JUPITER_SWAP_API, WALLET_ADDRESS, HELIUS_STAKED_RPC
 from concurrent.futures import ThreadPoolExecutor
 from services.jito import send_jito_bundle, build_tip_transaction
 from services.tokens import get_token_symbol
+from services.blockhash_cache import get_fresh_blockhash
 
 # Force logging to console
 logger = logging.getLogger("arb_engine")
@@ -197,48 +198,207 @@ class ArbEngine:
                     self.execute_atomic_strike(opp)
 
     def execute_atomic_strike(self, opp):
-        """Build and send a Jito bundle for the arbitrage opportunity."""
-        logger.info(f"🚀 ATOMIC STRIKE TRIGGERED: {opp['input_symbol']} -> {opp['output_symbol']} ({opp['spread_pct']:.3f}%)")
-        
+        """
+        Build and send a Jito bundle for atomic venue arbitrage.
+
+        Strategy:
+        - If monitoring SOL -> USDC and Raydium gives more USDC than Orca:
+          - Leg 1: Buy SOL on Orca (cheap) with USDC
+          - Leg 2: Sell SOL on Raydium (expensive) for USDC
+          - Net profit = USDC difference minus fees
+        """
+        logger.info(f"🚀 ATOMIC STRIKE: {opp['input_symbol']}/{opp['output_symbol']} spread={opp['spread_pct']:.3f}%")
+
         try:
-            # 1. We need to buy the target asset on the CHEAPER venue (worst output for SOL -> X means cheaper X?)
-            # Wait, best venue has highest outAmount. So it is the cheapest venue to BUY on.
-            # No, if I sell 10 SOL, best venue gives me 1450 USDC, worst gives 1440.
-            # So I should BUY USDC on the BEST venue.
-            
-            # For ARB: 
-            # Step 1: Buy Target on Venue A (where it is cheap)
-            # Step 2: Sell Target on Venue B (where it is expensive)
-            
-            # In our setup:
-            # opp['best_quote'] gives the highest output for a fixed input.
-            # So Best Venue is where we get the MOST of the output.
-            
-            # To actually ARB, we need to do:
-            # SOL -> USDC (Venue Best)
-            # USDC -> SOL (Venue ? - we need to fetch the opposite quote)
-            
-            # Real atomic arb requires:
-            # 1. Buy token X on Venue A with 10 SOL.
-            # 2. Sell token X on Venue B for SOL.
-            # 3. If Result > 10 SOL + Fees, profit.
-            
-            # Our current monitor only checks one-way spreads.
-            # Let's log the attempt for now as we integrate Jito.
-            logger.info(f"Simulating atomic bundle via Jito with {self.jito_tip} SOL tip...")
-            
-            # Placeholder for actual transaction construction
-            # transactions = [buy_tx, sell_tx, tip_tx]
-            # send_jito_bundle(transactions)
-            
-            self.socketio.emit('notification', {
-                'title': 'Arb Strike Sent',
-                'message': f"Atomic bundle submitted to Jito Block Engine",
-                'type': 'info'
-            }, namespace='/arb')
-            
+            from config import KEYPAIR
+            import base64
+
+            if not KEYPAIR:
+                logger.error("No keypair configured - cannot execute strike")
+                return
+
+            # Venues from opportunity
+            best_venue = opp['best_venue']   # Highest output = expensive venue to SELL on
+            worst_venue = opp['worst_venue'] # Lowest output = cheap venue to BUY on
+
+            input_mint = opp['input_mint']
+            output_mint = opp['output_mint']
+            input_amount = opp['input_amount']
+
+            # Map venue names to Jupiter dex identifiers
+            venue_map = {
+                'Raydium': 'Raydium',
+                'Orca': 'Orca',
+                'Meteora': 'Meteora',
+                'Phoenix': 'Phoenix'
+            }
+
+            best_dex = venue_map.get(best_venue, best_venue)
+            worst_dex = venue_map.get(worst_venue, worst_venue)
+
+            headers = {'Content-Type': 'application/json'}
+            if JUPITER_API_KEY:
+                headers['x-api-key'] = JUPITER_API_KEY
+
+            wallet = str(KEYPAIR.pubkey())
+
+            # Get recent blockhash from cache (instant, no HTTP call)
+            recent_blockhash, _ = get_fresh_blockhash(max_age_ms=500)
+            if not recent_blockhash:
+                logger.error("No blockhash available from cache")
+                return
+            logger.info(f"Using cached blockhash: {recent_blockhash[:8]}...")
+
+            # ============================================================
+            # LEG 1: Buy input token on CHEAP venue (worst_venue)
+            # Swap output -> input on the venue where input is cheaper
+            # ============================================================
+
+            # We need to figure out how much output token to spend
+            # Use the output amount from the worst quote as our input for leg 1
+            leg1_input_amount = opp['worst_amount']  # Amount of output token
+
+            leg1_quote_url = (
+                f"{JUPITER_QUOTE_API}?"
+                f"inputMint={output_mint}&"
+                f"outputMint={input_mint}&"
+                f"amount={leg1_input_amount}&"
+                f"dexes={worst_dex}&"
+                f"onlyDirectRoutes=true&"
+                f"slippageBps=50"
+            )
+
+            leg1_quote_resp = requests.get(leg1_quote_url, headers=headers, timeout=5)
+            if leg1_quote_resp.status_code != 200:
+                logger.error(f"Leg 1 quote failed: {leg1_quote_resp.text}")
+                return
+            leg1_quote = leg1_quote_resp.json()
+
+            # Build Leg 1 swap transaction
+            leg1_swap_resp = requests.post(JUPITER_SWAP_API, headers=headers, json={
+                "quoteResponse": leg1_quote,
+                "userPublicKey": wallet,
+                "wrapAndUnwrapSol": True,
+                "dynamicComputeUnitLimit": True,
+                "prioritizationFeeLamports": 10000
+            }, timeout=10)
+
+            if leg1_swap_resp.status_code != 200:
+                logger.error(f"Leg 1 swap build failed: {leg1_swap_resp.text}")
+                return
+            leg1_tx_b64 = leg1_swap_resp.json().get('swapTransaction')
+
+            # ============================================================
+            # LEG 2: Sell input token on EXPENSIVE venue (best_venue)
+            # Swap input -> output on the venue where input is worth more
+            # ============================================================
+
+            # Use the output from leg 1 as input for leg 2
+            leg2_input_amount = int(leg1_quote.get('outAmount', 0))
+
+            leg2_quote_url = (
+                f"{JUPITER_QUOTE_API}?"
+                f"inputMint={input_mint}&"
+                f"outputMint={output_mint}&"
+                f"amount={leg2_input_amount}&"
+                f"dexes={best_dex}&"
+                f"onlyDirectRoutes=true&"
+                f"slippageBps=50"
+            )
+
+            leg2_quote_resp = requests.get(leg2_quote_url, headers=headers, timeout=5)
+            if leg2_quote_resp.status_code != 200:
+                logger.error(f"Leg 2 quote failed: {leg2_quote_resp.text}")
+                return
+            leg2_quote = leg2_quote_resp.json()
+
+            # Build Leg 2 swap transaction
+            leg2_swap_resp = requests.post(JUPITER_SWAP_API, headers=headers, json={
+                "quoteResponse": leg2_quote,
+                "userPublicKey": wallet,
+                "wrapAndUnwrapSol": True,
+                "dynamicComputeUnitLimit": True,
+                "prioritizationFeeLamports": 10000
+            }, timeout=10)
+
+            if leg2_swap_resp.status_code != 200:
+                logger.error(f"Leg 2 swap build failed: {leg2_swap_resp.text}")
+                return
+            leg2_tx_b64 = leg2_swap_resp.json().get('swapTransaction')
+
+            # ============================================================
+            # Calculate expected profit
+            # ============================================================
+            leg2_output = int(leg2_quote.get('outAmount', 0))
+            profit = leg2_output - leg1_input_amount
+
+            # Convert to readable units
+            out_decimals = 6 if opp['output_symbol'] in ['USDC', 'USDT'] else 9
+            profit_readable = profit / (10 ** out_decimals)
+
+            logger.info(f"📊 Arb Calculation:")
+            logger.info(f"   Leg 1: {leg1_input_amount / (10**out_decimals):.4f} {opp['output_symbol']} -> {leg2_input_amount / (10**9):.6f} {opp['input_symbol']} on {worst_venue}")
+            logger.info(f"   Leg 2: {leg2_input_amount / (10**9):.6f} {opp['input_symbol']} -> {leg2_output / (10**out_decimals):.4f} {opp['output_symbol']} on {best_venue}")
+            logger.info(f"   Profit: {profit_readable:.4f} {opp['output_symbol']}")
+
+            if profit <= 0:
+                logger.warning(f"⚠️ No profit after routing - aborting strike")
+                return
+
+            # ============================================================
+            # Build Jito tip transaction
+            # ============================================================
+            tip_lamports = int(self.jito_tip * 1e9)
+            tip_tx_b64 = build_tip_transaction(tip_lamports, recent_blockhash)
+
+            if not tip_tx_b64:
+                logger.error("Failed to build tip transaction")
+                return
+
+            # ============================================================
+            # Sign and send bundle via Jito
+            # ============================================================
+
+            # Decode, sign, and re-encode transactions
+            def sign_transaction(tx_b64):
+                from solders.transaction import VersionedTransaction
+                tx_bytes = base64.b64decode(tx_b64)
+                tx = VersionedTransaction.from_bytes(tx_bytes)
+                signed_tx = VersionedTransaction(tx.message, [KEYPAIR])
+                return base64.b64encode(bytes(signed_tx)).decode('utf-8')
+
+            signed_leg1 = sign_transaction(leg1_tx_b64)
+            signed_leg2 = sign_transaction(leg2_tx_b64)
+
+            bundle = [signed_leg1, signed_leg2, tip_tx_b64]
+
+            logger.info(f"🚀 Sending Jito bundle with {len(bundle)} transactions...")
+            results = send_jito_bundle(bundle)
+
+            success = any(r.get('status') == 200 for r in results)
+
+            if success:
+                logger.info(f"✅ Arb bundle submitted successfully!")
+                self.socketio.emit('notification', {
+                    'title': 'Arb Strike Executed',
+                    'message': f"Atomic arb: {worst_venue} → {best_venue}, expected profit: {profit_readable:.4f} {opp['output_symbol']}",
+                    'type': 'success'
+                }, namespace='/arb')
+            else:
+                logger.error(f"❌ Bundle submission failed: {results}")
+                self.socketio.emit('notification', {
+                    'title': 'Arb Strike Failed',
+                    'message': f"Bundle rejected by Jito",
+                    'type': 'error'
+                }, namespace='/arb')
+
         except Exception as e:
-            logger.error(f"Strike Error: {e}")
+            logger.error(f"Strike Error: {e}", exc_info=True)
+            self.socketio.emit('notification', {
+                'title': 'Arb Strike Error',
+                'message': str(e),
+                'type': 'error'
+            }, namespace='/arb')
 
     def fetch_quote(self, url, venue, headers):
         try:

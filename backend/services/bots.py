@@ -439,33 +439,48 @@ def process_grid_logic(bot, current_price):
                     notify_grid_error(bot_alias, "BUY_EXECUTION", str(e), f"Level {i} @ {prev_level['price']}")
 
         if changed:
-            # Trailing grid logic with max cycles check (Issue 9)
-            if config.get('trailing_enabled') and current_price >= config.get('upper_bound', 0):
-                # Check if max trailing cycles reached
+            # Bidirectional trailing grid logic with max cycles check
+            if config.get('trailing_enabled'):
                 trailing_max_cycles = config.get('trailing_max_cycles', 0)  # 0 = unlimited
                 trailing_cycle_count = state.get('trailing_cycle_count', 0)
+                step_size = (config['upper_bound'] - config['lower_bound']) / (config['steps'] - 1)
+                trail_direction = None
 
-                if trailing_max_cycles == 0 or trailing_cycle_count < trailing_max_cycles:
-                    step_size = (config['upper_bound'] - config['lower_bound']) / (config['steps'] - 1)
-                    config['lower_bound'] += step_size
-                    config['upper_bound'] += step_size
-                    for lvl in state.get('grid_levels', []):
-                        lvl['price'] += step_size
-                    state['trailing_cycle_count'] = trailing_cycle_count + 1
-                    socketio.emit('notification', {
-                        'title': 'Grid Trailing Active',
-                        'message': f"Bot {bot_alias} shifted up. Cycle {state['trailing_cycle_count']}/{trailing_max_cycles or '∞'}",
-                        'type': 'info'
-                    }, namespace='/bots')
-                else:
-                    # Max cycles reached, complete the bot
-                    state['status'] = 'completed'
-                    notify_bot_completion("GRID", bot_alias, state.get('profit_realized', 0))
-                    socketio.emit('notification', {
-                        'title': 'Grid Trailing Complete',
-                        'message': f"Bot {bot_alias} completed {trailing_max_cycles} trailing cycles.",
-                        'type': 'success'
-                    }, namespace='/bots')
+                # Trail UP when price breaks above upper bound
+                if current_price >= config.get('upper_bound', 0):
+                    trail_direction = 'up'
+                # Trail DOWN when price breaks below lower bound
+                elif current_price <= config.get('lower_bound', 0):
+                    trail_direction = 'down'
+
+                if trail_direction:
+                    if trailing_max_cycles == 0 or trailing_cycle_count < trailing_max_cycles:
+                        if trail_direction == 'up':
+                            config['lower_bound'] += step_size
+                            config['upper_bound'] += step_size
+                            for lvl in state.get('grid_levels', []):
+                                lvl['price'] += step_size
+                        else:  # down
+                            config['lower_bound'] -= step_size
+                            config['upper_bound'] -= step_size
+                            for lvl in state.get('grid_levels', []):
+                                lvl['price'] -= step_size
+
+                        state['trailing_cycle_count'] = trailing_cycle_count + 1
+                        socketio.emit('notification', {
+                            'title': 'Grid Trailing Active',
+                            'message': f"Bot {bot_alias} shifted {trail_direction}. Cycle {state['trailing_cycle_count']}/{trailing_max_cycles or '∞'}",
+                            'type': 'info'
+                        }, namespace='/bots')
+                    else:
+                        # Max cycles reached, complete the bot
+                        state['status'] = 'completed'
+                        notify_bot_completion("GRID", bot_alias, state.get('profit_realized', 0))
+                        socketio.emit('notification', {
+                            'title': 'Grid Trailing Complete',
+                            'message': f"Bot {bot_alias} completed {trailing_max_cycles} trailing cycles.",
+                            'type': 'success'
+                        }, namespace='/bots')
 
             all_sold = all(not l.get('has_position') for l in state.get('grid_levels', []))
             if all_sold and current_price >= config.get('upper_bound', 0) and not config.get('trailing_enabled'):
@@ -1038,11 +1053,200 @@ def process_limit_grid_logic(bot):
         notify_grid_error(bot_alias, "LIMIT_GRID_CRITICAL", str(e))
         print(f"❌ LIMIT GRID WATCHER ERROR: {e}")
 
+def notify_indicator_error(bot_alias, error_type, error_msg, run_info=None):
+    """Notify about indicator bot errors via Discord and Socket.IO."""
+    try:
+        fields = [
+            {"name": "Bot", "value": str(bot_alias), "inline": True},
+            {"name": "Error Type", "value": error_type, "inline": True},
+        ]
+        if run_info:
+            fields.append({"name": "Run Info", "value": str(run_info), "inline": False})
+
+        send_discord_notification(
+            title=f"⚠️ INDICATOR BOT ERROR: {bot_alias}",
+            message=str(error_msg)[:500],
+            color=0x9B59B6,  # Purple for indicator bots
+            fields=fields
+        )
+    except Exception as e:
+        print(f"Failed to send indicator bot error notification: {e}")
+
+    try:
+        socketio.emit('bot_error', {
+            'bot_alias': bot_alias,
+            'error_type': error_type,
+            'error_msg': str(error_msg),
+            'run_info': run_info,
+            'timestamp': time.time()
+        }, namespace='/bots')
+    except Exception as e:
+        print(f"Failed to emit indicator bot error socket event: {e}")
+
+
+def process_indicator_bot_logic(bot, current_price):
+    """Process indicator-based bot logic (RSI, MACD, BB, EMA Cross, Multi)."""
+    from services.strategies import process_indicator_bot, is_indicator_bot, INDICATOR_BOT_TYPES
+
+    bot_id = bot['id']
+
+    # Atomic check-and-add using lock
+    with bot_processing_lock:
+        if bot_id in in_flight_bots:
+            return  # Already processing in this process
+        in_flight_bots.add(bot_id)
+
+    try:
+        # Fetch fresh state from DB
+        fresh_bot = db.get_bot(bot_id)
+        if not fresh_bot or fresh_bot['status'] != 'active':
+            return
+
+        # Check DB-level processing flag
+        if fresh_bot.get('is_processing', 0) == 1:
+            print(f"⚠️ Indicator Bot {bot_id} already processing (DB flag), skipping")
+            return
+
+        # Set processing flag
+        db.set_bot_processing(bot_id, True)
+
+        config = json.loads(fresh_bot['config_json'])
+        state = json.loads(fresh_bot['state_json'])
+        bot_alias = config.get('alias') or bot_id
+        slippage_bps = config.get('slippage_bps', 50)
+        user_wallet = fresh_bot.get('user_wallet')
+
+        # Validate price
+        if current_price <= 0:
+            print(f"⚠️ {fresh_bot['type']} {bot_alias}: Invalid price {current_price}, skipping")
+            return
+
+        # Get trade signal from strategy
+        signal = process_indicator_bot(fresh_bot, current_price)
+
+        if signal is None:
+            # No trade signal, just update last check time
+            state['last_check'] = time.time()
+            db.save_bot(fresh_bot['id'], fresh_bot['type'],
+                        fresh_bot['input_mint'], fresh_bot['output_mint'],
+                        fresh_bot['input_symbol'], fresh_bot['output_symbol'],
+                        config, state, user_wallet)
+            return
+
+        # Execute trade based on signal
+        action = signal.get('action')
+        amount = signal.get('amount', 0)
+        reason = signal.get('reason', '')
+
+        if amount <= 0:
+            print(f"⚠️ {fresh_bot['type']} {bot_alias}: Signal has zero amount, skipping")
+            return
+
+        print(f"📊 {fresh_bot['type']} {bot_alias}: {action.upper()} signal - {reason}")
+
+        try:
+            if action == 'buy':
+                # Buy: input_mint (USDC/SOL) -> output_mint (token)
+                res = execute_bot_trade(
+                    fresh_bot['input_mint'], fresh_bot['output_mint'],
+                    amount, f"{fresh_bot['type']} {reason}",
+                    slippage_bps=slippage_bps, priority_fee=0,
+                    user_wallet=user_wallet
+                )
+
+                # Update position state
+                tokens_received = res.get('amount_out', 0)
+                state['position'] = 'long'
+                state['position_amount'] = tokens_received
+                state['entry_price'] = current_price
+                state['entry_cost'] = res.get('usd_value', amount)
+                state['last_trade_time'] = time.time()
+                state['run_count'] = state.get('run_count', 0) + 1
+                state['total_cost'] = state.get('total_cost', 0) + res.get('usd_value', amount)
+                state['total_bought'] = state.get('total_bought', 0) + tokens_received
+
+                print(f"✅ {fresh_bot['type']} BUY SUCCESS: {bot_alias} | Got {tokens_received:.6f} tokens @ ${current_price:.4f}")
+
+                socketio.emit('notification', {
+                    'title': f'{fresh_bot["type"]} Buy Executed',
+                    'message': f"{bot_alias}: {reason}",
+                    'type': 'success'
+                }, namespace='/bots')
+
+            elif action == 'sell':
+                # Sell: output_mint (token) -> input_mint (USDC/SOL)
+                res = execute_bot_trade(
+                    fresh_bot['output_mint'], fresh_bot['input_mint'],
+                    amount, f"{fresh_bot['type']} {reason}",
+                    slippage_bps=slippage_bps, priority_fee=0,
+                    user_wallet=user_wallet
+                )
+
+                # Calculate profit
+                entry_cost = state.get('entry_cost', 0)
+                sell_value = res.get('usd_value', amount * current_price)
+                profit = sell_value - entry_cost
+
+                # Update position state
+                state['position'] = 'none'
+                state['position_amount'] = 0
+                state['last_trade_time'] = time.time()
+                state['run_count'] = state.get('run_count', 0) + 1
+                state['profit_realized'] = state.get('profit_realized', 0) + profit
+
+                print(f"✅ {fresh_bot['type']} SELL SUCCESS: {bot_alias} | Profit: ${profit:.4f}")
+
+                socketio.emit('notification', {
+                    'title': f'{fresh_bot["type"]} Sell Executed',
+                    'message': f"{bot_alias}: {reason} | P&L: ${profit:.2f}",
+                    'type': 'success' if profit >= 0 else 'warning'
+                }, namespace='/bots')
+
+            # Save updated state
+            db.save_bot(fresh_bot['id'], fresh_bot['type'],
+                        fresh_bot['input_mint'], fresh_bot['output_mint'],
+                        fresh_bot['input_symbol'], fresh_bot['output_symbol'],
+                        config, state, user_wallet)
+            socketio.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
+
+        except BotTradeError as e:
+            notify_indicator_error(bot_alias, "TRADE_EXECUTION", str(e),
+                                   f"{action.upper()}: {reason}")
+        except Exception as e:
+            notify_indicator_error(bot_alias, "EXECUTION", str(e),
+                                   f"Run {state.get('run_count', 0)+1}")
+            # Save state with error info
+            state['last_error'] = str(e)
+            state['last_error_time'] = time.time()
+            db.save_bot(fresh_bot['id'], fresh_bot['type'],
+                        fresh_bot['input_mint'], fresh_bot['output_mint'],
+                        fresh_bot['input_symbol'], fresh_bot['output_symbol'],
+                        config, state, user_wallet)
+
+    except Exception as e:
+        bot_alias = bot.get('id', 'unknown')
+        try:
+            config = json.loads(bot.get('config_json', '{}'))
+            bot_alias = config.get('alias') or bot_alias
+        except:
+            pass
+        notify_indicator_error(bot_alias, "CRITICAL", str(e))
+        print(f"❌ INDICATOR BOT LOGIC CRITICAL ERROR: {e}")
+
+    finally:
+        try:
+            db.set_bot_processing(bot_id, False)
+        except Exception as e:
+            print(f"Error clearing processing flag: {e}")
+        in_flight_bots.discard(bot_id)
+
+
 def process_bot_safe(app, bot):
     """Process a single bot with Flask app context (for ThreadPoolExecutor)."""
     try:
         with app.app_context():
             from extensions import price_cache, price_cache_lock
+            from services.strategies import INDICATOR_BOT_TYPES
 
             if bot['type'] in ['DCA', 'TWAP']:
                 # Issue 6: Use price_cache_lock for thread safety
@@ -1056,6 +1260,11 @@ def process_bot_safe(app, bot):
                 process_vwap_logic(bot, current_price)
             elif bot['type'] == 'LIMIT_GRID':
                 process_limit_grid_logic(bot)
+            elif bot['type'] in INDICATOR_BOT_TYPES:
+                # Indicator-based strategies (RSI, MACD, BB, EMA Cross, Multi)
+                with price_cache_lock:
+                    current_price = price_cache.get(bot['output_mint'], (0,))[0]
+                process_indicator_bot_logic(bot, current_price)
     except Exception as e:
         bot_alias = bot.get('id', 'unknown')
         try:
@@ -1066,11 +1275,19 @@ def process_bot_safe(app, bot):
         notify_grid_error(bot_alias, "SCHEDULER", str(e))
 
 def dca_scheduler(app):
-    """DCA/TWAP/LIMIT_GRID scheduler with concurrent bot processing (Issue 5)."""
+    """DCA/TWAP/LIMIT_GRID/Indicator scheduler with concurrent bot processing (Issue 5)."""
+    from services.strategies import INDICATOR_BOT_TYPES
+
+    # All supported bot types
+    SUPPORTED_BOT_TYPES = {'DCA', 'TWAP', 'VWAP', 'LIMIT_GRID'} | INDICATOR_BOT_TYPES
+
     while True:
         try:
             with app.app_context():
-                active_bots = [bot for bot in db.get_all_bots() if bot['status'] == 'active' and bot['type'] in ['DCA', 'TWAP', 'VWAP', 'LIMIT_GRID']]
+                active_bots = [
+                    bot for bot in db.get_all_bots()
+                    if bot['status'] == 'active' and bot['type'] in SUPPORTED_BOT_TYPES
+                ]
 
                 if active_bots:
                     # Issue 5: Use ThreadPoolExecutor for concurrent processing
@@ -1082,4 +1299,4 @@ def dca_scheduler(app):
                             print(f"Bot processing error: {e}")
         except Exception as e:
             print(f"DCA Scheduler error: {e}")
-        time.sleep(15)  # Poll limit orders every 15s
+        time.sleep(15)  # Poll every 15s

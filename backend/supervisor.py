@@ -36,10 +36,24 @@ SERVICES = [
         "restart_delay": 3
     },
     {
+        "name": "Kamino Sidecar",
+        "command": ["npm", "start"],
+        "log": "backend/kamino_sidecar.log",
+        "cwd": "backend/kamino_sidecar",
+        "restart_delay": 3
+    },
+    {
         "name": "Frontend",
         "command": ["npm", "run", "dev"],
         "log": "frontend/frontend.log",
         "cwd": "frontend",
+        "restart_delay": 5
+    },
+    {
+        "name": "Network Monitor",
+        "command": ["python3", "-u", "backend/network_monitor.py"],
+        "log": "backend/logs/network_monitor.log",
+        "cwd": ".",
         "restart_delay": 5
     }
 ]

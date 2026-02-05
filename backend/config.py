@@ -31,6 +31,14 @@ JUPITER_SWAP_API = "https://api.jup.ag/swap/v1/swap"
 JUPITER_LIMIT_ORDER_API = "https://api.jup.ag/limit/v2"
 BIRDEYE_OHLCV_API = "https://public-api.birdeye.so/defi/ohlcv"
 
+# Helius gRPC / LaserStream endpoints (Yellowstone-compatible)
+# Regional endpoints: ewr (NYC), fra (Frankfurt), ams (Amsterdam), tyo (Tokyo), sg (Singapore), lax, lon, pitt, slc
+HELIUS_GRPC_ENDPOINT = "laserstream-mainnet-ewr.helius-rpc.com:443"
+HELIUS_GRPC_TOKEN = HELIUS_API_KEY  # Use same API key as x-token
+
+# Helius staked connection for priority tx sending
+HELIUS_STAKED_RPC = f"https://staked.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+
 # Keypair Loading - SECURITY: Supports encrypted keystore
 # Priority: 1) Encrypted keystore (.keystore.enc), 2) Plaintext keypair.json (deprecated)
 KEYPAIR = None

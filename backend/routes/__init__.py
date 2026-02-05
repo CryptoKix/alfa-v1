@@ -6,6 +6,7 @@ from routes.websocket import register_websocket_handlers
 from routes.yield_routes import yield_bp
 from routes.dlmm_routes import dlmm_bp, init_dlmm_services
 from routes.liquidity_routes import liquidity_bp, init_liquidity_services
+from routes.skr_routes import skr_bp, init_skr_service
 
 __all__ = [
     'api_bp',
@@ -14,7 +15,9 @@ __all__ = [
     'yield_bp',
     'dlmm_bp',
     'liquidity_bp',
+    'skr_bp',
     'register_websocket_handlers',
     'init_dlmm_services',
-    'init_liquidity_services'
+    'init_liquidity_services',
+    'init_skr_service'
 ]

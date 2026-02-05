@@ -4,5 +4,12 @@ dist/
 *.db
 .env
 keypair.json
+jito_keypair.json
 __pycache__/
 .DS_Store
+venv/
+.auth_token
+.keystore.enc
+.claude/
+.mcp.json
+=*

@@ -35,6 +35,35 @@ AUTH_TOKEN_FILE = os.getenv('TACTIX_AUTH_TOKEN_FILE', '.auth_token')
 SESSION_EXPIRY_HOURS = int(os.getenv('TACTIX_SESSION_EXPIRY_HOURS', '24'))
 SESSION_SECRET = os.getenv('TACTIX_SESSION_SECRET', '')
 
+# IP Whitelist - connections from these IPs bypass token auth
+# Default: localhost only (most secure for personal use)
+IP_WHITELIST_ENABLED = os.getenv('TACTIX_IP_WHITELIST', 'true').lower() == 'true'
+IP_WHITELIST = set(filter(None, os.getenv('TACTIX_ALLOWED_IPS', '127.0.0.1,::1,localhost').split(',')))
+
+def _get_client_ip() -> str:
+    """Get the real client IP, handling proxies."""
+    # Check X-Forwarded-For header (for reverse proxies)
+    forwarded = request.headers.get('X-Forwarded-For', '')
+    if forwarded:
+        # Take the first IP (original client)
+        return forwarded.split(',')[0].strip()
+    # Check X-Real-IP header
+    real_ip = request.headers.get('X-Real-IP', '')
+    if real_ip:
+        return real_ip.strip()
+    # Fall back to remote_addr
+    return request.remote_addr or ''
+
+def _is_ip_whitelisted() -> bool:
+    """Check if the client IP is in the whitelist."""
+    if not IP_WHITELIST_ENABLED:
+        return False
+    client_ip = _get_client_ip()
+    # Normalize localhost variations
+    if client_ip in ('127.0.0.1', '::1', 'localhost', '::ffff:127.0.0.1'):
+        return '127.0.0.1' in IP_WHITELIST or '::1' in IP_WHITELIST or 'localhost' in IP_WHITELIST
+    return client_ip in IP_WHITELIST
+
 # Paths that don't require authentication
 PUBLIC_PATHS = {
     '/api/auth/login',
@@ -46,10 +75,10 @@ PUBLIC_PATHS = {
     '/api/webhook/sniper',  # Internal sniper webhook
 }
 
-# Path prefixes that don't require authentication (for development)
-# TODO: Remove in production - all API calls should require auth
+# Path prefixes that don't require authentication
+# Socket.IO and static assets only - all API calls require auth
 PUBLIC_PATH_PREFIXES = {
-    '/api/',  # Temporarily allow all API calls for dev testing
+    '/socket.io/',  # WebSocket connections (auth handled separately)
 }
 
 # Static file extensions that don't require auth
@@ -133,11 +162,17 @@ def init_auth(app, base_dir: str = None):
         if not AUTH_ENABLED:
             return None
 
+        # Skip for whitelisted IPs (localhost by default)
+        if _is_ip_whitelisted():
+            g.authenticated = True
+            g.auth_method = 'ip_whitelist'
+            return None
+
         # Skip for public paths
         if request.path in PUBLIC_PATHS:
             return None
 
-        # Skip for public path prefixes (dev mode)
+        # Skip for public path prefixes
         if any(request.path.startswith(prefix) for prefix in PUBLIC_PATH_PREFIXES):
             return None
 
@@ -145,7 +180,7 @@ def init_auth(app, base_dir: str = None):
         if any(request.path.endswith(ext) for ext in PUBLIC_EXTENSIONS):
             return None
 
-        # Check session cookie
+        # Check session cookie (for non-whitelisted IPs)
         session_token = request.cookies.get('tactix_session')
 
         if not session_token:

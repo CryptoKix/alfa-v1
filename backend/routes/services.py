@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Service control API routes for on-demand module activation."""
 from flask import Blueprint, jsonify, request
+from services.blockhash_cache import get_blockhash_cache
 
 services_bp = Blueprint('services', __name__)
 
@@ -10,22 +11,28 @@ _arb_engine = None
 _wolf_pack = None
 _news_service = None
 _dlmm_sniper = None
+_network_monitor = None
+_skr_staking = None
 
-def init_services(copy_trader, arb_engine, wolf_pack, news_service, dlmm_sniper=None):
+def init_services(copy_trader, arb_engine, wolf_pack, news_service, dlmm_sniper=None, network_monitor=None, skr_staking=None):
     """Initialize service references from app.py"""
-    global _copy_trader, _arb_engine, _wolf_pack, _news_service, _dlmm_sniper
+    global _copy_trader, _arb_engine, _wolf_pack, _news_service, _dlmm_sniper, _network_monitor, _skr_staking
     _copy_trader = copy_trader
     _arb_engine = arb_engine
     _wolf_pack = wolf_pack
     _news_service = news_service
     _dlmm_sniper = dlmm_sniper
+    _network_monitor = network_monitor
+    _skr_staking = skr_staking
 
 SERVICE_MAP = {
     'copy_trader': lambda: _copy_trader,
     'arb_engine': lambda: _arb_engine,
     'wolf_pack': lambda: _wolf_pack,
     'news': lambda: _news_service,
-    'dlmm_sniper': lambda: _dlmm_sniper
+    'dlmm_sniper': lambda: _dlmm_sniper,
+    'network_monitor': lambda: _network_monitor,
+    'skr_staking': lambda: _skr_staking
 }
 
 SERVICE_INFO = {
@@ -58,6 +65,18 @@ SERVICE_INFO = {
         'description': 'Meteora pool detection',
         'icon': 'Layers',
         'color': 'purple'
+    },
+    'network_monitor': {
+        'name': 'Network Monitor',
+        'description': 'Security surveillance & alerts',
+        'icon': 'Shield',
+        'color': 'cyan'
+    },
+    'skr_staking': {
+        'name': 'SKR Staking Monitor',
+        'description': 'SKR staking event tracking',
+        'icon': 'Lock',
+        'color': 'cyan'
     }
 }
 
@@ -156,5 +175,15 @@ def stop_service(service_name):
             'service': service_name,
             'running': service.is_running()
         })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@services_bp.route('/api/services/blockhash/stats', methods=['GET'])
+def get_blockhash_stats():
+    """Get blockhash cache statistics for monitoring latency."""
+    try:
+        cache = get_blockhash_cache()
+        return jsonify(cache.get_stats())
     except Exception as e:
         return jsonify({'error': str(e)}), 500

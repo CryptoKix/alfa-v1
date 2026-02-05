@@ -13,3 +13,10 @@ aiohttp
 websockets
 watchdog
 cryptography
+grpcio>=1.63.0
+grpcio-tools>=1.63.0
+protobuf>=5.26.1
+websocket-client>=1.6.0
+pandas>=2.0.0
+numpy>=1.24.0
+pandas-ta>=0.3.14b

@@ -109,15 +109,27 @@ class TactixDB:
                 CREATE TABLE IF NOT EXISTS tokens (
                     mint TEXT PRIMARY KEY,
                     symbol TEXT,
+                    name TEXT,
                     decimals INTEGER,
                     logo_uri TEXT,
+                    market_cap REAL DEFAULT 0,
                     is_active BOOLEAN DEFAULT 1,
                     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
-            
+
             try:
                 cursor.execute('ALTER TABLE tokens ADD COLUMN logo_uri TEXT')
+            except sqlite3.OperationalError:
+                pass # Already exists
+
+            try:
+                cursor.execute('ALTER TABLE tokens ADD COLUMN name TEXT')
+            except sqlite3.OperationalError:
+                pass # Already exists
+
+            try:
+                cursor.execute('ALTER TABLE tokens ADD COLUMN market_cap REAL DEFAULT 0')
             except sqlite3.OperationalError:
                 pass # Already exists
 
@@ -393,6 +405,116 @@ class TactixDB:
             ''')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_rebal_wallet ON rebalance_history(user_wallet)')
 
+            # 21. Yield Strategies Table (Automated yield optimization)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS yield_strategies (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    strategy_type TEXT NOT NULL,
+                    wallet_address TEXT NOT NULL,
+                    name TEXT,
+                    description TEXT,
+                    status TEXT DEFAULT 'active',
+                    config_json TEXT,
+                    state_json TEXT,
+                    performance_json TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    last_run DATETIME,
+                    next_run DATETIME,
+                    run_count INTEGER DEFAULT 0,
+                    total_profit REAL DEFAULT 0,
+                    UNIQUE(wallet_address, strategy_type, name)
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_yield_strat_wallet ON yield_strategies(wallet_address, status)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_yield_strat_type ON yield_strategies(strategy_type, status)')
+
+            # 22. Yield Strategy Logs Table (Execution history)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS yield_strategy_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    strategy_id INTEGER NOT NULL,
+                    action TEXT NOT NULL,
+                    protocol TEXT,
+                    vault_address TEXT,
+                    amount REAL,
+                    signature TEXT,
+                    result TEXT,
+                    details_json TEXT,
+                    executed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (strategy_id) REFERENCES yield_strategies(id)
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_yield_log_strategy ON yield_strategy_logs(strategy_id)')
+
+            # 23. Backtest Results Table (Indicator Strategy Backtesting)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS backtest_results (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    strategy_type TEXT NOT NULL,
+                    config_json TEXT NOT NULL,
+                    mint TEXT NOT NULL,
+                    symbol TEXT,
+                    timeframe TEXT NOT NULL,
+                    start_date TEXT,
+                    end_date TEXT,
+                    initial_balance REAL,
+                    final_balance REAL,
+                    total_trades INTEGER,
+                    winning_trades INTEGER,
+                    losing_trades INTEGER,
+                    profit_pct REAL,
+                    profit_usd REAL,
+                    max_drawdown_pct REAL,
+                    max_drawdown_usd REAL,
+                    sharpe_ratio REAL,
+                    sortino_ratio REAL,
+                    win_rate REAL,
+                    profit_factor REAL,
+                    avg_win REAL,
+                    avg_loss REAL,
+                    largest_win REAL,
+                    largest_loss REAL,
+                    total_fees_paid REAL,
+                    avg_trade_duration REAL,
+                    trades_per_day REAL,
+                    equity_curve_json TEXT,
+                    trades_json TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_backtest_mint ON backtest_results(mint)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_backtest_strategy ON backtest_results(strategy_type)')
+
+            # SKR Staking Events Table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS skr_staking_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    signature TEXT UNIQUE NOT NULL,
+                    event_type TEXT NOT NULL,
+                    wallet_address TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    guardian TEXT,
+                    slot INTEGER,
+                    block_time INTEGER,
+                    detected_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_skr_events_wallet ON skr_staking_events(wallet_address)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_skr_events_time ON skr_staking_events(block_time DESC)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_skr_events_type ON skr_staking_events(event_type)')
+
+            # SKR Staking Snapshots Table (for time-series chart)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS skr_staking_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    total_staked REAL NOT NULL,
+                    total_stakers INTEGER NOT NULL,
+                    net_change_since_last REAL
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_skr_snap_time ON skr_staking_snapshots(timestamp DESC)')
+
             conn.commit()
 
     def save_setting(self, key, value):
@@ -504,12 +626,12 @@ class TactixDB:
             cursor = conn.execute(query, tuple(params))
             return [dict(row) for row in cursor.fetchall()]
 
-    def save_token(self, mint, symbol, decimals, logo_uri=None):
+    def save_token(self, mint, symbol, decimals, logo_uri=None, name=None, market_cap=0):
         """Save or update token metadata."""
         with self._get_connection() as conn:
             conn.execute(
-                "INSERT OR REPLACE INTO tokens (mint, symbol, decimals, logo_uri) VALUES (?, ?, ?, ?)",
-                (mint, symbol, decimals, logo_uri)
+                "INSERT OR REPLACE INTO tokens (mint, symbol, decimals, logo_uri, name, market_cap, last_updated) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
+                (mint, symbol, decimals, logo_uri, name, market_cap)
             )
 
     def get_known_tokens(self):
@@ -518,6 +640,24 @@ class TactixDB:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute("SELECT * FROM tokens WHERE is_active = 1")
             return {row['mint']: {'symbol': row['symbol'], 'decimals': row['decimals'], 'logo_uri': row['logo_uri']} for row in cursor.fetchall()}
+
+    def get_top_tokens(self, limit=100):
+        """Fetch top tokens by market cap."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                "SELECT mint, symbol, name, decimals, logo_uri, market_cap FROM tokens WHERE is_active = 1 ORDER BY market_cap DESC LIMIT ?",
+                (limit,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def bulk_save_tokens(self, tokens):
+        """Bulk insert/update tokens."""
+        with self._get_connection() as conn:
+            conn.executemany(
+                "INSERT OR REPLACE INTO tokens (mint, symbol, name, decimals, logo_uri, market_cap, last_updated) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
+                [(t['mint'], t['symbol'], t.get('name'), t.get('decimals', 9), t.get('logo_uri'), t.get('market_cap', 0)) for t in tokens]
+            )
 
     def log_trade(self, trade_data):
         """Record a trade execution."""
@@ -1147,4 +1287,374 @@ class TactixDB:
         with self._get_connection() as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    # --- Yield Strategy Methods ---
+
+    def save_yield_strategy(self, strategy_type, wallet_address, name, description=None,
+                           config=None, state=None):
+        """Create a new yield strategy."""
+        sql = '''
+            INSERT INTO yield_strategies (
+                strategy_type, wallet_address, name, description,
+                config_json, state_json, status
+            ) VALUES (?, ?, ?, ?, ?, ?, 'active')
+        '''
+        with self._get_connection() as conn:
+            cursor = conn.execute(sql, (
+                strategy_type, wallet_address, name, description,
+                json.dumps(config or {}), json.dumps(state or {})
+            ))
+            return cursor.lastrowid
+
+    def get_yield_strategy(self, strategy_id):
+        """Get a yield strategy by ID."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute('SELECT * FROM yield_strategies WHERE id = ?', (strategy_id,))
+            row = cursor.fetchone()
+            if row:
+                result = dict(row)
+                result['config'] = json.loads(result.get('config_json') or '{}')
+                result['state'] = json.loads(result.get('state_json') or '{}')
+                result['performance'] = json.loads(result.get('performance_json') or '{}')
+                return result
+            return None
+
+    def get_yield_strategies(self, wallet_address=None, strategy_type=None, status='active'):
+        """Get yield strategies with optional filters."""
+        query = 'SELECT * FROM yield_strategies WHERE status = ?'
+        params = [status]
+
+        if wallet_address:
+            query += ' AND wallet_address = ?'
+            params.append(wallet_address)
+
+        if strategy_type:
+            query += ' AND strategy_type = ?'
+            params.append(strategy_type)
+
+        query += ' ORDER BY created_at DESC'
+
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(query, params)
+            results = []
+            for row in cursor.fetchall():
+                result = dict(row)
+                result['config'] = json.loads(result.get('config_json') or '{}')
+                result['state'] = json.loads(result.get('state_json') or '{}')
+                result['performance'] = json.loads(result.get('performance_json') or '{}')
+                results.append(result)
+            return results
+
+    def get_all_active_yield_strategies(self):
+        """Get all active yield strategies (for scheduler)."""
+        return self.get_yield_strategies(status='active')
+
+    def update_yield_strategy(self, strategy_id, updates):
+        """Update a yield strategy."""
+        allowed_fields = ['status', 'config_json', 'state_json', 'performance_json',
+                         'last_run', 'next_run', 'run_count', 'total_profit', 'name', 'description']
+        fields = []
+        values = []
+
+        for key, val in updates.items():
+            if key in allowed_fields:
+                if key in ['config', 'state', 'performance']:
+                    key = f'{key}_json'
+                    val = json.dumps(val)
+                elif key.endswith('_json') and not isinstance(val, str):
+                    val = json.dumps(val)
+                fields.append(f"{key} = ?")
+                values.append(val)
+
+        if not fields:
+            return
+
+        values.append(strategy_id)
+        sql = f"UPDATE yield_strategies SET {', '.join(fields)} WHERE id = ?"
+
+        with self._get_connection() as conn:
+            conn.execute(sql, values)
+
+    def update_yield_strategy_state(self, strategy_id, state):
+        """Update strategy state JSON."""
+        with self._get_connection() as conn:
+            conn.execute(
+                'UPDATE yield_strategies SET state_json = ?, last_run = datetime("now") WHERE id = ?',
+                (json.dumps(state), strategy_id)
+            )
+
+    def increment_yield_strategy_run(self, strategy_id, profit=0):
+        """Increment run count and add profit."""
+        with self._get_connection() as conn:
+            conn.execute('''
+                UPDATE yield_strategies
+                SET run_count = run_count + 1,
+                    total_profit = total_profit + ?,
+                    last_run = datetime('now')
+                WHERE id = ?
+            ''', (profit, strategy_id))
+
+    def delete_yield_strategy(self, strategy_id):
+        """Mark a yield strategy as deleted."""
+        with self._get_connection() as conn:
+            conn.execute(
+                "UPDATE yield_strategies SET status = 'deleted' WHERE id = ?",
+                (strategy_id,)
+            )
+
+    def pause_yield_strategy(self, strategy_id):
+        """Pause a yield strategy."""
+        with self._get_connection() as conn:
+            conn.execute(
+                "UPDATE yield_strategies SET status = 'paused' WHERE id = ?",
+                (strategy_id,)
+            )
+
+    def resume_yield_strategy(self, strategy_id):
+        """Resume a paused yield strategy."""
+        with self._get_connection() as conn:
+            conn.execute(
+                "UPDATE yield_strategies SET status = 'active' WHERE id = ?",
+                (strategy_id,)
+            )
+
+    # --- Yield Strategy Log Methods ---
+
+    def log_yield_strategy_action(self, strategy_id, action, protocol=None,
+                                  vault_address=None, amount=None, signature=None,
+                                  result=None, details=None):
+        """Log a yield strategy action."""
+        sql = '''
+            INSERT INTO yield_strategy_logs (
+                strategy_id, action, protocol, vault_address,
+                amount, signature, result, details_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        '''
+        with self._get_connection() as conn:
+            cursor = conn.execute(sql, (
+                strategy_id, action, protocol, vault_address,
+                amount, signature, result, json.dumps(details or {})
+            ))
+            return cursor.lastrowid
+
+    def get_yield_strategy_logs(self, strategy_id, limit=50):
+        """Get logs for a specific strategy."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute('''
+                SELECT * FROM yield_strategy_logs
+                WHERE strategy_id = ?
+                ORDER BY executed_at DESC
+                LIMIT ?
+            ''', (strategy_id, limit))
+            results = []
+            for row in cursor.fetchall():
+                result = dict(row)
+                result['details'] = json.loads(result.get('details_json') or '{}')
+                results.append(result)
+            return results
+
+    def get_recent_strategy_logs(self, wallet_address=None, limit=100):
+        """Get recent strategy logs across all strategies."""
+        query = '''
+            SELECT l.*, s.wallet_address, s.strategy_type, s.name as strategy_name
+            FROM yield_strategy_logs l
+            JOIN yield_strategies s ON l.strategy_id = s.id
+        '''
+        params = []
+
+        if wallet_address:
+            query += ' WHERE s.wallet_address = ?'
+            params.append(wallet_address)
+
+        query += ' ORDER BY l.executed_at DESC LIMIT ?'
+        params.append(limit)
+
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(query, params)
+            results = []
+            for row in cursor.fetchall():
+                result = dict(row)
+                result['details'] = json.loads(result.get('details_json') or '{}')
+                results.append(result)
+            return results
+
+    # --- Backtest Results Methods ---
+
+    def save_backtest_result(self, result_data):
+        """Save a backtest result."""
+        sql = '''
+            INSERT INTO backtest_results (
+                strategy_type, config_json, mint, symbol, timeframe,
+                start_date, end_date, initial_balance, final_balance,
+                total_trades, winning_trades, losing_trades,
+                profit_pct, profit_usd, max_drawdown_pct, max_drawdown_usd,
+                sharpe_ratio, sortino_ratio, win_rate, profit_factor,
+                avg_win, avg_loss, largest_win, largest_loss,
+                total_fees_paid, avg_trade_duration, trades_per_day,
+                equity_curve_json, trades_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        '''
+        with self._get_connection() as conn:
+            cursor = conn.execute(sql, (
+                result_data['strategy_type'],
+                json.dumps(result_data.get('config', {})),
+                result_data['mint'],
+                result_data.get('symbol'),
+                result_data['timeframe'],
+                result_data.get('start_date'),
+                result_data.get('end_date'),
+                result_data.get('initial_balance', 10000),
+                result_data.get('final_balance', 0),
+                result_data.get('total_trades', 0),
+                result_data.get('winning_trades', 0),
+                result_data.get('losing_trades', 0),
+                result_data.get('profit_pct', 0),
+                result_data.get('profit_usd', 0),
+                result_data.get('max_drawdown_pct', 0),
+                result_data.get('max_drawdown_usd', 0),
+                result_data.get('sharpe_ratio', 0),
+                result_data.get('sortino_ratio', 0),
+                result_data.get('win_rate', 0),
+                result_data.get('profit_factor', 0),
+                result_data.get('avg_win', 0),
+                result_data.get('avg_loss', 0),
+                result_data.get('largest_win', 0),
+                result_data.get('largest_loss', 0),
+                result_data.get('total_fees_paid', 0),
+                result_data.get('avg_trade_duration', 0),
+                result_data.get('trades_per_day', 0),
+                json.dumps(result_data.get('equity_curve', [])),
+                json.dumps(result_data.get('trades', []))
+            ))
+            return cursor.lastrowid
+
+    def get_backtest_result(self, result_id):
+        """Get a backtest result by ID."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute('SELECT * FROM backtest_results WHERE id = ?', (result_id,))
+            row = cursor.fetchone()
+            if row:
+                result = dict(row)
+                result['config'] = json.loads(result.get('config_json') or '{}')
+                result['equity_curve'] = json.loads(result.get('equity_curve_json') or '[]')
+                result['trades'] = json.loads(result.get('trades_json') or '[]')
+                return result
+            return None
+
+    def get_backtest_results(self, mint=None, strategy_type=None, limit=50):
+        """Get backtest results with optional filters."""
+        query = 'SELECT * FROM backtest_results WHERE 1=1'
+        params = []
+
+        if mint:
+            query += ' AND mint = ?'
+            params.append(mint)
+
+        if strategy_type:
+            query += ' AND strategy_type = ?'
+            params.append(strategy_type)
+
+        query += ' ORDER BY created_at DESC LIMIT ?'
+        params.append(limit)
+
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(query, params)
+            results = []
+            for row in cursor.fetchall():
+                result = dict(row)
+                result['config'] = json.loads(result.get('config_json') or '{}')
+                # Don't include full trades/equity in list view for performance
+                results.append(result)
+            return results
+
+    def delete_backtest_result(self, result_id):
+        """Delete a backtest result."""
+        with self._get_connection() as conn:
+            conn.execute('DELETE FROM backtest_results WHERE id = ?', (result_id,))
+
+    # ─── SKR Staking Methods ────────────────────────────────────────────
+
+    def save_skr_staking_event(self, event_data):
+        """Record a stake/unstake event. Ignores duplicates by signature."""
+        sql = '''
+            INSERT OR IGNORE INTO skr_staking_events (
+                signature, event_type, wallet_address, amount,
+                guardian, slot, block_time
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        '''
+        with self._get_connection() as conn:
+            conn.execute(sql, (
+                event_data['signature'],
+                event_data['event_type'],
+                event_data['wallet_address'],
+                event_data['amount'],
+                event_data.get('guardian'),
+                event_data.get('slot'),
+                event_data.get('block_time')
+            ))
+
+    def get_skr_staking_events(self, limit=100, event_type=None, wallet=None):
+        """Get recent staking events with optional filters."""
+        query = 'SELECT * FROM skr_staking_events WHERE 1=1'
+        params = []
+        if event_type:
+            query += ' AND event_type = ?'
+            params.append(event_type)
+        if wallet:
+            query += ' AND wallet_address = ?'
+            params.append(wallet)
+        query += ' ORDER BY block_time DESC LIMIT ?'
+        params.append(limit)
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+
+    def save_skr_staking_snapshot(self, total_staked, total_stakers, net_change):
+        """Save a periodic staking snapshot for the time-series chart."""
+        with self._get_connection() as conn:
+            conn.execute(
+                '''INSERT INTO skr_staking_snapshots
+                   (total_staked, total_stakers, net_change_since_last)
+                   VALUES (?, ?, ?)''',
+                (total_staked, total_stakers, net_change)
+            )
+
+    def get_skr_staking_snapshots(self, limit=168):
+        """Get historical staking snapshots. Default ~28 days of 4h snapshots."""
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                'SELECT * FROM skr_staking_snapshots ORDER BY timestamp DESC LIMIT ?',
+                (limit,)
+            )
+            rows = [dict(row) for row in cursor.fetchall()]
+            return sorted(rows, key=lambda x: x['timestamp'])
+
+    def get_skr_whale_leaderboard(self, limit=50):
+        """Get top stakers by net staked amount."""
+        query = '''
+            SELECT
+                wallet_address,
+                SUM(CASE WHEN event_type = 'stake' THEN amount ELSE 0 END) as total_staked,
+                SUM(CASE WHEN event_type = 'unstake' THEN amount ELSE 0 END) as total_unstaked,
+                SUM(CASE WHEN event_type = 'stake' THEN amount ELSE -amount END) as net_staked,
+                COUNT(*) as event_count,
+                MAX(block_time) as last_activity
+            FROM skr_staking_events
+            GROUP BY wallet_address
+            HAVING net_staked > 0
+            ORDER BY net_staked DESC
+            LIMIT ?
+        '''
+        with self._get_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(query, (limit,))
             return [dict(row) for row in cursor.fetchall()]

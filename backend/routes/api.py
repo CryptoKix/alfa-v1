@@ -36,6 +36,14 @@ def api_tokens():
     known = get_known_tokens()
     return jsonify([{"mint": m, "symbol": i["symbol"], "logoURI": i.get("logo_uri"), "decimals": i.get("decimals", 9)} for m, i in known.items()])
 
+
+@api_bp.route('/api/tokens/top')
+def api_top_tokens():
+    """Get top 100 tokens by market cap for dropdowns."""
+    limit = request.args.get('limit', 100, type=int)
+    tokens = db.get_top_tokens(min(limit, 200))
+    return jsonify(tokens)
+
 @api_bp.route('/api/health')
 def api_health():
     import extensions
@@ -337,6 +345,8 @@ def api_dca_list():
 @api_bp.route('/api/dca/add', methods=['POST'])
 def api_dca_add():
     from services.bots import get_formatted_bots
+    from services.strategies import INDICATOR_BOT_TYPES
+
     data = request.json
     bot_id = str(uuid.uuid4())[:8]
     bot_type = data.get('strategy', 'DCA')
@@ -360,6 +370,11 @@ def api_dca_add():
         # Validate investment amount
         if total_investment <= 0:
             return jsonify({"success": False, "error": "Total investment must be greater than 0"}), 400
+    elif bot_type in INDICATOR_BOT_TYPES:
+        # Indicator bot validation
+        position_size = float(data.get('positionSize') or 0)
+        if position_size <= 0:
+            return jsonify({"success": False, "error": "Position size must be greater than 0"}), 400
     else:
         # DCA/TWAP/VWAP validation
         if bot_type != 'VWAP' and amount <= 0:
@@ -429,6 +444,30 @@ def api_dca_add():
         "vwap_window": int(data.get('vwapWindow', 24)),
         "max_deviation_pct": float(data.get('maxDeviation', 0)),
         "duration_hours": int(data.get('durationHours', 24)),
+        # Indicator bot config
+        "timeframe": data.get('timeframe', '1H'),
+        "position_size": float(data.get('positionSize') or 0),
+        "cooldown_minutes": int(data.get('cooldownMinutes', 60)),
+        # RSI config
+        "rsi_period": int(data.get('rsiPeriod', 14)),
+        "buy_threshold": float(data.get('buyThreshold', 30)),
+        "sell_threshold": float(data.get('sellThreshold', 70)),
+        # MACD config
+        "macd_fast": int(data.get('macdFast', 12)),
+        "macd_slow": int(data.get('macdSlow', 26)),
+        "macd_signal": int(data.get('macdSignal', 9)),
+        "require_histogram_confirm": bool(data.get('requireHistogramConfirm', True)),
+        # Bollinger config
+        "bb_period": int(data.get('bbPeriod', 20)),
+        "bb_std": float(data.get('bbStd', 2.0)),
+        "entry_mode": data.get('entryMode', 'touch'),  # 'touch' or 'close_beyond'
+        "exit_target": data.get('exitTarget', 'middle'),  # 'middle' or 'upper'
+        # EMA config
+        "ema_fast": int(data.get('emaFast', 9)),
+        "ema_slow": int(data.get('emaSlow', 21)),
+        # Multi-indicator config
+        "indicators": data.get('indicators', ['RSI', 'MACD', 'BB']),
+        "min_confluence": int(data.get('minConfluence', 2)),
     }
 
     state = {
@@ -438,7 +477,13 @@ def api_dca_add():
         "total_cost": 0.0,
         "profit_realized": 0.0,
         "grid_yield": 0.0,
-        "next_run": time.time() + 5
+        "next_run": time.time() + 5,
+        # Indicator bot state
+        "position": "none",
+        "position_amount": 0.0,
+        "entry_price": 0.0,
+        "entry_cost": 0.0,
+        "last_trade_time": 0,
     }
 
     if bot_type in ['GRID', 'LIMIT_GRID']:
@@ -808,6 +853,174 @@ def api_vwap_data():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+# --- Technical Indicator APIs ---
+
+@api_bp.route('/api/indicators/<mint>')
+def api_get_indicators(mint):
+    """
+    Get technical indicators for a token.
+    Query params: ?timeframe=1H&indicators=rsi,macd,bb,ema_cross
+    Returns all requested indicator values and signals.
+    """
+    try:
+        from services.indicators import get_indicator_service
+
+        timeframe = request.args.get('timeframe', '1H')
+        requested = request.args.get('indicators', 'rsi,macd,bb,ema_cross')
+
+        indicator_service = get_indicator_service()
+        all_indicators = indicator_service.get_all_indicators(mint, timeframe)
+
+        # Filter to requested indicators
+        indicator_map = {
+            'rsi': 'rsi',
+            'macd': 'macd',
+            'bb': 'bollinger',
+            'bollinger': 'bollinger',
+            'ema_cross': 'ema_cross',
+            'ema': 'ema_cross'
+        }
+
+        results = {}
+        for ind in requested.split(','):
+            ind = ind.strip().lower()
+            key = indicator_map.get(ind)
+            if key and key in all_indicators:
+                result = all_indicators[key]
+                results[ind] = {
+                    'value': result.value,
+                    'signal': result.signal,
+                    'strength': result.strength,
+                    'data': result.raw_data
+                }
+
+        return jsonify({
+            "success": True,
+            "mint": mint,
+            "timeframe": timeframe,
+            "indicators": results
+        })
+    except ImportError as e:
+        return jsonify({"error": "Indicator service not available. Install pandas-ta.", "details": str(e)}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# --- Backtesting APIs ---
+
+@api_bp.route('/api/backtest/run', methods=['POST'])
+def api_backtest_run():
+    """
+    Run a backtest simulation for an indicator strategy.
+
+    POST body:
+    {
+        "strategy": "RSI_BOT" | "MACD_BOT" | "BB_BOT" | "EMA_CROSS_BOT" | "MULTI_IND_BOT",
+        "config": { strategy-specific config },
+        "mint": "token_mint_address",
+        "symbol": "SOL",
+        "timeframe": "1H" | "4H",
+        "hours_back": 168,
+        "initial_balance": 10000
+    }
+    """
+    try:
+        from services.backtester import Backtester
+
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        strategy = data.get('strategy')
+        config = data.get('config', {})
+        mint = data.get('mint')
+        symbol = data.get('symbol', '')
+        timeframe = data.get('timeframe', '1H')
+        hours_back = int(data.get('hours_back', 168))
+        initial_balance = float(data.get('initial_balance', 10000))
+
+        if not strategy:
+            return jsonify({"error": "Missing strategy parameter"}), 400
+        if not mint:
+            return jsonify({"error": "Missing mint parameter"}), 400
+
+        # Validate strategy type
+        valid_strategies = ['RSI_BOT', 'MACD_BOT', 'BB_BOT', 'EMA_CROSS_BOT', 'MULTI_IND_BOT']
+        if strategy not in valid_strategies:
+            return jsonify({"error": f"Invalid strategy. Must be one of: {valid_strategies}"}), 400
+
+        # Add symbol to config for result
+        config['symbol'] = symbol
+
+        # Run backtest
+        backtester = Backtester(
+            strategy_type=strategy,
+            config=config,
+            mint=mint,
+            timeframe=timeframe
+        )
+
+        result = backtester.run(
+            hours_back=hours_back,
+            initial_balance=initial_balance
+        )
+
+        # Save to database
+        result_dict = result.to_dict()
+        result_id = db.save_backtest_result(result_dict)
+        result_dict['id'] = result_id
+
+        return jsonify({
+            "success": True,
+            "result": result_dict
+        })
+
+    except ImportError as e:
+        return jsonify({"error": "Backtester not available. Install pandas-ta.", "details": str(e)}), 500
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@api_bp.route('/api/backtest/history')
+def api_backtest_history():
+    """
+    Get backtest result history.
+    Query params: ?mint=<mint>&strategy=<strategy>&limit=50
+    """
+    mint = request.args.get('mint')
+    strategy = request.args.get('strategy')
+    limit = int(request.args.get('limit', 50))
+
+    results = db.get_backtest_results(mint=mint, strategy_type=strategy, limit=limit)
+
+    return jsonify({
+        "success": True,
+        "results": results
+    })
+
+
+@api_bp.route('/api/backtest/<int:result_id>')
+def api_backtest_detail(result_id):
+    """Get detailed backtest result including trades and equity curve."""
+    result = db.get_backtest_result(result_id)
+
+    if not result:
+        return jsonify({"error": "Backtest result not found"}), 404
+
+    return jsonify({
+        "success": True,
+        "result": result
+    })
+
+
+@api_bp.route('/api/backtest/<int:result_id>', methods=['DELETE'])
+def api_backtest_delete(result_id):
+    """Delete a backtest result."""
+    db.delete_backtest_result(result_id)
+    return jsonify({"success": True})
 
 
 

@@ -16,7 +16,7 @@ logger = logging.getLogger("tactix")
 
 from config import SERVER_HOST, SERVER_PORT, WALLET_ADDRESS, HELIUS_API_KEY, BASE_DIR
 from extensions import create_app, socketio, helius, db
-from routes import api_bp, copytrade_bp, wallet_bp, yield_bp, dlmm_bp, liquidity_bp, register_websocket_handlers, init_dlmm_services, init_liquidity_services
+from routes import api_bp, copytrade_bp, wallet_bp, yield_bp, dlmm_bp, liquidity_bp, skr_bp, register_websocket_handlers, init_dlmm_services, init_liquidity_services, init_skr_service
 from routes.arb import arb_bp, set_arb_engine
 from routes.copytrade import set_copy_trader
 from routes.services import services_bp, init_services  # Service control routes
@@ -24,6 +24,7 @@ from routes.auth import auth_bp  # Authentication routes
 from middleware.auth import init_auth  # Authentication middleware
 from middleware.rate_limit import init_rate_limiter, add_rate_limit_headers  # Rate limiting
 from services.audit import audit_logger, AuditEventType  # Audit logging
+from services.network_monitor import network_monitor  # Network security monitor
 from services.portfolio import balance_poller, broadcast_balance
 from arb_engine import ArbEngine
 from services.bots import dca_scheduler
@@ -34,6 +35,8 @@ from services.sniper import sniper_engine
 from services.news import news_service
 from services.wolfpack import wolf_pack
 from services.meteora_dlmm import init_dlmm_sniper, get_dlmm_sniper
+from services.blockhash_cache import get_blockhash_cache
+from services.skr_staking import SKRStakingService
 
 # Create Flask application
 app = create_app()
@@ -62,6 +65,7 @@ app.register_blueprint(wallet_bp)
 app.register_blueprint(yield_bp)
 app.register_blueprint(dlmm_bp)
 app.register_blueprint(liquidity_bp)
+app.register_blueprint(skr_bp)
 
 # Initialize DLMM services with socketio
 init_dlmm_services(socketio)
@@ -88,8 +92,12 @@ set_copy_trader(copy_trader)
 # Initialize DLMM sniper (detection-only by default)
 dlmm_sniper = init_dlmm_sniper(db, socketio, HELIUS_API_KEY)
 
+# Initialize SKR staking monitor
+skr_service = SKRStakingService(helius, db, socketio)
+init_skr_service(skr_service)
+
 # Initialize service control references
-init_services(copy_trader, arb_engine, wolf_pack, news_service, dlmm_sniper)
+init_services(copy_trader, arb_engine, wolf_pack, news_service, dlmm_sniper, network_monitor, skr_staking=skr_service)
 
 def handle_shutdown(signum, frame):
     """Graceful shutdown handler for Discord notification."""
@@ -107,6 +115,10 @@ if __name__ == '__main__':
     # Core services - always run
     threading.Thread(target=dca_scheduler, args=(app,), daemon=True).start()
     threading.Thread(target=balance_poller, args=(app,), daemon=True).start()
+
+    # Start blockhash cache for low-latency arb execution
+    blockhash_cache = get_blockhash_cache()
+    logger.info("BlockhashCache initialized for low-latency transactions")
 
     # High-RPS modules - DO NOT auto-start
     # These are now controlled via /api/services endpoints and ControlPanel UI:
