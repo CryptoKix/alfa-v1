@@ -181,6 +181,12 @@ DEFAULT_TOKENS = {
     },
 }
 
+# PostgreSQL
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://tactix:tactix_dev_2025@localhost:5432/tactix"
+)
+
 # Server config - SECURITY: Bind to localhost only to prevent network exposure
 # If you need external access, use a reverse proxy with proper authentication
 SERVER_HOST = os.getenv('TACTIX_HOST', '127.0.0.1')

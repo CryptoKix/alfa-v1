@@ -107,9 +107,9 @@ def main():
 
     # Clear existing tokens to remove stale/spam data
     print("Clearing old token data...")
-    with db._get_connection() as conn:
-        conn.execute("DELETE FROM tokens")
-        conn.commit()
+    from models import tokens as tokens_table
+    with db.engine.begin() as conn:
+        conn.execute(tokens_table.delete())
 
     print("Fetching Birdeye top tokens by volume...")
     birdeye_tokens = fetch_birdeye_top_tokens(300)

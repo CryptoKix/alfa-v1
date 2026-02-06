@@ -579,16 +579,12 @@ def api_dca_add():
 def api_dca_delete():
     from services.bots import get_formatted_bots
     bot_id = request.json.get('id')
-    with db._get_connection() as conn:
-        conn.row_factory = __import__('sqlite3').Row
-        cursor = conn.execute("SELECT * FROM bots WHERE id = ?", (bot_id,))
-        bot = cursor.fetchone()
-        if bot:
-            config = json.loads(bot['config_json'])
-            state = json.loads(bot['state_json'])
-            notify_bot_completion(bot['type'], config.get('alias') or bot['id'], state.get('profit_realized', 0))
-            conn.execute("UPDATE bots SET status = 'completed' WHERE id = ?", (bot_id,))
-            conn.commit()
+    bot = db.get_bot(bot_id)
+    if bot:
+        config = json.loads(bot['config_json'])
+        state = json.loads(bot['state_json'])
+        notify_bot_completion(bot['type'], config.get('alias') or bot['id'], state.get('profit_realized', 0))
+        db.update_bot_status(bot_id, 'completed')
     sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
     return jsonify({"success": True})
 
@@ -597,8 +593,7 @@ def api_dca_pause():
     from services.bots import get_formatted_bots
     bot_id = request.json.get('id')
     status = request.json.get('status')
-    with db._get_connection() as conn:
-        conn.execute("UPDATE bots SET status = ? WHERE id = ?", (status, bot_id))
+    db.update_bot_status(bot_id, status)
     sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
     return jsonify({"success": True})
 
@@ -607,15 +602,11 @@ def api_dca_rename():
     from services.bots import get_formatted_bots
     bot_id = request.json.get('id')
     new_alias = request.json.get('alias')
-    with db._get_connection() as conn:
-        conn.row_factory = __import__('sqlite3').Row
-        cursor = conn.execute("SELECT config_json FROM bots WHERE id = ?", (bot_id,))
-        row = cursor.fetchone()
-        if row:
-            config = json.loads(row['config_json'])
-            config['alias'] = new_alias
-            conn.execute("UPDATE bots SET config_json = ? WHERE id = ?", (json.dumps(config), bot_id))
-            conn.commit()
+    bot = db.get_bot(bot_id)
+    if bot:
+        config = json.loads(bot['config_json'])
+        config['alias'] = new_alias
+        db.update_bot_config_json(bot_id, config)
     sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
     return jsonify({"success": True})
 
@@ -624,15 +615,12 @@ def api_dca_update():
     from services.bots import get_formatted_bots
     bot_id = request.json.get('id')
     updates = request.json.get('updates', {})
-    with db._get_connection() as conn:
-        conn.row_factory = __import__('sqlite3').Row
-        cursor = conn.execute("SELECT config_json FROM bots WHERE id = ?", (bot_id,))
-        row = cursor.fetchone()
-        if row:
-            config = json.loads(row['config_json'])
-            for key, value in updates.items(): config[key] = value
-            conn.execute("UPDATE bots SET config_json = ? WHERE id = ?", (json.dumps(config), bot_id))
-            conn.commit()
+    bot = db.get_bot(bot_id)
+    if bot:
+        config = json.loads(bot['config_json'])
+        for key, value in updates.items():
+            config[key] = value
+        db.update_bot_config_json(bot_id, config)
     sio_bridge.emit('bots_update', {'bots': get_formatted_bots()}, namespace='/bots')
     return jsonify({"success": True})
 

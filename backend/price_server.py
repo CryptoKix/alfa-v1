@@ -13,7 +13,7 @@ from database import TactixDB
 # Load API Keys from .env
 load_dotenv()
 
-db = TactixDB()
+db = TactixDB(pool_size=3)
 
 # RPC Provider — 100% Shyft with multi-location failover
 SHYFT_API_KEY = os.getenv("SHYFT_API_KEY")

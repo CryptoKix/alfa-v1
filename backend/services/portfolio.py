@@ -155,20 +155,18 @@ def broadcast_balance():
             })
 
         try:
-            with db._get_connection() as conn:
-                last_snap = conn.execute("SELECT timestamp FROM snapshots ORDER BY timestamp DESC LIMIT 1").fetchone()
-                if not last_snap or (time.time() - datetime.strptime(last_snap[0].split('.')[0], '%Y-%m-%d %H:%M:%S').timestamp()) > 3600:
-                    db.record_snapshot(total_usd, WALLET_ADDRESS, enriched)
+            last_ts = db.get_last_snapshot_timestamp()
+            if not last_ts or (time.time() - last_ts.timestamp()) > 3600:
+                db.record_snapshot(total_usd, WALLET_ADDRESS, enriched)
         except: pass
 
         total_usd_24h_ago = total_usd
         holdings_24h_ago = []
         try:
-            with db._get_connection() as conn:
-                snap_row = conn.execute("SELECT total_value_usd, holdings_json FROM snapshots WHERE timestamp <= datetime('now', '-24 hours') ORDER BY timestamp DESC LIMIT 1").fetchone()
-                if snap_row:
-                    total_usd_24h_ago = snap_row[0] or total_usd
-                    holdings_24h_ago = json.loads(snap_row[1] or "[]")
+            snap_row = db.get_snapshot_24h_ago()
+            if snap_row:
+                total_usd_24h_ago = snap_row['total_value_usd'] or total_usd
+                holdings_24h_ago = json.loads(snap_row['holdings_json'] or "[]")
         except: pass
 
         sio_bridge.emit('balance_update', {

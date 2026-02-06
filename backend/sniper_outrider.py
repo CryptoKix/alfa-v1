@@ -21,7 +21,7 @@ logger = logging.getLogger("sniper_outrider")
 class SniperOutrider:
     def __init__(self):
         self.helius = HeliusClient()
-        self.db = TactixDB()
+        self.db = TactixDB(pool_size=2)
         self.running = True
         self.seen_signatures = set()
         self.api_url = f"http://127.0.0.1:{SERVER_PORT}/api/webhook/sniper"
