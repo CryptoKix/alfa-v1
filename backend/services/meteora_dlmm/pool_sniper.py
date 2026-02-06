@@ -2,6 +2,9 @@
 """
 Meteora DLMM Pool Sniper Engine
 Monitors for new DLMM pool creation and optionally auto-creates positions.
+
+Uses standard Solana RPC (routed through Shyft via endpoint_manager) instead of
+Helius Enhanced Transactions API.
 """
 
 import time
@@ -23,17 +26,19 @@ class DLMMPoolSniper:
     """
     Pool sniper engine that monitors for new Meteora DLMM pool creation.
     Detection-only by default. Auto-create position is disabled.
+
+    Uses standard Solana RPC via HeliusClient (routed through Shyft).
     """
 
     def __init__(
         self,
         db,
-        helius_api_key: str,
+        helius_client,
         position_manager=None,
         on_pool_detected: Optional[Callable] = None
     ):
         self.db = db
-        self.helius_api_key = helius_api_key
+        self.helius = helius_client  # HeliusClient — RPC calls routed through Shyft
         self.position_manager = position_manager
         self.on_pool_detected = on_pool_detected
 
@@ -135,84 +140,106 @@ class DLMMPoolSniper:
             logger.error(f"[DLMM Sniper] Check error: {e}")
 
     def _get_recent_signatures(self) -> List[Dict]:
-        """Get recent signatures for the Meteora DLMM program."""
-        url = f"https://api.helius.xyz/v0/addresses/{METEORA_DLMM_PROGRAM}/transactions"
-        params = {
-            'api-key': self.helius_api_key,
-            'limit': 20
-        }
-
+        """Get recent signatures for the Meteora DLMM program via standard RPC."""
         try:
-            response = requests.get(url, params=params, timeout=15)
-            response.raise_for_status()
-            return response.json()
-        except requests.RequestException as e:
+            sigs = self.helius.rpc.get_signatures_for_address(
+                METEORA_DLMM_PROGRAM, limit=20
+            )
+            # Returns list of dicts with 'signature', 'slot', 'err', 'memo', etc.
+            return sigs or []
+        except Exception as e:
             logger.error(f"[DLMM Sniper] Failed to fetch signatures: {e}")
             return []
 
     def _analyze_transaction(self, signature: str) -> Optional[Dict]:
         """
         Analyze a transaction to check if it's a pool initialization.
+        Uses standard Solana RPC getTransaction (routed through Shyft).
         Returns pool data if it's a new pool, None otherwise.
         """
-        url = f"https://api.helius.xyz/v0/transactions"
-        params = {
-            'api-key': self.helius_api_key,
-            'transactions': [signature]
-        }
-
         try:
-            response = requests.post(url, json={'transactions': [signature]}, params={'api-key': self.helius_api_key}, timeout=15)
-            response.raise_for_status()
-            txns = response.json()
-
-            if not txns:
+            tx = self.helius.rpc.get_transaction(
+                signature, encoding='jsonParsed', max_supported_version=0
+            )
+            if not tx:
                 return None
 
-            tx = txns[0]
-
-            # Check if this is a pool initialization
-            # Look for "initialize" in the description or specific instruction patterns
-            description = tx.get('description', '').lower()
-            tx_type = tx.get('type', '')
-
-            if 'initialize' not in description and tx_type != 'UNKNOWN':
+            meta = tx.get('meta', {})
+            if not meta:
                 return None
 
-            # Parse account keys to find pool address
-            account_data = tx.get('accountData', [])
-            instructions = tx.get('instructions', [])
+            # Check log messages for pool initialization
+            logs = "".join(meta.get('logMessages', [])).lower()
+            if 'initialize' not in logs:
+                return None
 
-            # Try to extract pool info from native transfers or token transfers
+            # Extract account keys and instructions from the transaction
+            message = tx.get('transaction', {}).get('message', {})
+            account_keys = message.get('accountKeys', [])
+            instructions = message.get('instructions', [])
+            inner_instructions = meta.get('innerInstructions', [])
+
+            # Resolve account keys (can be strings or {pubkey, signer, writable} dicts)
+            def resolve_key(key):
+                if isinstance(key, dict):
+                    return key.get('pubkey', '')
+                return str(key)
+
+            resolved_keys = [resolve_key(k) for k in account_keys]
+
+            # Find the DLMM program instruction and extract pool + mint accounts
             pool_address = None
             token_x_mint = None
             token_y_mint = None
 
-            # Look for the created account (pool)
             for inst in instructions:
                 program_id = inst.get('programId', '')
                 if program_id == METEORA_DLMM_PROGRAM:
                     accounts = inst.get('accounts', [])
                     if len(accounts) >= 3:
-                        # Typically: pool, tokenX mint, tokenY mint
-                        pool_address = accounts[0]
-                        if len(accounts) > 1:
-                            token_x_mint = accounts[1] if len(accounts) > 1 else None
-                            token_y_mint = accounts[2] if len(accounts) > 2 else None
+                        # Resolve account references (may be indices or pubkey strings)
+                        def resolve_account(acc):
+                            if isinstance(acc, int) and acc < len(resolved_keys):
+                                return resolved_keys[acc]
+                            return str(acc)
+
+                        pool_address = resolve_account(accounts[0])
+                        token_x_mint = resolve_account(accounts[1])
+                        token_y_mint = resolve_account(accounts[2])
                         break
 
-            # Also check token transfers for mints
-            token_transfers = tx.get('tokenTransfers', [])
-            mints_found = set()
-            for transfer in token_transfers:
-                mint = transfer.get('mint')
-                if mint:
-                    mints_found.add(mint)
+            # Also check inner instructions
+            if not pool_address:
+                for inner in inner_instructions:
+                    for inst in inner.get('instructions', []):
+                        program_id = inst.get('programId', '')
+                        if program_id == METEORA_DLMM_PROGRAM:
+                            accounts = inst.get('accounts', [])
+                            if len(accounts) >= 3:
+                                def resolve_account(acc):
+                                    if isinstance(acc, int) and acc < len(resolved_keys):
+                                        return resolved_keys[acc]
+                                    return str(acc)
 
-            if len(mints_found) >= 2:
+                                pool_address = resolve_account(accounts[0])
+                                token_x_mint = resolve_account(accounts[1])
+                                token_y_mint = resolve_account(accounts[2])
+                                break
+                    if pool_address:
+                        break
+
+            # Fallback: extract mints from postTokenBalances
+            if not token_x_mint or not token_y_mint:
+                post_balances = meta.get('postTokenBalances', [])
+                mints_found = set()
+                for b in post_balances:
+                    mint = b.get('mint', '')
+                    if mint:
+                        mints_found.add(mint)
                 mints_list = list(mints_found)
-                token_x_mint = token_x_mint or mints_list[0]
-                token_y_mint = token_y_mint or mints_list[1] if len(mints_list) > 1 else None
+                if len(mints_list) >= 2:
+                    token_x_mint = token_x_mint or mints_list[0]
+                    token_y_mint = token_y_mint or mints_list[1]
 
             if not pool_address:
                 return None
@@ -340,10 +367,10 @@ class DLMMPoolSniper:
 dlmm_sniper: Optional[DLMMPoolSniper] = None
 
 
-def init_dlmm_sniper(db, helius_api_key: str, position_manager=None) -> DLMMPoolSniper:
-    """Initialize the DLMM pool sniper."""
+def init_dlmm_sniper(db, helius_client, position_manager=None) -> DLMMPoolSniper:
+    """Initialize the DLMM pool sniper with a HeliusClient (RPC routed through Shyft)."""
     global dlmm_sniper
-    dlmm_sniper = DLMMPoolSniper(db, helius_api_key, position_manager)
+    dlmm_sniper = DLMMPoolSniper(db, helius_client, position_manager)
     return dlmm_sniper
 
 

@@ -23,7 +23,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from config import SERVER_HOST, SERVER_PORT, WALLET_ADDRESS, HELIUS_API_KEY, BASE_DIR
+from config import SERVER_HOST, SERVER_PORT, WALLET_ADDRESS, BASE_DIR
 from extensions import db, helius, solana_client
 import sio_bridge
 
@@ -657,7 +657,7 @@ registry.register(
 registry.register(
     SD("dlmm_sniper", "DLMM Sniper", "Meteora pool detection",
        "Layers", "purple"),
-    init_dlmm_sniper(db, HELIUS_API_KEY))
+    init_dlmm_sniper(db, helius))
 
 registry.register(
     SD("network_monitor", "Network Monitor", "Security surveillance & alerts",
