@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { Settings, ShieldCheck, Zap, Coins, Flame, Activity, Power, PowerOff, TrendingUp, TrendingDown } from 'lucide-react'
 import { useAppSelector, useAppDispatch } from '@/app/hooks'
-import { updateSniperSettings, setEngineActive } from '@/features/sniper/sniperSlice'
+import { updateSniperSettings, setSniperStatus } from '@/features/sniper/sniperSlice'
 import { addNotification } from '@/features/notifications/notificationsSlice'
 import { cn } from '@/lib/utils'
 
 export const SniperConfigWidget: React.FC = () => {
   const dispatch = useAppDispatch()
-  const { settings, engineActive } = useAppSelector(state => state.sniper)
+  const { settings, detecting } = useAppSelector(state => state.sniper)
   const [isDeploying, setIsDeploying] = useState(false)
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export const SniperConfigWidget: React.FC = () => {
         const statusData = await statusRes.json()
         
         dispatch(updateSniperSettings(settingsData))
-        dispatch(setEngineActive(statusData.isRunning))
+        dispatch(setSniperStatus({ armed: statusData.isRunning, detecting: statusData.isRunning }))
       } catch (e) {
         console.error("Failed to fetch initial sniper state", e)
       }
@@ -34,7 +34,7 @@ export const SniperConfigWidget: React.FC = () => {
       try {
         const res = await fetch('/api/sniper/engine/status')
         const data = await res.json()
-        dispatch(setEngineActive(data.isRunning))
+        dispatch(setSniperStatus({ armed: data.isRunning, detecting: data.isRunning }))
       } catch (e) {}
     }, 5000)
 
@@ -87,7 +87,7 @@ export const SniperConfigWidget: React.FC = () => {
       const data = await res.json()
       
       if (data.success) {
-        dispatch(setEngineActive(data.isRunning))
+        dispatch(setSniperStatus({ armed: data.isRunning, detecting: data.isRunning }))
         dispatch(addNotification({
           title: action === 'start' ? 'Engine Active' : 'Engine Offline',
           message: action === 'start' ? 'Sniper Outrider is now scanning the chain.' : 'High-speed discovery has been terminated.',
@@ -336,7 +336,7 @@ export const SniperConfigWidget: React.FC = () => {
       </div>
       
       <div className="mt-auto pt-4 shrink-0 flex flex-col gap-2">
-         {!engineActive ? (
+         {!detecting ? (
            <button 
              onClick={() => handleEngineToggle('start')}
              disabled={isDeploying}

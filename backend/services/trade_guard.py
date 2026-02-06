@@ -29,7 +29,9 @@ REQUIRE_CONFIRM_USD = float(os.getenv('REQUIRE_CONFIRM_USD', '1000'))
 MIN_SLIPPAGE_BPS = int(os.getenv('MIN_SLIPPAGE_BPS', '10'))  # 0.1%
 MAX_SLIPPAGE_BPS = int(os.getenv('MAX_SLIPPAGE_BPS', '300'))  # 3%
 SNIPER_MAX_AMOUNT_SOL = float(os.getenv('SNIPER_MAX_AMOUNT_SOL', '0.5'))
-SNIPER_MAX_SLIPPAGE_PCT = float(os.getenv('SNIPER_MAX_SLIPPAGE_PCT', '5'))
+SNIPER_MAX_SLIPPAGE_PCT = float(os.getenv('SNIPER_MAX_SLIPPAGE_PCT', '20'))
+HFT_MAX_AMOUNT_SOL = float(os.getenv('HFT_MAX_AMOUNT_SOL', '0.2'))
+HFT_MAX_CONCURRENT = int(os.getenv('HFT_MAX_CONCURRENT', '5'))
 TRADE_COOLDOWN_SECONDS = int(os.getenv('TRADE_COOLDOWN_SECONDS', '5'))
 
 # Known scam/honeypot tokens (add to this list as needed)
@@ -256,6 +258,44 @@ class TradeGuard:
 
         return True
 
+    def validate_hft_snipe(
+        self,
+        token_data: dict,
+        amount_sol: float,
+    ) -> bool:
+        """
+        Minimal validation for HFT mode — speed over safety.
+
+        Only checks blocklist, freeze authority, and amount cap.
+        Does NOT check: RugCheck, creator balance, mint authority, socials.
+        """
+        mint = token_data.get('mint', '???')
+
+        if mint in TOKEN_BLOCKLIST:
+            raise TradeGuardError(
+                code="BLOCKED_TOKEN",
+                message=f"Token {mint[:8]}... is blocklisted",
+                details={"mint": mint}
+            )
+
+        freeze_auth = token_data.get('freeze_authority') or token_data.get('freeze_auth')
+        if freeze_auth:
+            self.add_to_blocklist(mint)
+            raise TradeGuardError(
+                code="FREEZE_AUTHORITY_ACTIVE",
+                message=f"Token {mint[:8]}... has freeze authority — blocked",
+                details={"freeze_authority": freeze_auth, "mint": mint}
+            )
+
+        if amount_sol > HFT_MAX_AMOUNT_SOL:
+            raise TradeGuardError(
+                code="HFT_AMOUNT_EXCEEDED",
+                message=f"HFT amount {amount_sol} SOL exceeds max {HFT_MAX_AMOUNT_SOL} SOL",
+                details={"amount": amount_sol, "max": HFT_MAX_AMOUNT_SOL}
+            )
+
+        return True
+
     def validate_token_safety(
         self,
         token_data: dict,
@@ -338,14 +378,131 @@ class TradeGuard:
 
         # 5. LP burn check — log warning if setting enabled but we can't verify
         if sniper_settings.get('requireLPBurned', True):
-            # LP burn verification requires on-chain LP token analysis.
-            # For Pump.fun: bonding curve IS the liquidity (no LP tokens).
-            # For Raydium: would need to check LP token holders vs burn address.
-            # Currently: allow through with warning — full LP burn check is TODO.
             dex = token_data.get('dex_id', '')
             if dex != 'Pump.fun':
                 logger.info(f"⚠️ LP burn check requested but not yet verifiable for {dex} — proceeding")
 
+        # 6. Bonding curve skip — if enabled and dex is Pump.fun, skip auto-snipe
+        if sniper_settings.get('skipBondingCurve', False):
+            dex = token_data.get('dex_id', '')
+            if dex == 'Pump.fun':
+                logger.info(f"⏭️ SKIPPED: {mint_short}... is Pump.fun bonding curve — skipBondingCurve enabled")
+                raise TradeGuardError(
+                    code="BONDING_CURVE_SKIP",
+                    message=f"Token {mint_short}... is on Pump.fun bonding curve — auto-snipe skipped",
+                    details={"mint": mint, "dex_id": dex}
+                )
+
+        # 7. Minimum FDV threshold
+        self.check_minimum_fdv(token_data, sniper_settings)
+
+        # 8. RugCheck score + creator balance (single API call, always last)
+        self.check_rugcheck_report(mint, sniper_settings)
+
+        return True
+
+    def check_rugcheck_report(self, mint: str, sniper_settings: dict) -> dict:
+        """
+        Fetch RugCheck full report and validate risk score + creator balance.
+
+        RugCheck score is a RISK ACCUMULATOR — higher = more risk flags.
+        Score=1 means no risks detected (base). Each risk adds points (e.g. +100 for mutable metadata,
+        +50000 for mint authority). We block when score EXCEEDS the max threshold.
+
+        NOTE: Pump.fun tokens auto-renounce authorities so rugs AND legit tokens both get score=1.
+        The creator balance check is the primary signal for pump.fun rug detection.
+
+        Single /report call covers both score + creatorBalance. On API failure: BLOCK (fail-closed).
+        """
+        import requests
+
+        mint_short = mint[:8]
+        rugcheck_enabled = sniper_settings.get('rugcheckEnabled', True)
+        creator_check_enabled = sniper_settings.get('creatorBalanceCheckEnabled', True)
+
+        if not rugcheck_enabled and not creator_check_enabled:
+            return {}
+
+        # Single API call — /report has score, risks, AND creatorBalance
+        try:
+            resp = requests.get(
+                f"https://api.rugcheck.xyz/v1/tokens/{mint}/report",
+                timeout=8,
+            )
+            # 400/404 = token not indexed yet (too new) — proceed with local checks only
+            if resp.status_code in (400, 404):
+                logger.info(f"🔍 RugCheck: {mint_short}... not indexed yet (HTTP {resp.status_code}) — proceeding with local checks")
+                return {}
+            resp.raise_for_status()
+            report = resp.json()
+        except TradeGuardError:
+            raise
+        except requests.exceptions.HTTPError as e:
+            # 429 rate limited or 5xx server error — fail-closed
+            logger.warning(f"🛡️ RugCheck API error for {mint_short}...: {e} — BLOCKING (fail-closed)")
+            raise TradeGuardError(
+                code="RUGCHECK_UNAVAILABLE",
+                message=f"Token {mint_short}... blocked — RugCheck API error ({resp.status_code}), cannot verify safety",
+                details={"mint": mint, "error": str(e), "status_code": resp.status_code}
+            )
+        except Exception as e:
+            # Timeout, connection error — fail-closed
+            logger.warning(f"🛡️ RugCheck API unavailable for {mint_short}...: {e} — BLOCKING (fail-closed)")
+            raise TradeGuardError(
+                code="RUGCHECK_UNAVAILABLE",
+                message=f"Token {mint_short}... blocked — RugCheck API unavailable, cannot verify safety",
+                details={"mint": mint, "error": str(e)}
+            )
+
+        score = report.get('score', 0)
+        risks = report.get('risks', []) or []
+        risk_names = [r.get('name', '?') for r in risks]
+        creator_balance = report.get('creatorBalance', -1)
+        logger.info(f"🔍 RugCheck {mint_short}...: score={score}, risks={risk_names}, creatorBalance={creator_balance}")
+
+        # Check: Risk score threshold (block HIGH scores = many risk flags)
+        if rugcheck_enabled:
+            max_risk = float(sniper_settings.get('rugcheckMinScore', 10000))
+            if score > max_risk:
+                self.add_to_blocklist(mint)
+                logger.warning(f"🛡️ BLOCKED: {mint_short}... RugCheck risk score {score} exceeds max {max_risk}")
+                raise TradeGuardError(
+                    code="RUGCHECK_RISK_HIGH",
+                    message=f"Token {mint_short}... RugCheck risk score {score} exceeds maximum {max_risk}",
+                    details={"mint": mint, "score": score, "max_risk": max_risk, "risks": risk_names}
+                )
+
+        # Check: Creator balance — 0 means creator already dumped
+        if creator_check_enabled:
+            if creator_balance == 0:
+                logger.warning(f"🛡️ BLOCKED: {mint_short}... creator has 0 token balance (already dumped)")
+                raise TradeGuardError(
+                    code="CREATOR_DUMPED",
+                    message=f"Token {mint_short}... creator holds 0 tokens — likely already dumped",
+                    details={"mint": mint, "creator_balance": creator_balance}
+                )
+
+        return report
+
+    def check_minimum_fdv(self, token_data: dict, sniper_settings: dict) -> bool:
+        """Check if token's estimated FDV meets the minimum threshold."""
+        min_mcap = float(sniper_settings.get('minMarketCapSOL', 0))
+        if min_mcap <= 0:
+            return True
+
+        initial_liq = float(token_data.get('initial_liquidity', 0))
+        estimated_fdv = initial_liq * 2
+
+        if estimated_fdv < min_mcap:
+            mint = token_data.get('mint', '???')
+            logger.warning(
+                f"🛡️ BLOCKED: {mint[:8]}... estimated FDV {estimated_fdv:.2f} SOL below min {min_mcap:.2f} SOL"
+            )
+            raise TradeGuardError(
+                code="FDV_TOO_LOW",
+                message=f"Token {mint[:8]}... estimated FDV {estimated_fdv:.2f} SOL is below minimum {min_mcap:.2f} SOL",
+                details={"mint": mint, "estimated_fdv_sol": estimated_fdv, "min_market_cap_sol": min_mcap}
+            )
         return True
 
     def confirm_trade(self, confirmation_id: str) -> Dict:

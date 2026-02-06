@@ -140,29 +140,34 @@ export const pageLayouts: Record<string, Layouts> = {
   },
   sniper: {
     lg: [
-      { i: 'token-sniper', x: 0, y: 0, w: 8, h: 20, minW: 6, minH: 8 },
-      { i: 'detected-tokens', x: 8, y: 0, w: 10, h: 20, minW: 6, minH: 8 },
-      { i: 'alerts', x: 18, y: 0, w: 6, h: 20, minW: 4, minH: 6 },
+      { i: 'token-sniper', x: 0, y: 0, w: 6, h: 20, minW: 5, minH: 8 },
+      { i: 'active-positions', x: 6, y: 0, w: 9, h: 10, minW: 6, minH: 6 },
+      { i: 'detected-tokens', x: 6, y: 10, w: 9, h: 10, minW: 6, minH: 6 },
+      { i: 'alerts', x: 15, y: 0, w: 9, h: 20, minW: 4, minH: 6 },
     ],
     md: [
-      { i: 'token-sniper', x: 0, y: 0, w: 8, h: 20, minW: 6, minH: 8 },
-      { i: 'detected-tokens', x: 8, y: 0, w: 8, h: 20, minW: 6, minH: 8 },
-      { i: 'alerts', x: 16, y: 0, w: 4, h: 20, minW: 4, minH: 6 },
+      { i: 'token-sniper', x: 0, y: 0, w: 6, h: 20, minW: 5, minH: 8 },
+      { i: 'active-positions', x: 6, y: 0, w: 8, h: 10, minW: 5, minH: 6 },
+      { i: 'detected-tokens', x: 6, y: 10, w: 8, h: 10, minW: 5, minH: 6 },
+      { i: 'alerts', x: 14, y: 0, w: 6, h: 20, minW: 4, minH: 6 },
     ],
     sm: [
-      { i: 'token-sniper', x: 0, y: 0, w: 6, h: 10, minW: 6, minH: 8 },
-      { i: 'detected-tokens', x: 6, y: 0, w: 6, h: 10, minW: 6, minH: 8 },
-      { i: 'alerts', x: 0, y: 10, w: 12, h: 10, minW: 4, minH: 6 },
+      { i: 'token-sniper', x: 0, y: 0, w: 6, h: 10, minW: 5, minH: 8 },
+      { i: 'active-positions', x: 6, y: 0, w: 6, h: 10, minW: 4, minH: 6 },
+      { i: 'detected-tokens', x: 0, y: 10, w: 7, h: 10, minW: 4, minH: 6 },
+      { i: 'alerts', x: 7, y: 10, w: 5, h: 10, minW: 4, minH: 6 },
     ],
     xs: [
       { i: 'token-sniper', x: 0, y: 0, w: 8, h: 8, minW: 4, minH: 6 },
-      { i: 'detected-tokens', x: 0, y: 8, w: 8, h: 6, minW: 4, minH: 5 },
-      { i: 'alerts', x: 0, y: 14, w: 8, h: 6, minW: 4, minH: 4 },
+      { i: 'active-positions', x: 0, y: 8, w: 8, h: 6, minW: 4, minH: 5 },
+      { i: 'detected-tokens', x: 0, y: 14, w: 8, h: 6, minW: 4, minH: 5 },
+      { i: 'alerts', x: 0, y: 20, w: 8, h: 6, minW: 4, minH: 4 },
     ],
     xxs: [
       { i: 'token-sniper', x: 0, y: 0, w: 4, h: 8, minW: 4, minH: 6 },
-      { i: 'detected-tokens', x: 0, y: 8, w: 4, h: 6, minW: 4, minH: 5 },
-      { i: 'alerts', x: 0, y: 14, w: 4, h: 6, minW: 4, minH: 4 },
+      { i: 'active-positions', x: 0, y: 8, w: 4, h: 6, minW: 4, minH: 5 },
+      { i: 'detected-tokens', x: 0, y: 14, w: 4, h: 6, minW: 4, minH: 5 },
+      { i: 'alerts', x: 0, y: 20, w: 4, h: 6, minW: 4, minH: 4 },
     ],
   },
   arb: {
@@ -417,6 +422,7 @@ export const availableWidgets: Record<string, Array<{ id: string; name: string; 
   ],
   sniper: [
     { id: 'token-sniper', name: 'Token Sniper', description: 'Sniper settings' },
+    { id: 'active-positions', name: 'Active Positions', description: 'Sniped token positions' },
     { id: 'detected-tokens', name: 'Detected Tokens', description: 'New token alerts' },
     { id: 'alerts', name: 'Alerts', description: 'System notifications' },
   ],
@@ -556,7 +562,7 @@ export const useLayoutStore = create<LayoutState>()(
     }),
     {
       name: 'tactix-layouts',
-      version: 4, // Bump this when adding new widgets to force layout refresh
+      version: 5, // Bump this when adding new widgets to force layout refresh
       partialize: (state) => ({ layouts: state.layouts, hiddenWidgets: state.hiddenWidgets }),
       migrate: (persistedState: any, version: number) => {
         if (version < 3) {
@@ -575,6 +581,16 @@ export const useLayoutStore = create<LayoutState>()(
             layouts: {
               ...persistedState?.layouts,
               control: undefined,
+            },
+          }
+        }
+        if (version < 5) {
+          // Reset sniper page layout to pick up new ActivePositions widget
+          return {
+            ...persistedState,
+            layouts: {
+              ...persistedState?.layouts,
+              sniper: undefined,
             },
           }
         }

@@ -7,7 +7,7 @@ import { TokenDetailModal } from '../modals/TokenDetailModal'
 import { SnipedToken } from '@/features/sniper/sniperSlice'
 
 export const SniperWidget: React.FC = () => {
-  const { trackedTokens, engineActive } = useAppSelector(state => state.sniper)
+  const { trackedTokens, detecting } = useAppSelector(state => state.sniper)
   const [selectedToken, setSelectedToken] = useState<SnipedToken | null>(null)
   const [isSnipeModalOpen, setIsSnipeModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
@@ -36,13 +36,13 @@ export const SniperWidget: React.FC = () => {
         <div className="flex items-center gap-1.5">
           <div className={cn(
             "w-2 h-2 rounded-full",
-            engineActive ? "bg-accent-cyan animate-pulse" : "bg-text-muted opacity-50"
+            detecting ? "bg-accent-cyan animate-pulse" : "bg-text-muted opacity-50"
           )} />
           <span className={cn(
             "text-[10px] font-mono",
-            engineActive ? "text-accent-cyan" : "text-text-muted"
+            detecting ? "text-accent-cyan" : "text-text-muted"
           )}>
-            {engineActive ? 'ENGINE ACTIVE' : 'ENGINE OFFLINE'}
+            {detecting ? 'ENGINE ACTIVE' : 'ENGINE OFFLINE'}
           </span>
         </div>
       </div>

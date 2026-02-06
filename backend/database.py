@@ -342,6 +342,32 @@ class TactixDB:
             rows = conn.execute(q).mappings().fetchall()
             return [dict(r) for r in rows]
 
+    def get_snipe_positions(self, limit=50):
+        """Fetch successful snipe buys that haven't been sold yet."""
+        # Subquery: mints that have a successful sell trade
+        sold_mints = sa.select(trades.c.input_mint).where(
+            trades.c.source.like('Snipe Sell%'),
+            trades.c.status == 'success',
+        ).scalar_subquery()
+
+        q = sa.select(
+            trades.c.id, trades.c.timestamp,
+            trades.c.output_symbol.label('symbol'),
+            trades.c.output_mint.label('mint'),
+            trades.c.amount_in.label('sol_spent'),
+            trades.c.amount_out.label('tokens_received'),
+            trades.c.usd_value,
+            trades.c.source, trades.c.signature,
+        ).where(
+            trades.c.source.like('Snipe%'),
+            ~trades.c.source.like('Snipe Sell%'),
+            trades.c.status == 'success',
+            ~trades.c.output_mint.in_(sold_mints),
+        ).order_by(trades.c.timestamp.desc()).limit(limit)
+        with self.engine.connect() as conn:
+            rows = conn.execute(q).mappings().fetchall()
+            return [dict(r) for r in rows]
+
     # ─── Snapshots ─────────────────────────────────────────────────────────
 
     def record_snapshot(self, total_value, wallet, holdings):

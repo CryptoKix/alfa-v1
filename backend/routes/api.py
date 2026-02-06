@@ -223,7 +223,22 @@ def api_get_sniper_settings():
         "minLiquidity": 5,
         "requireMintRenounced": True,
         "requireLPBurned": True,
-        "requireSocials": False
+        "requireSocials": False,
+        "skipBondingCurve": False,
+        "rugcheckEnabled": True,
+        "rugcheckMinScore": 10000,
+        "creatorBalanceCheckEnabled": True,
+        "minMarketCapSOL": 0,
+        # Mode + HFT
+        "snipeMode": "graduated",
+        "hftBuyAmount": 0.1,
+        "hftSlippage": 25,
+        "hftPriorityFee": 0.00005,
+        "hftJitoPercentile": "95th",
+        "hftMaxHoldSeconds": 60,
+        "hftTakeProfitPct": 30,
+        "hftStopLossPct": 25,
+        "hftAutoSellEnabled": True,
     })
     return jsonify(settings)
 
@@ -1133,13 +1148,13 @@ def internal_sniper_webhook():
 
 
 
-    # Broadcast to UI
-
-
-
-
-
-    sio_bridge.emit('new_token_detected', token_data, namespace='/sniper')
+    # Broadcast to UI — normalize for frontend (socials_json as string)
+    import json as _json
+    emit_data = {**token_data}
+    if 'socials_json' not in emit_data:
+        emit_data['socials_json'] = _json.dumps(token_data.get('socials', {}))
+    emit_data.setdefault('pool_address', emit_data.get('pool_address', ''))
+    sio_bridge.emit('new_token_detected', emit_data, namespace='/sniper')
 
 
 

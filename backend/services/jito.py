@@ -12,6 +12,7 @@ from solders.pubkey import Pubkey
 from solders.system_program import transfer, TransferParams
 from solders.transaction import VersionedTransaction
 from solders.message import MessageV0
+from solders.hash import Hash as SoldersHash
 from config import KEYPAIR, BASE_DIR
 
 logger = logging.getLogger("jito")
@@ -47,17 +48,66 @@ JITO_ENDPOINTS = [
 # Jito Tip Floor API
 JITO_TIP_FLOOR_URL = "https://bundles.jito.wtf/api/v1/bundles/tip_floor"
 
-# Jito Tip Accounts
-JITO_TIP_ACCOUNTS = [
-    "96gWu9sjJJcc9wGvBk9SshLeWvAeCQGZvS9dg9yrGU4G",
+# Jito Tip Accounts — fetched dynamically via getTipAccounts, with static fallback.
+# These rotate every epoch (~2.5 days), so dynamic fetch is essential.
+_FALLBACK_TIP_ACCOUNTS = [
+    "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
     "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
-    "Cw8CFyMvGrnC7AByELoUzrFP4Wniw1Y8JGuEGUZBPTio",
-    "ADaUMid9yfUytqMBqkh6AqnvT4vBNpZpS7UngeatWhpY",
-    "DfXygSm4jCyvG8UMEXrS8qXobJuUn2js5qR2pbtqyAg8",
-    "ADuUkR4vqMvS2ri6bcSCCKcYsyR8niSpsUSSM91YQYzZ",
-    "DttWaMuVvTiduGmq2hpWyDHJDsSNTwd2NoTuMaw79asz",
-    "3AVi9Tg9Uo68tJfuAWMwoIrKVw5S9uBjsJAnatS8ipAn",
+    "Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY",
+    "ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49",
+    "DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh",
+    "ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt",
+    "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
+    "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL",
 ]
+
+# Dynamic tip accounts cache
+_tip_accounts_lock = threading.Lock()
+_tip_accounts: List[str] = list(_FALLBACK_TIP_ACCOUNTS)
+_tip_accounts_last_fetch: float = 0
+_TIP_ACCOUNTS_TTL = 300  # refresh every 5 minutes
+
+
+def _fetch_tip_accounts() -> Optional[List[str]]:
+    """Fetch current tip accounts from Jito block engine via getTipAccounts RPC."""
+    for ep in JITO_ENDPOINTS:
+        try:
+            base_url = ep.rsplit("/api/v1/bundles", 1)[0]
+            url = f"{base_url}/api/v1/bundles"
+            resp = requests.post(url, json={
+                "jsonrpc": "2.0", "id": 1, "method": "getTipAccounts", "params": []
+            }, timeout=3)
+            if resp.status_code == 200:
+                data = resp.json()
+                accounts = data.get("result", [])
+                if accounts and len(accounts) >= 4:
+                    # Validate each account is valid base58
+                    valid = []
+                    for acc in accounts:
+                        try:
+                            Pubkey.from_string(acc)
+                            valid.append(acc)
+                        except Exception:
+                            logger.warning(f"Invalid tip account from API: {acc}")
+                    if valid:
+                        return valid
+        except Exception:
+            continue
+    return None
+
+
+def _refresh_tip_accounts():
+    """Refresh the tip accounts cache if stale."""
+    global _tip_accounts, _tip_accounts_last_fetch
+    with _tip_accounts_lock:
+        if time.time() - _tip_accounts_last_fetch < _TIP_ACCOUNTS_TTL:
+            return  # Still fresh
+    accounts = _fetch_tip_accounts()
+    with _tip_accounts_lock:
+        if accounts:
+            _tip_accounts = accounts
+            logger.info(f"🎯 Refreshed {len(accounts)} Jito tip accounts")
+        _tip_accounts_last_fetch = time.time()
 
 # Tip floor defaults (lamports) — used when API is unavailable
 DEFAULT_TIP_LAMPORTS = 50_000          # 0.00005 SOL
@@ -184,9 +234,13 @@ class TipFloorCache:
 tip_floor_cache = TipFloorCache()
 
 
-def get_random_tip_account():
+def get_random_tip_account() -> str:
+    """Return a random tip account, refreshing the cache if stale."""
     import random
-    return JITO_TIP_ACCOUNTS[random.randint(0, len(JITO_TIP_ACCOUNTS) - 1)]
+    _refresh_tip_accounts()
+    with _tip_accounts_lock:
+        accounts = _tip_accounts
+    return accounts[random.randint(0, len(accounts) - 1)]
 
 def _post_jito_endpoint(endpoint: str, payload: dict) -> dict:
     """POST bundle to a single Jito endpoint."""
@@ -243,6 +297,10 @@ def build_tip_transaction(tip_amount_lamports: int, recent_blockhash):
         to_pubkey=tip_account,
         lamports=tip_amount_lamports
     ))
+
+    # Accept both str and Hash — callers often pass str(blockhash)
+    if isinstance(recent_blockhash, str):
+        recent_blockhash = SoldersHash.from_string(recent_blockhash)
 
     msg = MessageV0.try_compile(
         payer=sender,

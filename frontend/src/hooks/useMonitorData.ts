@@ -123,7 +123,8 @@ export const useMonitorStore = create<MonitorStore>()((set, get) => ({
     const newCount = state._subscribers + 1
 
     if (newCount === 1) {
-      state.refresh()
+      // Data already pre-fetched eagerly — just start the polling interval
+      if (state.loading) state.refresh()
       const id = setInterval(() => get().refresh(), POLL_INTERVAL)
       set({ _subscribers: newCount, _intervalId: id })
     } else {
@@ -142,6 +143,9 @@ export const useMonitorStore = create<MonitorStore>()((set, get) => ({
     }
   },
 }))
+
+// Eager pre-fetch: fire immediately on import so data is ready before the page mounts
+useMonitorStore.getState().refresh()
 
 /**
  * Hook that auto-subscribes on mount and unsubscribes on unmount.

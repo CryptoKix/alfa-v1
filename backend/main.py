@@ -375,6 +375,18 @@ async def handle_copytrade_connect(sid, environ):
 @sio.on('connect', namespace='/sniper')
 async def handle_sniper_connect(sid, environ):
     logger.debug(f"Sniper namespace connected: {sid}")
+    from services.sniper import sniper_engine
+    # Send current armed state (autoSnipe) + persisted settings
+    settings = sniper_engine.settings
+    await sio.emit('sniper_status', {
+        'armed': bool(settings.get('autoSnipe')),
+        'detecting': sniper_engine.is_running(),
+    }, namespace='/sniper', room=sid)
+    await sio.emit('sniper_settings_sync', settings, namespace='/sniper', room=sid)
+    # Send HFT positions on connect
+    await sio.emit('hft_positions_update', {
+        'positions': sniper_engine.get_hft_positions()
+    }, namespace='/sniper', room=sid)
 
 
 @sio.on('connect', namespace='/intel')
@@ -456,7 +468,139 @@ async def handle_signals_req(sid):
 async def handle_sniper_req(sid):
     logger.debug(f"Received request_tracked from {sid}")
     tokens = db.get_tracked_tokens(50)
+    # Serialize datetime objects for JSON transport
+    for t in tokens:
+        if hasattr(t.get('detected_at'), 'isoformat'):
+            t['detected_at'] = t['detected_at'].isoformat()
     await sio.emit('tracked_update', {'tokens': tokens}, namespace='/sniper', room=sid)
+
+
+@sio.on('arm_sniper', namespace='/sniper')
+async def handle_arm_sniper(sid, data=None):
+    """Toggle autoSnipe — arms/disarms auto-execution. Detection stays running."""
+    from services.sniper import sniper_engine
+    # Merge latest settings from frontend if provided
+    if data and isinstance(data, dict) and 'settings' in data:
+        incoming = data['settings']
+        sniper_engine.settings.update(incoming)
+    armed = not sniper_engine.settings.get('autoSnipe', False)
+    sniper_engine.settings['autoSnipe'] = armed
+    # Reset circuit breaker on re-arm
+    if armed:
+        sniper_engine._snipe_count = 0
+        logger.info("🔌 Circuit breaker reset (re-armed)")
+    db.save_setting('sniper_settings', sniper_engine.settings)
+    logger.info(f"Sniper {'ARMED' if armed else 'DISARMED'} by user — settings: {list(sniper_engine.settings.keys())}")
+    await sio.emit('sniper_status', {
+        'armed': armed,
+        'detecting': sniper_engine.is_running(),
+    }, namespace='/sniper')
+
+
+@sio.on('request_sniper_status', namespace='/sniper')
+async def handle_sniper_status_req(sid):
+    from services.sniper import sniper_engine
+    settings = sniper_engine.settings
+    await sio.emit('sniper_status', {
+        'armed': bool(settings.get('autoSnipe')),
+        'detecting': sniper_engine.is_running(),
+    }, namespace='/sniper', room=sid)
+    await sio.emit('sniper_settings_sync', settings, namespace='/sniper', room=sid)
+
+
+@sio.on('request_snipe_positions', namespace='/sniper')
+async def handle_snipe_positions_req(sid):
+    positions = db.get_snipe_positions(50)
+    for p in positions:
+        if hasattr(p.get('timestamp'), 'isoformat'):
+            p['timestamp'] = p['timestamp'].isoformat()
+    await sio.emit('snipe_positions_update', {'positions': positions}, namespace='/sniper', room=sid)
+
+
+@sio.on('request_hft_positions', namespace='/sniper')
+async def handle_hft_positions_req(sid):
+    from services.sniper import sniper_engine
+    await sio.emit('hft_positions_update', {
+        'positions': sniper_engine.get_hft_positions()
+    }, namespace='/sniper', room=sid)
+
+
+@sio.on('sell_snipe_position', namespace='/sniper')
+async def handle_sell_snipe(sid, data):
+    """Sell a sniped token position — swap full token balance back to SOL."""
+    mint = data.get('mint')
+    symbol = data.get('symbol', '???')
+    slippage_bps = int(data.get('slippage_bps', 1500))  # default 15%
+
+    if not mint:
+        await sio.emit('sell_result', {'success': False, 'error': 'No mint provided'}, namespace='/sniper', room=sid)
+        return
+
+    logger.info(f"Sell requested: {symbol} ({mint[:8]}...) slippage={slippage_bps}bps")
+
+    def _do_sell():
+        try:
+            from services.tokens import get_token_accounts
+            from services.trading import execute_trade_with_jito
+            from services.jito import tip_floor_cache
+
+            # Get current token balance
+            holdings = get_token_accounts()
+            token_balance = 0
+            for h in holdings:
+                if h.get('mint') == mint:
+                    token_balance = h.get('balance', 0)
+                    break
+
+            if token_balance <= 0:
+                sio_bridge.emit('sell_result', {
+                    'success': False,
+                    'error': f'No {symbol} balance found in wallet',
+                }, namespace='/sniper')
+                return
+
+            tip_lamports = tip_floor_cache.get_optimal_tip(percentile="75th")
+            sol_mint = "So11111111111111111111111111111111111111112"
+
+            logger.info(f"Selling {token_balance} {symbol} → SOL (tip: {tip_lamports} lamports)")
+
+            result = execute_trade_with_jito(
+                input_mint=mint,
+                output_mint=sol_mint,
+                amount=token_balance,
+                source=f"Snipe Sell ({symbol})",
+                slippage_bps=slippage_bps,
+                tip_lamports=tip_lamports,
+            )
+
+            logger.info(f"✅ SELL SUCCESS: {symbol} → {result.get('amount_out', 0):.4f} SOL (sig: {result.get('signature', '')[:16]}...)")
+
+            sio_bridge.emit('sell_result', {
+                'success': True,
+                'symbol': symbol,
+                'mint': mint,
+                'sol_received': result.get('amount_out', 0),
+                'signature': result.get('signature'),
+                'jito_success': result.get('jito_success', False),
+            }, namespace='/sniper')
+
+            # Refresh positions list for all clients
+            positions = db.get_snipe_positions(50)
+            for p in positions:
+                if hasattr(p.get('timestamp'), 'isoformat'):
+                    p['timestamp'] = p['timestamp'].isoformat()
+            sio_bridge.emit('snipe_positions_update', {'positions': positions}, namespace='/sniper')
+
+        except Exception as e:
+            logger.error(f"❌ SELL FAILED: {symbol} — {e}", exc_info=True)
+            sio_bridge.emit('sell_result', {
+                'success': False,
+                'error': str(e),
+            }, namespace='/sniper')
+
+    import sio_bridge as _sio_bridge
+    _sio_bridge.start_background_task(_do_sell)
+    await sio.emit('sell_result', {'success': True, 'status': 'pending', 'symbol': symbol}, namespace='/sniper', room=sid)
 
 
 @sio.on('request_news', namespace='/intel')

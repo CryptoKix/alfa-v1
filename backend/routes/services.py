@@ -107,6 +107,15 @@ def toggle_service(service_name):
             service.start()
             action = 'started'
 
+        # Notify sniper page when detection engine is toggled
+        if service_name == 'sniper_engine':
+            import sio_bridge
+            from services.sniper import sniper_engine
+            sio_bridge.emit('sniper_status', {
+                'armed': bool(sniper_engine.settings.get('autoSnipe')),
+                'detecting': sniper_engine.is_running(),
+            }, namespace='/sniper')
+
         return jsonify({
             'success': True,
             'service': service_name,
@@ -127,6 +136,15 @@ def start_service(service_name):
     try:
         if not service.is_running():
             service.start()
+
+        if service_name == 'sniper_engine':
+            import sio_bridge
+            from services.sniper import sniper_engine
+            sio_bridge.emit('sniper_status', {
+                'armed': bool(sniper_engine.settings.get('autoSnipe')),
+                'detecting': sniper_engine.is_running(),
+            }, namespace='/sniper')
+
         return jsonify({
             'success': True,
             'service': service_name,
@@ -146,6 +164,15 @@ def stop_service(service_name):
     try:
         if service.is_running():
             service.stop()
+
+        if service_name == 'sniper_engine':
+            import sio_bridge
+            from services.sniper import sniper_engine
+            sio_bridge.emit('sniper_status', {
+                'armed': bool(sniper_engine.settings.get('autoSnipe')),
+                'detecting': sniper_engine.is_running(),
+            }, namespace='/sniper')
+
         return jsonify({
             'success': True,
             'service': service_name,

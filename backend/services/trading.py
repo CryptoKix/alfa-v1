@@ -445,30 +445,37 @@ def execute_trade_with_jito(input_mint, output_mint, amount, source="Manual", sl
         raise Exception(f"Swap tx signing failed: {e}")
 
     # Build Jito tip transaction
-    recent_blockhash = solana_client.get_latest_blockhash().value.blockhash
-    tip_tx_b64 = build_tip_transaction(tip_lamports, recent_blockhash)
-    if not tip_tx_b64:
-        raise Exception("Failed to build Jito tip transaction")
+    tip_tx_b64 = None
+    try:
+        recent_blockhash = solana_client.get_latest_blockhash().value.blockhash
+        tip_tx_b64 = build_tip_transaction(tip_lamports, recent_blockhash)
+    except Exception as e:
+        logger.warning(f"Tip tx build failed ({e}), proceeding without Jito bundle")
 
-    # Submit bundle to Jito
-    bundle = [swap_tx_b64, tip_tx_b64]
-    jito_results = send_jito_bundle(bundle)
-
-    # Check if any Jito endpoint succeeded
+    # Submit bundle to Jito (or skip if no tip tx)
     jito_success = False
     jito_sig = None
-    for result in jito_results:
-        if "data" in result and "result" in result.get("data", {}):
-            jito_success = True
-            jito_sig = result["data"]["result"]
-            break
+    jito_results = []
+
+    if tip_tx_b64:
+        bundle = [swap_tx_b64, tip_tx_b64]
+        jito_results = send_jito_bundle(bundle)
+
+        for result in jito_results:
+            if "data" in result and "result" in result.get("data", {}):
+                jito_success = True
+                jito_sig = result["data"]["result"]
+                break
 
     if jito_success:
         sig = jito_sig if jito_sig else str(signature)
         print(f"✅ Jito bundle submitted successfully: {sig}")
     else:
         # Fallback to regular RPC submission
-        print(f"⚠️ Jito bundle failed, falling back to regular RPC")
+        if tip_tx_b64:
+            print(f"⚠️ Jito bundle failed, falling back to regular RPC")
+        else:
+            print(f"⚠️ No Jito tip tx, submitting via regular RPC")
         try:
             send_res = solana_client.send_raw_transaction(
                 bytes(signed_txn),
@@ -735,9 +742,13 @@ def execute_snipe(token_data: dict, buy_amount_sol: float, slippage_bps: int = 5
             raise Exception(f"All swap routes failed. Jupiter error: {e}")
 
     # ── Build Jito Tip Transaction ──────────────────────────────────────
-    tip_tx_b64 = build_tip_transaction(tip_lamports, recent_blockhash)
+    tip_tx_b64 = None
+    try:
+        tip_tx_b64 = build_tip_transaction(tip_lamports, recent_blockhash)
+    except Exception as e:
+        logger.warning(f"Tip tx build failed ({e}), proceeding without Jito bundle")
     if not tip_tx_b64:
-        logger.warning("Failed to build Jito tip transaction, proceeding without bundle")
+        logger.warning("No Jito tip transaction, will submit via RPC fallback")
 
     # ── Submit via Jito or Fallback RPC ─────────────────────────────────
     jito_success = False
@@ -749,16 +760,20 @@ def execute_snipe(token_data: dict, buy_amount_sol: float, slippage_bps: int = 5
 
         for result in jito_results:
             if result.get("status") == 200:
-                jito_success = True
-                # Extract bundle ID if available
                 jito_data = result.get("data", {})
+                # Jito returns 200 even for errors — check for "result" key
                 if "result" in jito_data:
+                    jito_success = True
                     logger.info(f"✅ Jito bundle accepted: {jito_data['result']}")
-                break
+                    break
+                elif "error" in jito_data:
+                    logger.warning(f"Jito 200 but error: {jito_data['error']}")
+                else:
+                    logger.warning(f"Jito unexpected response: {jito_data}")
 
     if not jito_success:
         # Fallback to standard RPC submission
-        logger.warning("Jito bundle failed or unavailable, falling back to RPC")
+        logger.warning(f"Jito bundle failed or unavailable, falling back to RPC. Results: {jito_results}")
         try:
             tx_bytes = base64.b64decode(signed_swap_tx_b64)
             send_res = solana_client.send_raw_transaction(
@@ -776,11 +791,34 @@ def execute_snipe(token_data: dict, buy_amount_sol: float, slippage_bps: int = 5
 
     elapsed_ms = int((time.time() - start_time) * 1000)
 
+    # ── Confirm Transaction On-Chain ─────────────────────────────────────
+    confirmed = False
+    tx_err = None
+    if sig:
+        from solders.signature import Signature as SoldersSig
+        for attempt in range(8):  # ~4 seconds max
+            time.sleep(0.5)
+            try:
+                status_res = solana_client.get_signature_statuses([SoldersSig.from_string(sig)])
+                statuses = status_res.value
+                if statuses and statuses[0] is not None:
+                    if statuses[0].err is None:
+                        confirmed = True
+                        logger.info(f"✅ Tx confirmed on-chain: {sig[:16]}... (attempt {attempt+1})")
+                    else:
+                        tx_err = str(statuses[0].err)
+                        logger.error(f"❌ Tx FAILED on-chain: {sig[:16]}... err={tx_err}")
+                    break
+            except Exception as e:
+                logger.debug(f"Confirmation poll {attempt+1}: {e}")
+        else:
+            logger.warning(f"⚠️ Tx not confirmed after 4s: {sig[:16]}... (will log as unconfirmed)")
+
     # ── Log Trade & Broadcast Updates ───────────────────────────────────
     # Get token decimals for proper conversion
     known = get_known_tokens()
     output_token = known.get(token_mint, {"decimals": 9})
-    amount_out = estimated_tokens_out / (10 ** output_token.get('decimals', 9))
+    amount_out = estimated_tokens_out / (10 ** output_token.get('decimals', 9)) if confirmed else 0
 
     # Calculate USD value
     usd_value = 0
@@ -788,6 +826,8 @@ def execute_snipe(token_data: dict, buy_amount_sol: float, slippage_bps: int = 5
         wsol = "So11111111111111111111111111111111111111112"
         if wsol in price_cache:
             usd_value = buy_amount_sol * price_cache[wsol][0]
+
+    trade_status = "success" if confirmed else ("failed" if tx_err else "unconfirmed")
 
     # Log to database
     db.log_trade({
@@ -797,13 +837,14 @@ def execute_snipe(token_data: dict, buy_amount_sol: float, slippage_bps: int = 5
         "output": symbol,
         "input_mint": "So11111111111111111111111111111111111111112",
         "output_mint": token_mint,
-        "amount_in": buy_amount_sol,
+        "amount_in": buy_amount_sol if confirmed else 0,
         "amount_out": amount_out,
-        "usd_value": usd_value,
+        "usd_value": usd_value if confirmed else 0,
         "slippage_bps": slippage_bps,
         "priority_fee": tip_lamports / 1e9,
         "signature": sig,
-        "status": "success"
+        "status": trade_status,
+        "error": tx_err,
     })
 
     # Broadcast updates
@@ -838,7 +879,7 @@ def execute_snipe(token_data: dict, buy_amount_sol: float, slippage_bps: int = 5
     except Exception as e:
         logger.warning(f"Discord notification failed: {e}")
 
-    logger.info(f"🎯 SNIPE EXECUTED: {symbol} via {method} in {elapsed_ms}ms (Jito: {jito_success}, tip: {tip_lamports} lamports / {tip_lamports/1e9:.6f} SOL)")
+    logger.info(f"🎯 SNIPE EXECUTED: {symbol} via {method} in {elapsed_ms}ms (Jito: {jito_success}, tip: {tip_lamports} lamports / {tip_lamports/1e9:.6f} SOL, confirmed: {confirmed})")
 
     return {
         "signature": sig,
@@ -846,4 +887,5 @@ def execute_snipe(token_data: dict, buy_amount_sol: float, slippage_bps: int = 5
         "elapsed_ms": elapsed_ms,
         "jito_success": jito_success,
         "estimated_tokens_out": amount_out,
+        "confirmed": confirmed,
     }
