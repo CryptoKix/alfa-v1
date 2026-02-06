@@ -17,7 +17,7 @@ import logging
 import requests
 import json
 from typing import Optional, Tuple
-from config import SOLANA_RPC, HELIUS_API_KEY, HELIUS_STAKED_RPC, SHYFT_API_KEY
+from config import SOLANA_RPC, HELIUS_STAKED_RPC, SHYFT_API_KEY
 
 logger = logging.getLogger("blockhash_cache")
 logger.setLevel(logging.INFO)
@@ -266,9 +266,10 @@ class BlockhashCache:
 
             if not ws_url:
                 if SHYFT_API_KEY:
-                    ws_url = f"wss://rpc.shyft.to?api_key={SHYFT_API_KEY}"
-                else:
-                    ws_url = f"wss://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+                    ws_url = f"wss://rpc.ams.shyft.to?api_key={SHYFT_API_KEY}"
+                # Helius WS — DISABLED
+                # else:
+                #     ws_url = f"wss://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
 
             def on_message(ws, message):
                 try:

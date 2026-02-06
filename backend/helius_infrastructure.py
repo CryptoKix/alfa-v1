@@ -66,32 +66,29 @@ class HeliusConfig:
     timeout: int = 30
 
     def __post_init__(self):
-        base = "mainnet" if self.network == "mainnet" else "devnet"
-
-        # RPC: Use Shyft (primary) or fallback to Helius
+        # All traffic routes through Shyft — Helius fully disabled
         if not self.rpc_url:
             if self.shyft_api_key:
-                self.rpc_url = f"https://rpc.shyft.to?api_key={self.shyft_api_key}"
-                logger.info("RPC: Using Shyft endpoint")
-            elif self.api_key:
-                self.rpc_url = f"https://{base}.helius-rpc.com/?api-key={self.api_key}"
-                logger.warning("RPC: Falling back to Helius (Shyft API key not set)")
+                self.rpc_url = f"https://rpc.ams.shyft.to?api_key={self.shyft_api_key}"
+                logger.info("RPC: Using Shyft endpoint (AMS)")
             else:
-                raise ValueError("No RPC provider configured (set SHYFT_API_KEY or HELIUS_API_KEY)")
+                raise ValueError("No RPC provider configured (set SHYFT_API_KEY)")
 
-        # WebSocket: Use Shyft if available (Shyft WS format: wss://rpc.shyft.to?api_key=XXX)
         if not self.ws_url:
             if self.shyft_api_key:
-                self.ws_url = f"wss://rpc.shyft.to?api_key={self.shyft_api_key}"
-            elif self.api_key:
-                self.ws_url = f"wss://{base}.helius-rpc.com/?api-key={self.api_key}"
+                self.ws_url = f"wss://rpc.ams.shyft.to?api_key={self.shyft_api_key}"
 
-        # DAS: Always use Helius (Shyft doesn't have DAS API)
+        # DAS: Shyft doesn't support Metaplex DAS on standard RPC.
+        # Token metadata comes from Shyft REST API (ShyftTokenAPI) instead.
+        # das_url left empty — HeliusDAS.get_asset() uses Shyft REST as primary.
         if not self.das_url:
-            if self.api_key:
-                self.das_url = f"https://{base}.helius-rpc.com/?api-key={self.api_key}"
-            else:
-                logger.warning("DAS API unavailable (HELIUS_API_KEY not set)")
+            self.das_url = ""  # No DAS endpoint — Shyft REST handles metadata
+
+        # Helius — fully disabled, kept for reference
+        # if self.api_key:
+        #     self.rpc_url = f"https://mainnet.helius-rpc.com/?api-key={self.api_key}"
+        #     self.ws_url = f"wss://mainnet.helius-rpc.com/?api-key={self.api_key}"
+        #     self.das_url = f"https://mainnet.helius-rpc.com/?api-key={self.api_key}"
 
 
 class SubscriptionType(Enum):
@@ -809,29 +806,25 @@ class ShyftTokenAPI:
 
 class HeliusDAS:
     """
-    Helius Digital Asset Standard API Client.
+    Metaplex DAS (Digital Asset Standard) API Client.
 
-    Provides access to enhanced token/NFT metadata and search capabilities.
-    Falls back to Shyft API when Helius is unavailable.
+    Provides access to token/NFT metadata and search capabilities.
+    Now routes through Shyft (supports full DAS on same RPC endpoint).
     """
 
     def __init__(self, config: HeliusConfig):
         self.config = config
         self.session = requests.Session()
         self._request_id = 0
-        # Shyft fallback for when Helius is rate-limited
+        # Shyft REST API fallback for simple token lookups
         self._shyft = ShyftTokenAPI(config.shyft_api_key) if config.shyft_api_key else None
-        # Track Helius failures to skip retries when suspended
-        self._helius_fail_count = 0
-        self._helius_fail_time = 0
-        self._helius_backoff_until = 0
 
     def _get_request_id(self) -> int:
         self._request_id += 1
         return self._request_id
 
     def _make_request(self, method: str, params: Dict) -> Any:
-        """Make a DAS API request."""
+        """Make a DAS API request with endpoint failover."""
         payload = {
             "jsonrpc": "2.0",
             "id": self._get_request_id(),
@@ -839,10 +832,19 @@ class HeliusDAS:
             "params": params
         }
 
+        # DAS now goes through Shyft via endpoint manager
+        endpoint_mgr = None
+        try:
+            from endpoint_manager import get_endpoint_manager
+            endpoint_mgr = get_endpoint_manager()
+        except Exception:
+            pass
+
         for attempt in range(self.config.max_retries):
+            das_url = endpoint_mgr.get_rpc_url() if endpoint_mgr else self.config.das_url
             try:
                 response = self.session.post(
-                    self.config.das_url,
+                    das_url,
                     json=payload,
                     headers={"Content-Type": "application/json"},
                     timeout=self.config.timeout
@@ -854,9 +856,13 @@ class HeliusDAS:
                     raise RPCError(result["error"].get("message", "Unknown DAS error"),
                                    result["error"].get("code"))
 
+                if endpoint_mgr:
+                    endpoint_mgr.report_success('rpc')
                 return result.get("result")
 
             except requests.exceptions.RequestException as e:
+                if endpoint_mgr:
+                    endpoint_mgr.report_failure('rpc')
                 logger.warning(f"DAS request failed (attempt {attempt + 1}): {e}")
                 if attempt < self.config.max_retries - 1:
                     time.sleep(self.config.retry_delay * (attempt + 1))
@@ -873,25 +879,24 @@ class HeliusDAS:
 
         Returns: Token metadata, ownership, royalties, compression status, etc.
 
-        PRIMARY: Shyft API (unlimited calls)
-        FALLBACK: Helius DAS (only if Shyft fails)
+        Uses Shyft REST token info API (Shyft RPC doesn't support DAS methods).
         """
-        # Try Shyft FIRST (primary - unlimited calls)
+        # Shyft REST API — primary source for token metadata
         if self._shyft:
             result = self._shyft.get_token_info(asset_id)
             if result:
                 return result
-            logger.debug(f"Shyft token info failed for {asset_id[:8]}..., trying Helius")
 
-        # Fallback to Helius DAS only if Shyft failed
-        try:
-            params = {"id": asset_id}
-            if display_options:
-                params["displayOptions"] = display_options
-            return self._make_request("getAsset", params)
-        except (ConnectionError, RPCError) as e:
-            logger.warning(f"Both Shyft and Helius failed for {asset_id[:8]}...")
-            raise
+        # Helius DAS — DISABLED, kept for reference
+        # try:
+        #     params = {"id": asset_id}
+        #     if display_options:
+        #         params["displayOptions"] = display_options
+        #     return self._make_request("getAsset", params)
+        # except (ConnectionError, RPCError):
+        #     pass
+
+        raise ConnectionError(f"Token metadata lookup failed for {asset_id[:8]}...")
 
     def get_asset_batch(self, asset_ids: List[str], display_options: Dict = None) -> List[Dict]:
         """

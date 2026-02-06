@@ -10,7 +10,8 @@ import signal
 from datetime import datetime
 from helius_infrastructure import HeliusClient
 from database import TactixDB
-from config import HELIUS_API_KEY, SERVER_PORT
+from config import SERVER_PORT
+# from config import HELIUS_API_KEY  # DISABLED — all traffic via Shyft
 from services.notifications import notify_system_status
 
 # Configure logging with high precision

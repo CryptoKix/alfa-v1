@@ -7,7 +7,7 @@ import logging
 from datetime import datetime
 import sio_bridge
 from extensions import db, helius
-from config import HELIUS_API_KEY
+# from config import HELIUS_API_KEY  # DISABLED — all traffic via Shyft
 
 logger = logging.getLogger("sniper_engine")
 logger.setLevel(logging.DEBUG)

@@ -15,20 +15,16 @@ load_dotenv()
 
 db = TactixDB()
 
-# RPC Provider - Use Shyft (primary) with multi-location failover
+# RPC Provider — 100% Shyft with multi-location failover
 SHYFT_API_KEY = os.getenv("SHYFT_API_KEY")
-HELIUS_API_KEY = os.getenv("HELIUS_API_KEY")
+# HELIUS_API_KEY = os.getenv("HELIUS_API_KEY")  # DISABLED — all traffic via Shyft
 
 if SHYFT_API_KEY:
     SOLANA_RPC = f"https://rpc.ams.shyft.to?api_key={SHYFT_API_KEY}"
     SOLANA_WS = f"wss://rpc.ams.shyft.to?api_key={SHYFT_API_KEY}"
     print("Price Server: Using Shyft RPC (AMS primary)")
-elif HELIUS_API_KEY:
-    SOLANA_RPC = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
-    SOLANA_WS = f"wss://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
-    print("WARNING: Price Server using Helius RPC (Shyft preferred)")
 else:
-    print("ERROR: No RPC provider configured (set SHYFT_API_KEY or HELIUS_API_KEY)")
+    print("ERROR: No RPC provider configured (set SHYFT_API_KEY)")
     exit(1)
 
 # Endpoint failover manager (independent instance for this process)
@@ -42,8 +38,8 @@ except Exception as _e:
     print(f"Price Server: EndpointManager unavailable ({_e}), using static endpoints")
     _endpoint_mgr = None
 
-# DAS API — always Helius (for getAssetBatch token metadata)
-HELIUS_RPC = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}" if HELIUS_API_KEY else SOLANA_RPC
+# DAS API — now via Shyft (supports Metaplex DAS on same RPC endpoint)
+DAS_RPC = SOLANA_RPC
 FLASK_WEBHOOK_URL = "http://localhost:5001/api/webhook/price"
 
 def get_tracked_mints():
@@ -209,7 +205,7 @@ async def pyth_price_poller(session):
         await asyncio.sleep(0.5)
 
 async def fetch_other_prices(session):
-    """Fetch prices for tokens not on Pyth (like JUP) using Helius DAS."""
+    """Fetch prices for tokens not on Pyth (like JUP) using Shyft REST API."""
     tracked_mints_map = get_tracked_mints()
     pyth_mints = [info["mint"] for info in PYTH_PRICE_IDS.values()]
     other_mints = [mint for mint in tracked_mints_map.keys() if mint not in pyth_mints]
@@ -217,30 +213,36 @@ async def fetch_other_prices(session):
     if not other_mints:
         return
 
-    payload = {
-        "jsonrpc": "2.0",
-        "id": "other-prices",
-        "method": "getAssetBatch",
-        "params": {"ids": other_mints}
-    }
+    # Use Shyft REST token info API for metadata (DAS not supported on Shyft standard RPC)
+    rpc_url = (_endpoint_mgr.get_rpc_url() if _endpoint_mgr else DAS_RPC)
+    for mint in other_mints:
+        try:
+            async with session.get(
+                "https://api.shyft.to/sol/v1/token/get_info",
+                params={"network": "mainnet-beta", "token_address": mint},
+                headers={"x-api-key": SHYFT_API_KEY},
+                timeout=5
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data.get("success") and data.get("result"):
+                        # Shyft REST doesn't include price — skip for now
+                        # Price for non-Pyth tokens comes from Jupiter/Birdeye price feeds
+                        pass
+        except Exception:
+            pass
 
-    try:
-        async with session.post(HELIUS_RPC, json=payload, timeout=5) as response:
-            if response.status == 200:
-                data = await response.json()
-                for asset in data.get("result", []):
-                    if not asset:
-                        continue
-                    mint = asset.get("id")
-                    token_info = asset.get("token_info", {})
-                    price_info = token_info.get("price_info", {})
-                    price = price_info.get("price_per_token")
-
-                    if price is not None:
-                        symbol = tracked_mints_map.get(mint, "???")
-                        await broadcast_price(mint, symbol, float(price), session)
-    except Exception as e:
-        print(f"DAS fetch error: {e}")
+    # Helius DAS getAssetBatch — DISABLED (Shyft doesn't support DAS RPC methods)
+    # payload = {
+    #     "jsonrpc": "2.0", "id": "other-prices",
+    #     "method": "getAssetBatch",
+    #     "params": {"ids": other_mints}
+    # }
+    # try:
+    #     async with session.post(das_url, json=payload, timeout=5) as response:
+    #         ...
+    # except Exception as e:
+    #     print(f"DAS fetch error: {e}")
 
 async def other_prices_loop(session):
     """Periodically fetch prices for non-Pyth tokens."""

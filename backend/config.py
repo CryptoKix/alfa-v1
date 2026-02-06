@@ -16,7 +16,8 @@ KEYPAIR_PATH = os.path.join(BASE_DIR, 'keypair.json')
 KEYSTORE_PATH = os.path.join(BASE_DIR, '.keystore.enc')
 
 # API Keys
-HELIUS_API_KEY = os.getenv("HELIUS_API_KEY", "")
+# HELIUS_API_KEY = os.getenv("HELIUS_API_KEY", "")  # DISABLED — all traffic via Shyft
+HELIUS_API_KEY = ""  # Kept as empty string so imports don't break
 JUPITER_API_KEY = os.getenv("JUPITER_API_KEY", "")
 SOLANA_TRACKER_API_KEY = os.getenv("SOLANA_TRACKER_API_KEY", "")
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
@@ -48,8 +49,9 @@ SHYFT_RPC = SHYFT_RPC_PRIMARY
 SOLANA_RPC = SHYFT_RPC_PRIMARY
 HELIUS_STAKED_RPC = SHYFT_RPC_PRIMARY
 
-# Helius - ONLY for DAS API (token metadata) - much lower volume
-HELIUS_DAS_URL = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}" if HELIUS_API_KEY else ""
+# Helius — DISABLED, DAS API now served by Shyft
+# HELIUS_DAS_URL = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}" if HELIUS_API_KEY else ""
+HELIUS_DAS_URL = ""
 
 # Jupiter API
 JUPITER_QUOTE_API = "https://api.jup.ag/swap/v1/quote"
@@ -57,10 +59,11 @@ JUPITER_SWAP_API = "https://api.jup.ag/swap/v1/swap"
 JUPITER_LIMIT_ORDER_API = "https://api.jup.ag/limit/v2"
 BIRDEYE_OHLCV_API = "https://public-api.birdeye.so/defi/ohlcv"
 
-# Helius gRPC / LaserStream endpoints (DISABLED - use Shyft gRPC instead)
-# Regional endpoints: ewr (NYC), fra (Frankfurt), ams (Amsterdam), tyo (Tokyo), sg (Singapore), lax, lon, pitt, slc
-HELIUS_GRPC_ENDPOINT = "laserstream-mainnet-ewr.helius-rpc.com:443"
-HELIUS_GRPC_TOKEN = HELIUS_API_KEY  # Use same API key as x-token
+# Helius gRPC / LaserStream — DISABLED, using Shyft gRPC
+# HELIUS_GRPC_ENDPOINT = "laserstream-mainnet-ewr.helius-rpc.com:443"
+# HELIUS_GRPC_TOKEN = HELIUS_API_KEY
+HELIUS_GRPC_ENDPOINT = ""
+HELIUS_GRPC_TOKEN = ""
 
 # Shyft Yellowstone gRPC — multi-location
 SHYFT_GRPC_PRIMARY = os.getenv("SHYFT_GRPC_PRIMARY", "grpc.eu.shyft.to:443")
