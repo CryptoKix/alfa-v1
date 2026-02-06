@@ -557,7 +557,7 @@ def execute_trade_with_jito(input_mint, output_mint, amount, source="Manual", sl
 # Sniper Fast-Path Execution
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-def execute_snipe(token_data: dict, buy_amount_sol: float, slippage_bps: int = 500, tip_lamports: int = 50000):
+def execute_snipe(token_data: dict, buy_amount_sol: float, slippage_bps: int = 500, tip_lamports: int = 0):
     """
     Execute a fast-path snipe trade with direct instruction building + Jito MEV protection.
 
@@ -576,13 +576,27 @@ def execute_snipe(token_data: dict, buy_amount_sol: float, slippage_bps: int = 5
             - symbol: Token symbol
         buy_amount_sol: SOL amount to spend
         slippage_bps: Slippage tolerance in basis points (default 500 = 5%)
-        tip_lamports: Jito tip amount in lamports (default 50000 = 0.00005 SOL)
+        tip_lamports: Jito tip in lamports. 0 = use dynamic tip floor (recommended).
 
     Returns:
         dict with: signature, method, elapsed_ms, jito_success, estimated_tokens_out
     """
     if not KEYPAIR:
         raise Exception("No private key loaded")
+
+    # Dynamic Jito tip — if caller didn't specify, use live tip floor
+    if tip_lamports <= 0:
+        from services.jito import tip_floor_cache
+        tip_lamports = tip_floor_cache.get_optimal_tip(percentile="75th")
+
+    # SECURITY: Final safety net — block confirmed rugs and blocklisted tokens
+    from services.trade_guard import trade_guard, TradeGuardError, TOKEN_BLOCKLIST
+    token_mint_check = token_data.get('mint', '')
+    if token_mint_check in TOKEN_BLOCKLIST:
+        raise Exception(f"🛡️ Token {token_mint_check[:8]}... is blocklisted — execution blocked")
+    if token_data.get('is_rug'):
+        trade_guard.add_to_blocklist(token_mint_check)
+        raise Exception(f"🛡️ Token {token_mint_check[:8]}... flagged as rug — execution blocked")
 
     start_time = time.time()
     token_mint = token_data.get('mint')
@@ -806,6 +820,7 @@ def execute_snipe(token_data: dict, buy_amount_sol: float, slippage_bps: int = 5
         'jito_success': jito_success,
         'tokens_out': amount_out,
         'sol_in': buy_amount_sol,
+        'tip_lamports': tip_lamports,
     }, namespace='/sniper')
 
     # Discord notification
@@ -823,7 +838,7 @@ def execute_snipe(token_data: dict, buy_amount_sol: float, slippage_bps: int = 5
     except Exception as e:
         logger.warning(f"Discord notification failed: {e}")
 
-    logger.info(f"🎯 SNIPE EXECUTED: {symbol} via {method} in {elapsed_ms}ms (Jito: {jito_success})")
+    logger.info(f"🎯 SNIPE EXECUTED: {symbol} via {method} in {elapsed_ms}ms (Jito: {jito_success}, tip: {tip_lamports} lamports / {tip_lamports/1e9:.6f} SOL)")
 
     return {
         "signature": sig,

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Settings, ShieldCheck, Zap, Coins, Flame, Activity, Power, PowerOff } from 'lucide-react'
+import { Settings, ShieldCheck, Zap, Coins, Flame, Activity, Power, PowerOff, TrendingUp, TrendingDown } from 'lucide-react'
 import { useAppSelector, useAppDispatch } from '@/app/hooks'
 import { updateSniperSettings, setEngineActive } from '@/features/sniper/sniperSlice'
 import { addNotification } from '@/features/notifications/notificationsSlice'
@@ -229,13 +229,101 @@ export const SniperConfigWidget: React.FC = () => {
           </div>
         </div>
 
+        {/* Exit Strategy — TP / SL / Trailing */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-[10px] font-bold text-accent-green uppercase tracking-tighter">
+            <TrendingUp className="w-3 h-3" />
+            <span>Exit Strategy</span>
+          </div>
+
+          {/* Take Profit */}
+          <div className={cn(
+            "p-2 rounded-xl border flex items-center justify-between transition-all",
+            settings.takeProfitEnabled ? "bg-accent-green/5 border-accent-green/20" : "bg-black/20 border-white/5"
+          )}>
+            <button onClick={() => handleToggle('takeProfitEnabled')} className="flex items-center gap-2">
+              <TrendingUp className={cn("w-3 h-3", settings.takeProfitEnabled ? "text-accent-green" : "text-text-muted")} />
+              <span className="text-[9px] font-bold text-white uppercase">Take Profit</span>
+              <div className={cn("w-1.5 h-1.5 rounded-full", settings.takeProfitEnabled ? "bg-accent-green shadow-[0_0_5px_#00ff88]" : "bg-white/10")} />
+            </button>
+            {settings.takeProfitEnabled && (
+              <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-lg border border-white/10">
+                <span className="text-[8px] font-bold text-accent-green">+</span>
+                <input
+                  type="number"
+                  value={settings.takeProfitPct}
+                  onChange={(e) => handleInputChange('takeProfitPct', e.target.value)}
+                  className="w-10 bg-transparent border-none text-[10px] font-mono text-accent-green outline-none text-right"
+                  step="10"
+                  min="1"
+                />
+                <span className="text-[8px] font-bold text-text-muted">%</span>
+              </div>
+            )}
+          </div>
+
+          {/* Stop Loss */}
+          <div className={cn(
+            "p-2 rounded-xl border flex items-center justify-between transition-all",
+            settings.stopLossEnabled ? "bg-accent-red/5 border-accent-red/20" : "bg-black/20 border-white/5"
+          )}>
+            <button onClick={() => handleToggle('stopLossEnabled')} className="flex items-center gap-2">
+              <TrendingDown className={cn("w-3 h-3", settings.stopLossEnabled ? "text-accent-red" : "text-text-muted")} />
+              <span className="text-[9px] font-bold text-white uppercase">Stop Loss</span>
+              <div className={cn("w-1.5 h-1.5 rounded-full", settings.stopLossEnabled ? "bg-accent-red shadow-[0_0_5px_#ff4444]" : "bg-white/10")} />
+            </button>
+            {settings.stopLossEnabled && (
+              <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-lg border border-white/10">
+                <span className="text-[8px] font-bold text-accent-red">-</span>
+                <input
+                  type="number"
+                  value={settings.stopLossPct}
+                  onChange={(e) => handleInputChange('stopLossPct', e.target.value)}
+                  className="w-10 bg-transparent border-none text-[10px] font-mono text-accent-red outline-none text-right"
+                  step="5"
+                  min="1"
+                  max="99"
+                />
+                <span className="text-[8px] font-bold text-text-muted">%</span>
+              </div>
+            )}
+          </div>
+
+          {/* Trailing Stop */}
+          <div className={cn(
+            "p-2 rounded-xl border flex items-center justify-between transition-all",
+            settings.trailingStopEnabled ? "bg-accent-purple/5 border-accent-purple/20" : "bg-black/20 border-white/5"
+          )}>
+            <button onClick={() => handleToggle('trailingStopEnabled')} className="flex items-center gap-2">
+              <Activity className={cn("w-3 h-3", settings.trailingStopEnabled ? "text-accent-purple" : "text-text-muted")} />
+              <span className="text-[9px] font-bold text-white uppercase">Trailing Stop</span>
+              <div className={cn("w-1.5 h-1.5 rounded-full", settings.trailingStopEnabled ? "bg-accent-purple shadow-[0_0_5px_#a855f7]" : "bg-white/10")} />
+            </button>
+            {settings.trailingStopEnabled && (
+              <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-lg border border-white/10">
+                <span className="text-[8px] font-bold text-accent-purple">-</span>
+                <input
+                  type="number"
+                  value={settings.trailingStopPct}
+                  onChange={(e) => handleInputChange('trailingStopPct', e.target.value)}
+                  className="w-10 bg-transparent border-none text-[10px] font-mono text-accent-purple outline-none text-right"
+                  step="5"
+                  min="1"
+                  max="50"
+                />
+                <span className="text-[8px] font-bold text-text-muted">%</span>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* System Settings */}
         <div className="pt-2">
            <div className="bg-accent-cyan/10 border border-accent-cyan/20 rounded-xl p-3 text-center">
               <span className="text-[8px] font-black text-accent-cyan uppercase tracking-widest block mb-1">Priority Engine</span>
               <div className="flex items-center justify-center gap-2">
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   value={settings.priorityFee}
                   onChange={(e) => handleInputChange('priorityFee', e.target.value)}
                   className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-[10px] font-mono text-white outline-none w-16 text-center"

@@ -22,6 +22,13 @@ export interface SniperSettings {
   requireMintRenounced: boolean
   requireLPBurned: boolean
   requireSocials: boolean
+  // Take Profit / Stop Loss
+  takeProfitEnabled: boolean
+  takeProfitPct: number       // Sell when price is up X% from entry (e.g. 100 = 2x)
+  stopLossEnabled: boolean
+  stopLossPct: number         // Sell when price is down X% from entry (e.g. 50)
+  trailingStopEnabled: boolean
+  trailingStopPct: number     // Trailing stop — sell when price drops X% from peak
 }
 
 export interface SniperState {
@@ -44,6 +51,12 @@ const initialState: SniperState = {
     requireMintRenounced: true,
     requireLPBurned: true,
     requireSocials: false,
+    takeProfitEnabled: true,
+    takeProfitPct: 100,
+    stopLossEnabled: true,
+    stopLossPct: 50,
+    trailingStopEnabled: false,
+    trailingStopPct: 20,
   }
 }
 

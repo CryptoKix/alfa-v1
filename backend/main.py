@@ -645,6 +645,11 @@ registry.register(
     RaydiumPoolRegistry())
 
 registry.register(
+    SD("sniper_engine", "Token Sniper", "New token detection & auto-snipe",
+       "Crosshair", "pink"),
+    sniper_engine)
+
+registry.register(
     SD("wolf_pack", "Wolf Pack", "Whale consensus trading",
        "Crosshair", "purple"),
     wolf_pack)
@@ -708,6 +713,10 @@ async def startup():
 
     # Start Shyft gRPC streams
     registry.get('shyft_stream').start()
+
+    # Start Jito tip floor cache (10s background poll for dynamic tips)
+    from services.jito import tip_floor_cache
+    tip_floor_cache.start()
 
     # Auto-start core services
     registry.start_all(auto_only=True)

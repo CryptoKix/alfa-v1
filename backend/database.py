@@ -65,6 +65,8 @@ class TactixDB:
             'signature': token_data.get('signature'),
             'status': token_data.get('status', 'tracking'),
             'is_rug': token_data.get('is_rug', False),
+            'mint_authority': token_data.get('mint_authority') or token_data.get('mint_auth'),
+            'freeze_authority': token_data.get('freeze_authority') or token_data.get('freeze_auth'),
         }
         stmt = pg_insert(sniped_tokens).values(**vals)
         stmt = stmt.on_conflict_do_update(

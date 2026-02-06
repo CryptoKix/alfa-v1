@@ -256,6 +256,98 @@ class TradeGuard:
 
         return True
 
+    def validate_token_safety(
+        self,
+        token_data: dict,
+        sniper_settings: dict,
+    ) -> bool:
+        """
+        Validate a token against sniper safety settings before auto-sniping.
+
+        Checks (in order):
+        1. Freeze authority — ALWAYS blocks (can freeze your tokens)
+        2. Mint authority — blocks if requireMintRenounced is enabled
+        3. is_rug flag — ALWAYS blocks, auto-adds to blocklist
+        4. Socials — blocks if requireSocials is enabled and no links found
+
+        Args:
+            token_data: Token dict with mint, is_rug, mint_authority/mint_auth,
+                        freeze_authority/freeze_auth, socials
+            sniper_settings: User settings dict with requireMintRenounced,
+                             requireLPBurned, requireSocials
+
+        Returns:
+            True if safe
+
+        Raises:
+            TradeGuardError: If token fails any safety check
+        """
+        mint = token_data.get('mint', '???')
+        mint_short = mint[:8]
+
+        # 1. Freeze authority — ALWAYS block. No legitimate new token needs this.
+        freeze_auth = token_data.get('freeze_authority') or token_data.get('freeze_auth')
+        if freeze_auth:
+            self.add_to_blocklist(mint)
+            logger.warning(f"🛡️ BLOCKED: {mint_short}... has freeze authority ({freeze_auth[:8]}...) — auto-blocklisted")
+            raise TradeGuardError(
+                code="FREEZE_AUTHORITY_ACTIVE",
+                message=f"Token {mint_short}... has active freeze authority — can freeze your tokens at any time",
+                details={"freeze_authority": freeze_auth, "mint": mint}
+            )
+
+        # 2. Mint authority — block if setting enabled (default: True)
+        mint_auth = token_data.get('mint_authority') or token_data.get('mint_auth')
+        if mint_auth and sniper_settings.get('requireMintRenounced', True):
+            logger.warning(f"🛡️ BLOCKED: {mint_short}... has active mint authority ({mint_auth[:8]}...)")
+            raise TradeGuardError(
+                code="MINT_NOT_RENOUNCED",
+                message=f"Token {mint_short}... has active mint authority — can inflate supply at any time",
+                details={"mint_authority": mint_auth, "mint": mint}
+            )
+
+        # 3. is_rug flag — ALWAYS block and auto-blocklist
+        if token_data.get('is_rug'):
+            self.add_to_blocklist(mint)
+            logger.warning(f"🛡️ BLOCKED: {mint_short}... flagged as rug — auto-blocklisted")
+            raise TradeGuardError(
+                code="RUG_DETECTED",
+                message=f"Token {mint_short}... flagged as rug pull risk",
+                details={"mint": mint}
+            )
+
+        # 4. Socials check — block if setting enabled
+        if sniper_settings.get('requireSocials', False):
+            socials = token_data.get('socials', {})
+            if isinstance(socials, str):
+                try:
+                    import json
+                    socials = json.loads(socials) if socials else {}
+                except (ValueError, TypeError):
+                    socials = {}
+            has_socials = bool(
+                socials.get('twitter') or socials.get('telegram') or socials.get('website')
+            )
+            if not has_socials:
+                logger.warning(f"🛡️ BLOCKED: {mint_short}... has no social links")
+                raise TradeGuardError(
+                    code="NO_SOCIALS",
+                    message=f"Token {mint_short}... has no social links (Twitter/Telegram/Website)",
+                    details={"mint": mint}
+                )
+
+        # 5. LP burn check — log warning if setting enabled but we can't verify
+        if sniper_settings.get('requireLPBurned', True):
+            # LP burn verification requires on-chain LP token analysis.
+            # For Pump.fun: bonding curve IS the liquidity (no LP tokens).
+            # For Raydium: would need to check LP token holders vs burn address.
+            # Currently: allow through with warning — full LP burn check is TODO.
+            dex = token_data.get('dex_id', '')
+            if dex != 'Pump.fun':
+                logger.info(f"⚠️ LP burn check requested but not yet verifiable for {dex} — proceeding")
+
+        return True
+
     def confirm_trade(self, confirmation_id: str) -> Dict:
         """
         Confirm a pending large trade.

@@ -32,7 +32,14 @@ class SniperEngine:
             "minLiquidity": 0.5,
             "requireMintRenounced": True,
             "requireLPBurned": True,
-            "requireSocials": False
+            "requireSocials": False,
+            # Take Profit / Stop Loss
+            "takeProfitEnabled": True,
+            "takeProfitPct": 100,       # Sell at 2x (100% gain)
+            "stopLossEnabled": True,
+            "stopLossPct": 50,          # Sell at 50% loss
+            "trailingStopEnabled": False,
+            "trailingStopPct": 20,      # Trailing stop: sell when price drops 20% from peak
         })
 
     def update_settings(self, new_settings):
@@ -42,9 +49,15 @@ class SniperEngine:
     def start(self):
         if self._running: return
         self._running = True
-        # Use SocketIO's background task runner which handles Eventlet context correctly
         sio_bridge.start_background_task(self._run_engine_loop)
-        print("🎯 Sniper Discovery Engine Started (SocketIO Task)")
+        logger.info("🎯 Sniper Discovery Engine Started")
+
+    def stop(self):
+        self._running = False
+        logger.info("🎯 Sniper Discovery Engine Stopped")
+
+    def is_running(self):
+        return self._running
 
     def _run_engine_loop(self):
         """Main loop using stable high-frequency polling for Eventlet compatibility."""
@@ -125,26 +138,34 @@ class SniperEngine:
                 # logger.debug(f"⏳ Filtered {new_mint[:8]} (Liq: {sol_delta:.2f} SOL)")
                 return
 
-            # 4. Fetch Metadata & Emit
+            # 4. Fetch Metadata & Rug Check & Emit
             try:
                 asset = helius.das.get_asset(new_mint)
                 info = asset.get('token_info', {})
                 metadata = asset.get('content', {}).get('metadata', {})
-                
+
+                # Rug check — same logic as sniper_outrider
+                mint_auth = info.get('mint_authority')
+                freeze_auth = info.get('freeze_authority')
+                is_rug = bool(mint_auth or freeze_auth)
+
                 token_data = {
                     "mint": new_mint,
                     "symbol": info.get('symbol') or metadata.get('symbol') or "???",
                     "name": metadata.get('name') or "Unknown Token",
                     "dex_id": "Raydium" if dex_id == "Raydium Auth" else "Pump.fun",
                     "initial_liquidity": round(sol_delta, 2),
-                    "is_rug": False,
+                    "is_rug": is_rug,
+                    "mint_authority": mint_auth,
+                    "freeze_authority": freeze_auth,
                     "socials": asset.get('content', {}).get('links', {}),
                     "detected_at": datetime.now().isoformat(),
                     "status": "tracking"
                 }
 
+                rug_status = "⚠️ RUG RISK" if is_rug else "✅ SAFE"
                 db.save_sniped_token(token_data)
-                logger.info(f"🚀 SNIPER ALERT: {token_data['symbol']} | LIQ: {sol_delta:.2f} SOL")
+                logger.info(f"🚀 SNIPER ALERT: {token_data['symbol']} | LIQ: {sol_delta:.2f} SOL | {rug_status}")
                 sio_bridge.emit('new_token_detected', token_data, namespace='/sniper')
 
                 if self.settings.get('autoSnipe'):
@@ -165,7 +186,20 @@ class SniperEngine:
             buy_amount = float(self.settings.get('buyAmount', 0.1))
             slippage_pct = float(self.settings.get('slippage', 5))
 
-            # SECURITY: Validate sniper trade against safety limits
+            # SECURITY: Token safety validation against sniper settings
+            # This enforces: freeze authority, mint authority, is_rug flag, socials
+            try:
+                trade_guard.validate_token_safety(token_data, self.settings)
+            except TradeGuardError as e:
+                logger.warning(f"🛡️ Auto-snipe BLOCKED (safety): {e}")
+                sio_bridge.emit('notification', {
+                    'title': 'Auto-Snipe Blocked (Safety)',
+                    'message': str(e),
+                    'type': 'warning'
+                }, namespace='/bots')
+                return
+
+            # SECURITY: Validate sniper trade against amount/slippage limits
             try:
                 trade_guard.validate_sniper_trade(
                     amount_sol=buy_amount,
@@ -181,12 +215,18 @@ class SniperEngine:
                 }, namespace='/bots')
                 return
 
-            # Convert priority fee SOL to lamports for Jito tip
+            # Dynamic Jito tip — use live tip floor data with user setting as minimum
+            from services.jito import tip_floor_cache
             priority_fee_sol = float(self.settings.get('priorityFee', 0.005))
-            tip_lamports = max(int(priority_fee_sol * 1e9), 50_000)  # Minimum 50k lamports
+            user_min_lamports = max(int(priority_fee_sol * 1e9), 1_000)
+            tip_lamports = tip_floor_cache.get_optimal_tip(
+                percentile="75th",
+                user_min_lamports=user_min_lamports,
+            )
 
             logger.info(f"🤖 AUTO-SNIPE INITIATED: {token_data['symbol']} for {buy_amount} SOL "
-                       f"(slippage: {slippage_pct}%, tip: {tip_lamports} lamports, dex: {token_data.get('dex_id')})")
+                       f"(slippage: {slippage_pct}%, tip: {tip_lamports} lamports / {tip_lamports/1e9:.6f} SOL, "
+                       f"dex: {token_data.get('dex_id')})")
 
             # Use fast-path execute_snipe with direct instruction building + Jito
             sio_bridge.start_background_task(

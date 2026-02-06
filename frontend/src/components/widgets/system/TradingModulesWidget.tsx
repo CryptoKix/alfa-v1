@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Power, Zap, Users, Newspaper, Skull, Shield, Lock, Crosshair } from 'lucide-react'
+import { Power, Zap, Users, Newspaper, Skull, Shield, Lock, Crosshair, Radar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { WidgetContainer } from '../base/WidgetContainer'
 import { useMonitorStore, useMonitorSubscription } from '@/hooks/useMonitorData'
@@ -7,6 +7,7 @@ import { useMonitorStore, useMonitorSubscription } from '@/hooks/useMonitorData'
 const modules = [
   { id: 'arb_engine', name: 'Arb Engine', icon: Zap, description: 'High-frequency scan & execute' },
   { id: 'copy_trader', name: 'Copy Trader', icon: Users, description: 'Whale tracking & replication' },
+  { id: 'sniper_engine', name: 'Token Sniper', icon: Radar, description: 'New token detection & auto-snipe' },
   { id: 'wolf_pack', name: 'Wolf Pack', icon: Crosshair, description: 'Whale consensus trading' },
   { id: 'dlmm_sniper', name: 'DLMM Sniper', icon: Skull, description: 'Meteora pool detection' },
   { id: 'news', name: 'Intel Feed', icon: Newspaper, description: 'News & social aggregation' },
