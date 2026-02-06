@@ -7,6 +7,7 @@ from datetime import datetime
 from solders.pubkey import Pubkey
 
 from config import WALLET_ADDRESS, SOLANA_RPC
+from endpoint_manager import get_endpoint_manager
 import sio_bridge
 from extensions import db, solana_client, price_cache, price_cache_lock
 from services.tokens import get_known_tokens, get_token_accounts
@@ -14,7 +15,6 @@ from services.tokens import get_known_tokens, get_token_accounts
 logger = logging.getLogger("portfolio")
 
 # Fallback public RPC for when Helius is rate limited
-PUBLIC_RPC = "https://api.mainnet-beta.solana.com"
 
 last_known_balances = {}
 
@@ -80,23 +80,24 @@ def broadcast_balance():
         known = get_known_tokens()
         wallet_alias = db.get_wallet_alias(WALLET_ADDRESS) or (WALLET_ADDRESS[:4] + "..." + WALLET_ADDRESS[-4:])
 
-        # Try primary RPC, fallback to public if rate limited
+        # Try primary RPC, fallback via endpoint manager
         sol_balance = None
         import requests
         try:
             sol_res = solana_client.get_balance(Pubkey.from_string(WALLET_ADDRESS))
             sol_balance = sol_res.value / 1e9
         except Exception as e:
-            logger.warning(f"Helius SOL balance failed ({type(e).__name__}), using public RPC")
+            logger.warning(f"SOL balance via solana_client failed ({type(e).__name__}), using endpoint manager")
             try:
-                res = requests.post(PUBLIC_RPC, json={
+                rpc_url = get_endpoint_manager().get_rpc_url() or SOLANA_RPC
+                res = requests.post(rpc_url, json={
                     "jsonrpc": "2.0", "id": 1,
                     "method": "getBalance",
                     "params": [WALLET_ADDRESS]
                 }, timeout=10).json()
                 sol_balance = res.get("result", {}).get("value", 0) / 1e9
             except Exception as e2:
-                logger.error(f"Public RPC SOL balance also failed: {e2}")
+                logger.error(f"Fallback RPC SOL balance also failed: {e2}")
 
         if sol_balance is None:
             sol_balance = 0.0

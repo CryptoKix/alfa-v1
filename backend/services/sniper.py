@@ -157,9 +157,9 @@ class SniperEngine:
             pass
 
     def attempt_auto_snipe(self, token_data):
-        """Execute automated trade with safety guards."""
+        """Execute automated trade with safety guards using fast-path execution."""
         try:
-            from services.trading import execute_trade_logic
+            from services.trading import execute_snipe
             from services.trade_guard import trade_guard, TradeGuardError
 
             buy_amount = float(self.settings.get('buyAmount', 0.1))
@@ -181,21 +181,25 @@ class SniperEngine:
                 }, namespace='/bots')
                 return
 
-            logger.info(f"🤖 AUTO-BUY INITIATED: {token_data['symbol']} for {buy_amount} SOL (slippage: {slippage_pct}%)")
+            # Convert priority fee SOL to lamports for Jito tip
+            priority_fee_sol = float(self.settings.get('priorityFee', 0.005))
+            tip_lamports = max(int(priority_fee_sol * 1e9), 50_000)  # Minimum 50k lamports
 
+            logger.info(f"🤖 AUTO-SNIPE INITIATED: {token_data['symbol']} for {buy_amount} SOL "
+                       f"(slippage: {slippage_pct}%, tip: {tip_lamports} lamports, dex: {token_data.get('dex_id')})")
+
+            # Use fast-path execute_snipe with direct instruction building + Jito
             sio_bridge.start_background_task(
-                execute_trade_logic,
-                "So11111111111111111111111111111111111111112",
-                token_data['mint'],
+                execute_snipe,
+                token_data,
                 buy_amount,
-                source=f"Auto-Snipe: {token_data['symbol']}",
                 slippage_bps=int(slippage_pct * 100),
-                priority_fee=float(self.settings.get('priorityFee', 0.005))
+                tip_lamports=tip_lamports,
             )
 
             sio_bridge.emit('notification', {
                 'title': 'Auto-Snipe Fired',
-                'message': f"Mirroring launch: {token_data['symbol']}",
+                'message': f"Fast-path snipe: {token_data['symbol']} via {token_data.get('dex_id', 'unknown')}",
                 'type': 'success'
             }, namespace='/bots')
 

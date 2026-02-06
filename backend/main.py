@@ -604,8 +604,12 @@ async def handle_skr_whales(sid, data=None):
         logger.error(f"Error getting SKR whales: {e}")
 
 
-# ─── Service Registration ────────────────────────────────────────────
+# ─── Endpoint Failover ────────────────────────────────────────────────
 import config as _config
+from endpoint_manager import get_endpoint_manager
+endpoint_mgr = get_endpoint_manager(_config)
+
+# ─── Service Registration ────────────────────────────────────────────
 from service_registry import registry, ServiceDescriptor as SD
 from services.portfolio import PortfolioService
 from arb_engine import ArbEngine
@@ -664,6 +668,11 @@ registry.register(
     SD("skr_staking", "SKR Staking Monitor", "SKR staking event tracking",
        "Lock", "cyan", needs_stream="set_stream_manager"),
     SKRStakingService(helius, db))
+
+registry.register(
+    SD("endpoint_mgr", "Endpoint Manager", "Multi-location RPC/WS/gRPC failover",
+       "Globe", "cyan", toggleable=False, auto_start=True),
+    endpoint_mgr)
 
 registry.register(
     SD("shyft_stream", "Shyft gRPC Stream", "Yellowstone gRPC + RabbitStream real-time feeds",

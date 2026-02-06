@@ -17,7 +17,7 @@ import logging
 import requests
 import json
 from typing import Optional, Tuple
-from config import SOLANA_RPC, HELIUS_API_KEY, HELIUS_STAKED_RPC
+from config import SOLANA_RPC, HELIUS_API_KEY, HELIUS_STAKED_RPC, SHYFT_API_KEY
 
 logger = logging.getLogger("blockhash_cache")
 logger.setLevel(logging.INFO)
@@ -200,10 +200,20 @@ class BlockhashCache:
             self._refresh_blockhash_locked()
 
     def _refresh_blockhash_locked(self):
-        """Internal refresh (must hold lock)."""
+        """Internal refresh (must hold lock). Uses EndpointManager for failover."""
+        # Get current best RPC URL via endpoint manager
+        rpc_url = self.rpc_url
+        endpoint_mgr = None
+        try:
+            from endpoint_manager import get_endpoint_manager
+            endpoint_mgr = get_endpoint_manager()
+            rpc_url = endpoint_mgr.get_rpc_url() or rpc_url
+        except Exception:
+            pass
+
         try:
             response = requests.post(
-                self.rpc_url,
+                rpc_url,
                 json={
                     "jsonrpc": "2.0",
                     "id": 1,
@@ -222,22 +232,43 @@ class BlockhashCache:
 
                 # Also get slot
                 slot_resp = requests.post(
-                    self.rpc_url,
+                    rpc_url,
                     json={"jsonrpc": "2.0", "id": 2, "method": "getSlot"},
                     timeout=1
                 )
                 if slot_resp.status_code == 200:
                     self._slot = slot_resp.json().get("result", 0)
 
+                if endpoint_mgr:
+                    endpoint_mgr.report_success('rpc')
+            else:
+                if endpoint_mgr:
+                    endpoint_mgr.report_failure('rpc')
+
         except Exception as e:
+            if endpoint_mgr:
+                endpoint_mgr.report_failure('rpc')
             logger.debug(f"Blockhash fetch failed: {e}")
 
     def _start_websocket(self):
-        """Start WebSocket for slot notifications (Helius Enhanced WS)."""
+        """Start WebSocket for slot notifications with endpoint failover."""
         try:
             import websocket
 
-            ws_url = f"wss://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+            # Use EndpointManager for WS failover if available
+            ws_url = None
+            try:
+                from endpoint_manager import get_endpoint_manager
+                endpoint_mgr = get_endpoint_manager()
+                ws_url = endpoint_mgr.get_ws_url()
+            except Exception:
+                pass
+
+            if not ws_url:
+                if SHYFT_API_KEY:
+                    ws_url = f"wss://rpc.shyft.to?api_key={SHYFT_API_KEY}"
+                else:
+                    ws_url = f"wss://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
 
             def on_message(ws, message):
                 try:

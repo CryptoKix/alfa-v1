@@ -33,6 +33,9 @@ class SniperOutrider:
             "Meteora": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
             "Pump.fun": "6EF8rLSqY78dq396uA9D8S5WvAnX6k98TqQ29P9f77fM"
         }
+
+        # Raydium V4 program ID for pool address extraction
+        self.raydium_v4_program = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
         
         self.last_rpc_time = 0
         self.cooldown_until = 0
@@ -161,11 +164,17 @@ class SniperOutrider:
                 freeze_auth = info.get('freeze_authority')
                 is_rug = bool(mint_auth or freeze_auth)
                 
+                # Extract pool address for Raydium V4 launches (for direct swap routing)
+                pool_address = None
+                if dex_id == "Raydium Auth":
+                    pool_address = self._extract_raydium_pool_address(tx)
+
                 token_data = {
                     "mint": new_mint,
                     "symbol": info.get('symbol') or metadata.get('symbol') or "???",
                     "name": metadata.get('name') or "Unknown Token",
                     "dex_id": dex_id,
+                    "pool_address": pool_address,
                     "initial_liquidity": round(sol_delta, 2),
                     "detected_at": datetime.now().isoformat(),
                     "signature": signature,
@@ -185,6 +194,62 @@ class SniperOutrider:
 
             except Exception as e:
                 if "429" in str(e): self.trigger_cooldown()
+
+    def _extract_raydium_pool_address(self, tx: dict) -> str | None:
+        """
+        Extract the pool/AMM address from a Raydium V4 initialize2 transaction.
+
+        The pool address is typically account index 4 in the initialize2 instruction.
+
+        Args:
+            tx: Parsed transaction dict from getTransaction
+
+        Returns:
+            Pool address string or None if extraction fails
+        """
+        try:
+            message = tx.get('transaction', {}).get('message', {})
+            account_keys = message.get('accountKeys', [])
+            instructions = message.get('instructions', [])
+
+            # Also check inner instructions for the actual initialize2 call
+            inner_instructions = tx.get('meta', {}).get('innerInstructions', [])
+
+            # Look for Raydium V4 program in instructions
+            for ix in instructions:
+                program_id = ix.get('programId')
+                if program_id == self.raydium_v4_program:
+                    # The AMM/pool account is typically at index 4 in the accounts array
+                    accounts = ix.get('accounts', [])
+                    if len(accounts) > 4:
+                        # accounts[4] is the AMM account for initialize2
+                        pool_index = accounts[4]
+                        if isinstance(pool_index, int) and pool_index < len(account_keys):
+                            pool_key = account_keys[pool_index]
+                            if isinstance(pool_key, dict):
+                                pool_key = pool_key.get('pubkey')
+                            logger.debug(f"Extracted Raydium pool address: {pool_key}")
+                            return pool_key
+
+            # Also search inner instructions
+            for inner in inner_instructions:
+                for ix in inner.get('instructions', []):
+                    program_id = ix.get('programId')
+                    if program_id == self.raydium_v4_program:
+                        accounts = ix.get('accounts', [])
+                        if len(accounts) > 4:
+                            pool_index = accounts[4]
+                            if isinstance(pool_index, int) and pool_index < len(account_keys):
+                                pool_key = account_keys[pool_index]
+                                if isinstance(pool_key, dict):
+                                    pool_key = pool_key.get('pubkey')
+                                logger.debug(f"Extracted Raydium pool address (inner): {pool_key}")
+                                return pool_key
+
+            return None
+        except Exception as e:
+            logger.debug(f"Pool address extraction failed: {e}")
+            return None
 
     async def heartbeat(self):
         while self.running:

@@ -24,26 +24,57 @@ DISCORD_GIT_WEBHOOK_URL = os.getenv("DISCORD_GIT_WEBHOOK_URL", "")
 DISCORD_SYSTEM_WEBHOOK_URL = os.getenv("DISCORD_SYSTEM_WEBHOOK_URL", "")
 BIRDEYE_API_KEY = os.getenv("BIRDEYE_API_KEY", "")
 
-# RPC & API URLs
-SOLANA_RPC = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+# Shyft API Key (primary RPC provider)
+SHYFT_API_KEY = os.getenv("SHYFT_API_KEY", "")
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# RPC PROVIDER CONFIGURATION — Multi-Location Failover
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# PRIMARY: Shyft AMS (Amsterdam)
+# SECONDARY: Shyft FRA (Frankfurt)
+# Failover managed by EndpointManager singleton (backend/endpoint_manager.py)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Multi-location Shyft RPC endpoints
+SHYFT_RPC_PRIMARY = f"https://rpc.ams.shyft.to?api_key={SHYFT_API_KEY}" if SHYFT_API_KEY else ""
+SHYFT_RPC_SECONDARY = f"https://rpc.fra.shyft.to?api_key={SHYFT_API_KEY}" if SHYFT_API_KEY else ""
+
+# Multi-location Shyft WebSocket endpoints
+SHYFT_WS_PRIMARY = f"wss://rpc.ams.shyft.to?api_key={SHYFT_API_KEY}" if SHYFT_API_KEY else ""
+SHYFT_WS_SECONDARY = f"wss://rpc.fra.shyft.to?api_key={SHYFT_API_KEY}" if SHYFT_API_KEY else ""
+
+# Legacy aliases — point to primary for backward compat (static default)
+SHYFT_RPC = SHYFT_RPC_PRIMARY
+SOLANA_RPC = SHYFT_RPC_PRIMARY
+HELIUS_STAKED_RPC = SHYFT_RPC_PRIMARY
+
+# Helius - ONLY for DAS API (token metadata) - much lower volume
+HELIUS_DAS_URL = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}" if HELIUS_API_KEY else ""
+
+# Jupiter API
 JUPITER_QUOTE_API = "https://api.jup.ag/swap/v1/quote"
 JUPITER_SWAP_API = "https://api.jup.ag/swap/v1/swap"
 JUPITER_LIMIT_ORDER_API = "https://api.jup.ag/limit/v2"
 BIRDEYE_OHLCV_API = "https://public-api.birdeye.so/defi/ohlcv"
 
-# Helius gRPC / LaserStream endpoints (Yellowstone-compatible)
+# Helius gRPC / LaserStream endpoints (DISABLED - use Shyft gRPC instead)
 # Regional endpoints: ewr (NYC), fra (Frankfurt), ams (Amsterdam), tyo (Tokyo), sg (Singapore), lax, lon, pitt, slc
 HELIUS_GRPC_ENDPOINT = "laserstream-mainnet-ewr.helius-rpc.com:443"
 HELIUS_GRPC_TOKEN = HELIUS_API_KEY  # Use same API key as x-token
 
-# Shyft Yellowstone gRPC & RabbitStream endpoints
-# Build plan ($199/mo): gRPC, RabbitStream, 100 RPC req/sec, staked connections
-SHYFT_GRPC_ENDPOINT = os.getenv("SHYFT_GRPC_ENDPOINT", "grpc.shyft.to:443")
+# Shyft Yellowstone gRPC — multi-location
+SHYFT_GRPC_PRIMARY = os.getenv("SHYFT_GRPC_PRIMARY", "grpc.eu.shyft.to:443")
+SHYFT_GRPC_SECONDARY = os.getenv("SHYFT_GRPC_SECONDARY", "grpc.ams.shyft.to:443")
 SHYFT_GRPC_TOKEN = os.getenv("SHYFT_GRPC_TOKEN", "")
-SHYFT_RABBIT_ENDPOINT = os.getenv("SHYFT_RABBIT_ENDPOINT", "rabbitstream.ams.shyft.to:443")
+# Legacy alias
+SHYFT_GRPC_ENDPOINT = SHYFT_GRPC_PRIMARY
 
-# Helius staked connection for priority tx sending
-HELIUS_STAKED_RPC = f"https://staked.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+# Shyft RabbitStream — multi-location
+SHYFT_RABBIT_PRIMARY = os.getenv("SHYFT_RABBIT_PRIMARY", "rabbitstream.ams.shyft.to:443")
+SHYFT_RABBIT_SECONDARY = os.getenv("SHYFT_RABBIT_SECONDARY", "rabbitstream.fra.shyft.to:443")
+SHYFT_RABBIT_TOKEN = os.getenv("SHYFT_RABBIT_TOKEN", SHYFT_GRPC_TOKEN)
+# Legacy alias
+SHYFT_RABBIT_ENDPOINT = SHYFT_RABBIT_PRIMARY
 
 # Keypair Loading - SECURITY: Supports encrypted keystore
 # Priority: 1) Encrypted keystore (.keystore.enc), 2) Plaintext keypair.json (deprecated)

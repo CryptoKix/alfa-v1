@@ -5,11 +5,9 @@ import requests
 
 from config import SOLANA_RPC, WALLET_ADDRESS, DEFAULT_TOKENS
 from extensions import db, helius
+from endpoint_manager import get_endpoint_manager
 
 logger = logging.getLogger("tokens")
-
-# Fallback public RPC for when Helius is rate limited
-PUBLIC_RPC = "https://api.mainnet-beta.solana.com"
 
 
 def get_known_tokens():
@@ -47,14 +45,8 @@ def get_token_accounts(use_fallback=False):
             ]
         }
         try:
-            res = requests.post(SOLANA_RPC, json=payload, timeout=10).json()
-
-            # Check for rate limiting and use fallback
-            if "error" in res and use_fallback:
-                error_code = res.get("error", {}).get("code", 0)
-                if error_code == -32429 or "rate" in str(res.get("error", {})).lower():
-                    logger.warning(f"Helius rate limited, using public RPC for token accounts")
-                    res = requests.post(PUBLIC_RPC, json=payload, timeout=10).json()
+            rpc_url = get_endpoint_manager().get_rpc_url() or SOLANA_RPC
+            res = requests.post(rpc_url, json=payload, timeout=10).json()
 
             if "result" not in res:
                 continue

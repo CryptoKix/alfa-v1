@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Trade execution service via Jupiter Aggregator and Token Transfers."""
 import base64
+import logging
 import requests
 import time
 
@@ -18,6 +19,9 @@ from services.tokens import get_known_tokens, get_token_symbol
 from services.portfolio import broadcast_balance
 from services.notifications import notify_trade
 from services.jito import send_jito_bundle, build_tip_transaction
+
+logger = logging.getLogger("trading")
+logger.setLevel(logging.INFO)
 
 def create_limit_order(input_mint, output_mint, amount, price, priority_fee=0.001):
     """Create a limit order via Jupiter Limit Order V2."""
@@ -546,4 +550,285 @@ def execute_trade_with_jito(input_mint, output_mint, amount, source="Manual", sl
         "amount_out": amount_out,
         "usd_value": usd_value,
         "jito_success": jito_success
+    }
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Sniper Fast-Path Execution
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def execute_snipe(token_data: dict, buy_amount_sol: float, slippage_bps: int = 500, tip_lamports: int = 50000):
+    """
+    Execute a fast-path snipe trade with direct instruction building + Jito MEV protection.
+
+    Routing priority:
+    1. Pump.fun → Direct bonding curve buy (~50ms)
+    2. Raydium V4 → Direct AMM swap (~100ms first, ~1ms cached)
+    3. Fallback → Jupiter Quote + Swap API (~600ms)
+
+    All paths use Jito bundle submission for MEV protection.
+
+    Args:
+        token_data: Token info dict from sniper detection containing:
+            - mint: Token mint address
+            - dex_id: "Pump.fun", "Raydium Auth", "Raydium", etc.
+            - pool_address: (optional) Raydium V4 pool address
+            - symbol: Token symbol
+        buy_amount_sol: SOL amount to spend
+        slippage_bps: Slippage tolerance in basis points (default 500 = 5%)
+        tip_lamports: Jito tip amount in lamports (default 50000 = 0.00005 SOL)
+
+    Returns:
+        dict with: signature, method, elapsed_ms, jito_success, estimated_tokens_out
+    """
+    if not KEYPAIR:
+        raise Exception("No private key loaded")
+
+    start_time = time.time()
+    token_mint = token_data.get('mint')
+    dex_id = token_data.get('dex_id', '')
+    symbol = token_data.get('symbol', '???')
+    pool_address = token_data.get('pool_address')
+
+    sol_lamports = int(buy_amount_sol * 1e9)
+    method = "unknown"
+    signed_swap_tx_b64 = None
+    estimated_tokens_out = 0
+
+    logger.info(f"🎯 SNIPE: {symbol} ({token_mint[:8]}...) via {dex_id} for {buy_amount_sol} SOL")
+
+    # Get fresh blockhash
+    recent_blockhash = str(solana_client.get_latest_blockhash().value.blockhash)
+
+    # ── Route 1: Pump.fun Direct ────────────────────────────────────────
+    if dex_id == "Pump.fun":
+        try:
+            from services.pumpfun import pumpfun_buyer
+
+            # Fetch bonding curve state
+            state = pumpfun_buyer.fetch_bonding_curve_state(token_mint)
+            if state and not state.complete:
+                # Compute expected tokens
+                estimated_tokens_out = pumpfun_buyer.compute_tokens_out(sol_lamports, state)
+                min_tokens = int(estimated_tokens_out * (10000 - slippage_bps) / 10000)
+
+                # Build unsigned transaction
+                unsigned_tx_b64 = pumpfun_buyer.build_buy_transaction(
+                    token_mint=token_mint,
+                    sol_lamports=sol_lamports,
+                    min_tokens_out=min_tokens,
+                    user_pubkey=WALLET_ADDRESS,
+                    blockhash=recent_blockhash,
+                    compute_unit_price=50000,
+                )
+
+                if unsigned_tx_b64:
+                    # Sign the transaction
+                    tx_bytes = base64.b64decode(unsigned_tx_b64)
+                    txn = VersionedTransaction.from_bytes(tx_bytes)
+                    signature = KEYPAIR.sign_message(to_bytes_versioned(txn.message))
+                    signed_txn = VersionedTransaction.populate(txn.message, [signature])
+                    signed_swap_tx_b64 = base64.b64encode(bytes(signed_txn)).decode('utf-8')
+                    method = "pumpfun_direct"
+                    logger.info(f"✅ Pump.fun direct build success: {estimated_tokens_out} tokens expected")
+        except Exception as e:
+            logger.warning(f"Pump.fun direct failed: {e} → fallback to Jupiter")
+
+    # ── Route 2: Raydium V4 Direct ──────────────────────────────────────
+    elif dex_id in ("Raydium Auth", "Raydium") and pool_address:
+        try:
+            from services.raydium_amm import RaydiumPoolRegistry
+            from service_registry import registry
+
+            # Try to get registry instance, fallback to new instance
+            raydium_registry = registry.get('raydium_pools')
+            if not raydium_registry:
+                raydium_registry = RaydiumPoolRegistry()
+
+            # Discover pool on-the-fly
+            pool_state = raydium_registry.discover_pool_by_address(pool_address)
+            if pool_state:
+                # Determine swap direction (SOL → token)
+                wsol = "So11111111111111111111111111111111111111112"
+                if pool_state.coin_mint == token_mint:
+                    # pc (SOL/USDC) → coin (token)
+                    coin_to_pc = False
+                else:
+                    # coin (SOL) → pc (token)
+                    coin_to_pc = True
+
+                # Compute expected output
+                estimated_tokens_out = raydium_registry.compute_amount_out(
+                    pool_address, sol_lamports, coin_to_pc
+                )
+                min_out = int(estimated_tokens_out * (10000 - slippage_bps) / 10000)
+
+                # Build unsigned transaction
+                unsigned_tx_b64 = raydium_registry.build_swap_transaction(
+                    pool_address=pool_address,
+                    amount_in=sol_lamports,
+                    min_amount_out=min_out,
+                    coin_to_pc=coin_to_pc,
+                    user_pubkey=WALLET_ADDRESS,
+                    blockhash=recent_blockhash,
+                )
+
+                if unsigned_tx_b64:
+                    # Sign the transaction
+                    tx_bytes = base64.b64decode(unsigned_tx_b64)
+                    txn = VersionedTransaction.from_bytes(tx_bytes)
+                    signature = KEYPAIR.sign_message(to_bytes_versioned(txn.message))
+                    signed_txn = VersionedTransaction.populate(txn.message, [signature])
+                    signed_swap_tx_b64 = base64.b64encode(bytes(signed_txn)).decode('utf-8')
+                    method = "raydium_direct"
+                    logger.info(f"✅ Raydium direct build success: {estimated_tokens_out} tokens expected")
+        except Exception as e:
+            logger.warning(f"Raydium direct failed: {e} → fallback to Jupiter")
+
+    # ── Route 3: Jupiter Fallback ───────────────────────────────────────
+    if not signed_swap_tx_b64:
+        try:
+            wsol = "So11111111111111111111111111111111111111112"
+            headers = {'x-api-key': JUPITER_API_KEY} if JUPITER_API_KEY else {}
+
+            # Get quote
+            quote_url = f"{JUPITER_QUOTE_API}?inputMint={wsol}&outputMint={token_mint}&amount={sol_lamports}&slippageBps={slippage_bps}"
+            quote = requests.get(quote_url, headers=headers, timeout=10).json()
+            if "error" in quote:
+                raise Exception(f"Jupiter Quote: {quote['error']}")
+
+            estimated_tokens_out = int(quote.get('outAmount', 0))
+
+            # Get swap transaction (no priority fee - Jito tip handles MEV)
+            swap_payload = {
+                "quoteResponse": quote,
+                "userPublicKey": WALLET_ADDRESS,
+                "wrapAndUnwrapSol": True,
+                "computeUnitPriceMicroLamports": 0,
+            }
+            swap_res = requests.post(JUPITER_SWAP_API, json=swap_payload, headers=headers, timeout=10).json()
+            if "error" in swap_res:
+                raise Exception(f"Jupiter Swap: {swap_res['error']}")
+
+            # Sign the transaction
+            txn = VersionedTransaction.from_bytes(base64.b64decode(swap_res['swapTransaction']))
+            signature = KEYPAIR.sign_message(to_bytes_versioned(txn.message))
+            signed_txn = VersionedTransaction.populate(txn.message, [signature])
+            signed_swap_tx_b64 = base64.b64encode(bytes(signed_txn)).decode('utf-8')
+            method = "jupiter_fallback"
+            logger.info(f"✅ Jupiter fallback success: {estimated_tokens_out} tokens expected")
+        except Exception as e:
+            raise Exception(f"All swap routes failed. Jupiter error: {e}")
+
+    # ── Build Jito Tip Transaction ──────────────────────────────────────
+    tip_tx_b64 = build_tip_transaction(tip_lamports, recent_blockhash)
+    if not tip_tx_b64:
+        logger.warning("Failed to build Jito tip transaction, proceeding without bundle")
+
+    # ── Submit via Jito or Fallback RPC ─────────────────────────────────
+    jito_success = False
+    sig = None
+
+    if tip_tx_b64:
+        bundle = [signed_swap_tx_b64, tip_tx_b64]
+        jito_results = send_jito_bundle(bundle)
+
+        for result in jito_results:
+            if result.get("status") == 200:
+                jito_success = True
+                # Extract bundle ID if available
+                jito_data = result.get("data", {})
+                if "result" in jito_data:
+                    logger.info(f"✅ Jito bundle accepted: {jito_data['result']}")
+                break
+
+    if not jito_success:
+        # Fallback to standard RPC submission
+        logger.warning("Jito bundle failed or unavailable, falling back to RPC")
+        try:
+            tx_bytes = base64.b64decode(signed_swap_tx_b64)
+            send_res = solana_client.send_raw_transaction(
+                tx_bytes,
+                opts=TxOpts(skip_preflight=False, preflight_commitment="confirmed")
+            )
+            sig = str(send_res.value)
+        except Exception as e:
+            raise Exception(f"Transaction submission failed: {e}")
+    else:
+        # For Jito bundles, we need to extract signature from the signed transaction
+        tx_bytes = base64.b64decode(signed_swap_tx_b64)
+        txn = VersionedTransaction.from_bytes(tx_bytes)
+        sig = str(txn.signatures[0])
+
+    elapsed_ms = int((time.time() - start_time) * 1000)
+
+    # ── Log Trade & Broadcast Updates ───────────────────────────────────
+    # Get token decimals for proper conversion
+    known = get_known_tokens()
+    output_token = known.get(token_mint, {"decimals": 9})
+    amount_out = estimated_tokens_out / (10 ** output_token.get('decimals', 9))
+
+    # Calculate USD value
+    usd_value = 0
+    with price_cache_lock:
+        wsol = "So11111111111111111111111111111111111111112"
+        if wsol in price_cache:
+            usd_value = buy_amount_sol * price_cache[wsol][0]
+
+    # Log to database
+    db.log_trade({
+        "wallet_address": WALLET_ADDRESS,
+        "source": f"Snipe ({method})",
+        "input": "SOL",
+        "output": symbol,
+        "input_mint": "So11111111111111111111111111111111111111112",
+        "output_mint": token_mint,
+        "amount_in": buy_amount_sol,
+        "amount_out": amount_out,
+        "usd_value": usd_value,
+        "slippage_bps": slippage_bps,
+        "priority_fee": tip_lamports / 1e9,
+        "signature": sig,
+        "status": "success"
+    })
+
+    # Broadcast updates
+    sio_bridge.emit('history_update', {'history': db.get_history(50, wallet_address=WALLET_ADDRESS)}, namespace='/history')
+    broadcast_balance()
+
+    # Emit snipe result to frontend
+    sio_bridge.emit('snipe_result', {
+        'signature': sig,
+        'symbol': symbol,
+        'mint': token_mint,
+        'method': method,
+        'elapsed_ms': elapsed_ms,
+        'jito_success': jito_success,
+        'tokens_out': amount_out,
+        'sol_in': buy_amount_sol,
+    }, namespace='/sniper')
+
+    # Discord notification
+    try:
+        notify_trade(
+            tx_type="SNIPE",
+            input_sym="SOL",
+            input_amt=buy_amount_sol,
+            output_sym=symbol,
+            output_amt=amount_out,
+            price=usd_value / amount_out if amount_out > 0 else 0,
+            source=f"Auto-Snipe ({method}, {elapsed_ms}ms, {'Jito' if jito_success else 'RPC'})",
+            signature=sig
+        )
+    except Exception as e:
+        logger.warning(f"Discord notification failed: {e}")
+
+    logger.info(f"🎯 SNIPE EXECUTED: {symbol} via {method} in {elapsed_ms}ms (Jito: {jito_success})")
+
+    return {
+        "signature": sig,
+        "method": method,
+        "elapsed_ms": elapsed_ms,
+        "jito_success": jito_success,
+        "estimated_tokens_out": amount_out,
     }

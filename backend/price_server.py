@@ -15,13 +15,35 @@ load_dotenv()
 
 db = TactixDB()
 
+# RPC Provider - Use Shyft (primary) with multi-location failover
+SHYFT_API_KEY = os.getenv("SHYFT_API_KEY")
 HELIUS_API_KEY = os.getenv("HELIUS_API_KEY")
-if not HELIUS_API_KEY:
-    print("ERROR: HELIUS_API_KEY not found in .env")
+
+if SHYFT_API_KEY:
+    SOLANA_RPC = f"https://rpc.ams.shyft.to?api_key={SHYFT_API_KEY}"
+    SOLANA_WS = f"wss://rpc.ams.shyft.to?api_key={SHYFT_API_KEY}"
+    print("Price Server: Using Shyft RPC (AMS primary)")
+elif HELIUS_API_KEY:
+    SOLANA_RPC = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+    SOLANA_WS = f"wss://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+    print("WARNING: Price Server using Helius RPC (Shyft preferred)")
+else:
+    print("ERROR: No RPC provider configured (set SHYFT_API_KEY or HELIUS_API_KEY)")
     exit(1)
 
-HELIUS_RPC = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
-HELIUS_WS = f"wss://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}"
+# Endpoint failover manager (independent instance for this process)
+try:
+    import config as _ps_config
+    from endpoint_manager import get_endpoint_manager
+    _endpoint_mgr = get_endpoint_manager(_ps_config)
+    _endpoint_mgr.start()
+    print("Price Server: EndpointManager started")
+except Exception as _e:
+    print(f"Price Server: EndpointManager unavailable ({_e}), using static endpoints")
+    _endpoint_mgr = None
+
+# DAS API — always Helius (for getAssetBatch token metadata)
+HELIUS_RPC = f"https://mainnet.helius-rpc.com/?api-key={HELIUS_API_KEY}" if HELIUS_API_KEY else SOLANA_RPC
 FLASK_WEBHOOK_URL = "http://localhost:5001/api/webhook/price"
 
 def get_tracked_mints():

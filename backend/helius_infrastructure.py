@@ -49,8 +49,14 @@ logger = logging.getLogger("helius")
 
 @dataclass
 class HeliusConfig:
-    """Helius API configuration."""
+    """
+    RPC/DAS API configuration.
+
+    IMPORTANT: As of Feb 2025, RPC traffic routes through Shyft to avoid
+    Helius credit exhaustion. Helius is only used for DAS (token metadata) API.
+    """
     api_key: str = field(default_factory=lambda: os.getenv("HELIUS_API_KEY", ""))
+    shyft_api_key: str = field(default_factory=lambda: os.getenv("SHYFT_API_KEY", ""))
     rpc_url: str = field(default="")
     ws_url: str = field(default="")
     das_url: str = field(default="")
@@ -60,16 +66,32 @@ class HeliusConfig:
     timeout: int = 30
 
     def __post_init__(self):
-        if not self.api_key:
-            raise ValueError("HELIUS_API_KEY not found in environment")
-
         base = "mainnet" if self.network == "mainnet" else "devnet"
+
+        # RPC: Use Shyft (primary) or fallback to Helius
         if not self.rpc_url:
-            self.rpc_url = f"https://{base}.helius-rpc.com/?api-key={self.api_key}"
+            if self.shyft_api_key:
+                self.rpc_url = f"https://rpc.shyft.to?api_key={self.shyft_api_key}"
+                logger.info("RPC: Using Shyft endpoint")
+            elif self.api_key:
+                self.rpc_url = f"https://{base}.helius-rpc.com/?api-key={self.api_key}"
+                logger.warning("RPC: Falling back to Helius (Shyft API key not set)")
+            else:
+                raise ValueError("No RPC provider configured (set SHYFT_API_KEY or HELIUS_API_KEY)")
+
+        # WebSocket: Use Shyft if available (Shyft WS format: wss://rpc.shyft.to?api_key=XXX)
         if not self.ws_url:
-            self.ws_url = f"wss://{base}.helius-rpc.com/?api-key={self.api_key}"
+            if self.shyft_api_key:
+                self.ws_url = f"wss://rpc.shyft.to?api_key={self.shyft_api_key}"
+            elif self.api_key:
+                self.ws_url = f"wss://{base}.helius-rpc.com/?api-key={self.api_key}"
+
+        # DAS: Always use Helius (Shyft doesn't have DAS API)
         if not self.das_url:
-            self.das_url = f"https://{base}.helius-rpc.com/?api-key={self.api_key}"
+            if self.api_key:
+                self.das_url = f"https://{base}.helius-rpc.com/?api-key={self.api_key}"
+            else:
+                logger.warning("DAS API unavailable (HELIUS_API_KEY not set)")
 
 
 class SubscriptionType(Enum):
@@ -104,7 +126,7 @@ class HeliusRPC:
         return self._request_id
 
     def _make_request(self, method: str, params: List[Any] = None) -> Dict:
-        """Make a JSON-RPC request with retry logic."""
+        """Make a JSON-RPC request with retry logic and endpoint failover."""
         payload = {
             "jsonrpc": "2.0",
             "id": self._get_request_id(),
@@ -112,11 +134,20 @@ class HeliusRPC:
             "params": params or []
         }
 
+        # Try to use EndpointManager for dynamic failover
+        endpoint_mgr = None
+        try:
+            from endpoint_manager import get_endpoint_manager
+            endpoint_mgr = get_endpoint_manager()
+        except Exception:
+            pass
+
         last_error = None
         for attempt in range(self.config.max_retries):
+            rpc_url = endpoint_mgr.get_rpc_url() if endpoint_mgr else self.config.rpc_url
             try:
                 response = self.session.post(
-                    self.config.rpc_url,
+                    rpc_url,
                     json=payload,
                     headers={"Content-Type": "application/json"},
                     timeout=self.config.timeout
@@ -128,10 +159,14 @@ class HeliusRPC:
                     raise RPCError(result["error"].get("message", "Unknown RPC error"),
                                    result["error"].get("code"))
 
+                if endpoint_mgr:
+                    endpoint_mgr.report_success('rpc')
                 return result.get("result")
 
             except requests.exceptions.RequestException as e:
                 last_error = e
+                if endpoint_mgr:
+                    endpoint_mgr.report_failure('rpc')
                 logger.warning(f"RPC request failed (attempt {attempt + 1}): {e}")
                 if attempt < self.config.max_retries - 1:
                     time.sleep(self.config.retry_delay * (attempt + 1))
@@ -377,17 +412,31 @@ class HeliusWebSocket:
         return self._request_id
 
     async def connect(self) -> None:
-        """Establish WebSocket connection."""
+        """Establish WebSocket connection with endpoint failover."""
+        # Use EndpointManager for dynamic failover if available
+        ws_url = self.config.ws_url
+        endpoint_mgr = None
+        try:
+            from endpoint_manager import get_endpoint_manager
+            endpoint_mgr = get_endpoint_manager()
+            ws_url = endpoint_mgr.get_ws_url() or ws_url
+        except Exception:
+            pass
+
         try:
             self.ws = await websockets.connect(
-                self.config.ws_url,
+                ws_url,
                 ping_interval=30,
                 ping_timeout=10,
                 close_timeout=5
             )
             self._reconnect_delay = 1.0
-            logger.info("WebSocket connected to Helius")
+            if endpoint_mgr:
+                endpoint_mgr.report_success('ws')
+            logger.info(f"WebSocket connected to {ws_url.split('?')[0]}")
         except Exception as e:
+            if endpoint_mgr:
+                endpoint_mgr.report_failure('ws')
             logger.error(f"WebSocket connection failed: {e}")
             raise
 
@@ -696,17 +745,86 @@ class HeliusWebSocket:
 # Helius DAS (Digital Asset Standard) API
 # =============================================================================
 
+class ShyftTokenAPI:
+    """
+    Shyft Token Metadata API Client.
+
+    Fallback for Helius DAS when Helius is rate-limited or unavailable.
+    Endpoint: GET https://api.shyft.to/sol/v1/token/get_info
+    """
+
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://api.shyft.to/sol/v1"
+        self.session = requests.Session()
+        self.session.headers.update({"x-api-key": api_key})
+
+    def get_token_info(self, mint_address: str) -> Optional[Dict]:
+        """
+        Fetch token metadata from Shyft API.
+
+        Returns dict with: name, symbol, decimals, image, address, etc.
+        """
+        if not self.api_key:
+            return None
+
+        try:
+            url = f"{self.base_url}/token/get_info"
+            params = {
+                "network": "mainnet-beta",
+                "token_address": mint_address
+            }
+            response = self.session.get(url, params=params, timeout=10)
+            response.raise_for_status()
+
+            data = response.json()
+            if data.get("success") and data.get("result"):
+                result = data["result"]
+                # Convert to Helius DAS-like format for compatibility
+                return {
+                    "id": mint_address,
+                    "content": {
+                        "metadata": {
+                            "name": result.get("name", "Unknown"),
+                            "symbol": result.get("symbol", "???"),
+                        },
+                        "links": {
+                            "image": result.get("image", ""),
+                        }
+                    },
+                    "token_info": {
+                        "symbol": result.get("symbol", "???"),
+                        "decimals": result.get("decimals", 9),
+                        "supply": result.get("current_supply"),
+                        "mint_authority": result.get("mint_authority"),
+                        "freeze_authority": result.get("freeze_authority"),
+                    }
+                }
+            return None
+
+        except Exception as e:
+            logger.debug(f"Shyft token info failed for {mint_address[:8]}...: {e}")
+            return None
+
+
 class HeliusDAS:
     """
     Helius Digital Asset Standard API Client.
 
     Provides access to enhanced token/NFT metadata and search capabilities.
+    Falls back to Shyft API when Helius is unavailable.
     """
 
     def __init__(self, config: HeliusConfig):
         self.config = config
         self.session = requests.Session()
         self._request_id = 0
+        # Shyft fallback for when Helius is rate-limited
+        self._shyft = ShyftTokenAPI(config.shyft_api_key) if config.shyft_api_key else None
+        # Track Helius failures to skip retries when suspended
+        self._helius_fail_count = 0
+        self._helius_fail_time = 0
+        self._helius_backoff_until = 0
 
     def _get_request_id(self) -> int:
         self._request_id += 1
@@ -754,11 +872,26 @@ class HeliusDAS:
         Get detailed information about a single asset (token/NFT).
 
         Returns: Token metadata, ownership, royalties, compression status, etc.
+
+        PRIMARY: Shyft API (unlimited calls)
+        FALLBACK: Helius DAS (only if Shyft fails)
         """
-        params = {"id": asset_id}
-        if display_options:
-            params["displayOptions"] = display_options
-        return self._make_request("getAsset", params)
+        # Try Shyft FIRST (primary - unlimited calls)
+        if self._shyft:
+            result = self._shyft.get_token_info(asset_id)
+            if result:
+                return result
+            logger.debug(f"Shyft token info failed for {asset_id[:8]}..., trying Helius")
+
+        # Fallback to Helius DAS only if Shyft failed
+        try:
+            params = {"id": asset_id}
+            if display_options:
+                params["displayOptions"] = display_options
+            return self._make_request("getAsset", params)
+        except (ConnectionError, RPCError) as e:
+            logger.warning(f"Both Shyft and Helius failed for {asset_id[:8]}...")
+            raise
 
     def get_asset_batch(self, asset_ids: List[str], display_options: Dict = None) -> List[Dict]:
         """
@@ -979,31 +1112,35 @@ class HeliusDAS:
 
 class HeliusClient:
     """
-    Unified Helius API Client.
+    Unified Solana RPC/DAS API Client.
 
-    Provides access to all Helius services:
-    - rpc: Standard Solana RPC methods
-    - ws: WebSocket subscriptions
-    - das: Digital Asset Standard API
+    IMPORTANT: As of Feb 2025, RPC traffic routes through Shyft to avoid
+    Helius credit exhaustion. Helius is only used for DAS (token metadata) API.
+
+    Provides access to:
+    - rpc: Standard Solana RPC methods (via Shyft)
+    - ws: WebSocket subscriptions (via Shyft)
+    - das: Digital Asset Standard API (via Helius - only metadata)
 
     Usage:
         client = HeliusClient()
 
-        # RPC
+        # RPC (goes to Shyft)
         balance = client.rpc.get_balance("address")
 
-        # DAS
+        # DAS (goes to Helius - low volume)
         assets = client.das.get_assets_by_owner("address")
 
-        # WebSocket (async)
+        # WebSocket (goes to Shyft)
         async with client.websocket() as ws:
             await ws.subscribe_account("address", callback)
             await ws.run()
     """
 
-    def __init__(self, api_key: str = None, network: str = "mainnet"):
+    def __init__(self, api_key: str = None, shyft_api_key: str = None, network: str = "mainnet"):
         self.config = HeliusConfig(
             api_key=api_key or os.getenv("HELIUS_API_KEY", ""),
+            shyft_api_key=shyft_api_key or os.getenv("SHYFT_API_KEY", ""),
             network=network
         )
         self._rpc: Optional[HeliusRPC] = None

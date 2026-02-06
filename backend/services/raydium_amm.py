@@ -27,6 +27,7 @@ from solders.system_program import transfer, TransferParams, ID as SYSTEM_PROGRA
 from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
 
 from config import SOLANA_RPC, HELIUS_STAKED_RPC
+from endpoint_manager import get_endpoint_manager
 
 logger = logging.getLogger("raydium_amm")
 logger.setLevel(logging.INFO)
@@ -354,10 +355,18 @@ class RaydiumPoolRegistry:
 
     # ── RPC Helpers ──────────────────────────────────────────────────
 
+    def _get_rpc_url(self) -> str:
+        """Get the current best RPC URL via endpoint manager."""
+        try:
+            return get_endpoint_manager().get_rpc_url() or self._rpc_url
+        except Exception:
+            return self._rpc_url
+
     def _get_account_data(self, address: str) -> Optional[bytes]:
         """Fetch raw account data via RPC getAccountInfo."""
+        rpc_url = self._get_rpc_url()
         try:
-            resp = self._session.post(self._rpc_url, json={
+            resp = self._session.post(rpc_url, json={
                 "jsonrpc": "2.0", "id": 1,
                 "method": "getAccountInfo",
                 "params": [address, {"encoding": "base64", "commitment": "confirmed"}]
@@ -374,8 +383,9 @@ class RaydiumPoolRegistry:
 
     def _get_token_balance(self, token_account: str) -> int:
         """Fetch SPL token account balance (raw amount)."""
+        rpc_url = self._get_rpc_url()
         try:
-            resp = self._session.post(self._rpc_url, json={
+            resp = self._session.post(rpc_url, json={
                 "jsonrpc": "2.0", "id": 1,
                 "method": "getTokenAccountBalance",
                 "params": [token_account]
@@ -470,6 +480,45 @@ class RaydiumPoolRegistry:
             if pool_addr:
                 return self._pools.get(pool_addr)
             return None
+
+    def discover_pool_by_address(self, pool_address: str) -> Optional[RaydiumPoolState]:
+        """
+        Fast-path: discover a specific pool by address (for sniper).
+
+        Used when we know the pool address from the launch transaction but
+        haven't cached the pool state yet. Fetches state, caches it, and
+        subscribes to gRPC for vault updates.
+
+        Args:
+            pool_address: Raydium V4 pool address
+
+        Returns:
+            RaydiumPoolState or None if fetch fails
+        """
+        # Check cache first
+        with self._lock:
+            if pool_address in self._pools:
+                return self._pools[pool_address]
+
+        # Fetch pool state from chain
+        state = self._fetch_pool_state(pool_address)
+        if not state:
+            logger.warning(f"Failed to discover pool {pool_address[:8]}...")
+            return None
+
+        # Cache the pool and index by mint pair
+        with self._lock:
+            self._pools[pool_address] = state
+            self._pair_index[f"{state.coin_mint}:{state.pc_mint}"] = pool_address
+            self._pair_index[f"{state.pc_mint}:{state.coin_mint}"] = pool_address
+
+        # Subscribe vaults to gRPC for real-time updates
+        if self._stream_manager:
+            self._subscribe_vaults()
+
+        logger.info(f"Discovered pool {pool_address[:8]}... on-the-fly: "
+                    f"{state.coin_mint[:8]}../{state.pc_mint[:8]}..")
+        return state
 
     def compute_amount_out(self, pool_address: str, amount_in: int, coin_to_pc: bool) -> int:
         """

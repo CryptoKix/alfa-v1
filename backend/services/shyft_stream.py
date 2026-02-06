@@ -49,6 +49,14 @@ class ShyftStreamManager:
         self._rabbit_endpoint = config.SHYFT_RABBIT_ENDPOINT
         self._token = config.SHYFT_GRPC_TOKEN
 
+        # Endpoint failover manager
+        self._endpoint_mgr = None
+        try:
+            from endpoint_manager import get_endpoint_manager
+            self._endpoint_mgr = get_endpoint_manager()
+        except Exception:
+            pass
+
         # Subscription registrations (name → config)
         self._slot_subs: Dict[str, Callable] = {}
         self._blocks_meta_subs: Dict[str, Callable] = {}  # name → callback(slot, blockhash, block_height)
@@ -232,9 +240,14 @@ class ShyftStreamManager:
 
     def _run_geyser_stream(self):
         """Single synchronous geyser connection session."""
+        # Use endpoint manager for failover if available
+        grpc_endpoint = self._geyser_endpoint
+        if self._endpoint_mgr:
+            grpc_endpoint = self._endpoint_mgr.get_grpc_endpoint() or grpc_endpoint
+
         credentials = grpc.ssl_channel_credentials()
         channel = grpc.secure_channel(
-            self._geyser_endpoint,
+            grpc_endpoint,
             credentials,
             options=[
                 ('grpc.max_receive_message_length', 64 * 1024 * 1024),  # 64MB
@@ -248,9 +261,13 @@ class ShyftStreamManager:
         try:
             grpc.channel_ready_future(channel).result(timeout=CHANNEL_READY_TIMEOUT)
             logger.info("[ShyftStream] Geyser channel ready")
+            if self._endpoint_mgr:
+                self._endpoint_mgr.report_success('grpc')
         except grpc.FutureTimeoutError:
             channel.close()
-            raise Exception(f"Geyser channel connect timeout ({CHANNEL_READY_TIMEOUT}s) to {self._geyser_endpoint}")
+            if self._endpoint_mgr:
+                self._endpoint_mgr.report_failure('grpc')
+            raise Exception(f"Geyser channel connect timeout ({CHANNEL_READY_TIMEOUT}s) to {grpc_endpoint}")
 
         stub = geyser_pb2_grpc.GeyserStub(channel)
         metadata = [('x-token', self._token)]
@@ -269,7 +286,7 @@ class ShyftStreamManager:
                     ping=geyser_pb2.SubscribeRequestPing(id=ping_id)
                 )
 
-        logger.info(f"[ShyftStream] Subscribing to Geyser at {self._geyser_endpoint}")
+        logger.info(f"[ShyftStream] Subscribing to Geyser at {grpc_endpoint}")
 
         try:
             stream = stub.Subscribe(request_iter(), metadata=metadata)
@@ -463,9 +480,14 @@ class ShyftStreamManager:
         endpoint. It streams transactions from shreds (pre-execution) so no
         logs/meta are available — only the raw transaction + account keys.
         """
+        # Use endpoint manager for failover if available
+        rabbit_endpoint = self._rabbit_endpoint
+        if self._endpoint_mgr:
+            rabbit_endpoint = self._endpoint_mgr.get_rabbit_endpoint() or rabbit_endpoint
+
         credentials = grpc.ssl_channel_credentials()
         channel = grpc.secure_channel(
-            self._rabbit_endpoint,
+            rabbit_endpoint,
             credentials,
             options=[
                 ('grpc.max_receive_message_length', 64 * 1024 * 1024),
@@ -478,9 +500,13 @@ class ShyftStreamManager:
         try:
             grpc.channel_ready_future(channel).result(timeout=CHANNEL_READY_TIMEOUT)
             logger.info("[ShyftStream] RabbitStream channel ready")
+            if self._endpoint_mgr:
+                self._endpoint_mgr.report_success('rabbit')
         except grpc.FutureTimeoutError:
             channel.close()
-            raise Exception(f"RabbitStream channel connect timeout ({CHANNEL_READY_TIMEOUT}s) to {self._rabbit_endpoint}")
+            if self._endpoint_mgr:
+                self._endpoint_mgr.report_failure('rabbit')
+            raise Exception(f"RabbitStream channel connect timeout ({CHANNEL_READY_TIMEOUT}s) to {rabbit_endpoint}")
 
         stub = geyser_pb2_grpc.GeyserStub(channel)
         metadata = [('x-token', self._token)]
@@ -498,7 +524,7 @@ class ShyftStreamManager:
                     ping=geyser_pb2.SubscribeRequestPing(id=ping_id)
                 )
 
-        logger.info(f"[ShyftStream] Subscribing to RabbitStream at {self._rabbit_endpoint}")
+        logger.info(f"[ShyftStream] Subscribing to RabbitStream at {rabbit_endpoint}")
 
         try:
             stream = stub.Subscribe(request_iter(), metadata=metadata)
